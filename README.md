@@ -30,4 +30,5 @@ Storing 180GB+ of schematics on Google Drive for free is impossible (15GB limit)
 
 ## Requirements
 - `python3` (Standard)
+- `7-Zip` or `p7zip` (Required for **Surgical Malware Cleanup**)
 - All other dependencies (`rclone`, `requests`) are handled automatically by the setup wizard.
