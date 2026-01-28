@@ -5,11 +5,13 @@ import argparse
 from pathlib import Path
 from auth_handler import get_copyparty_cookie
 from scheduler import Scheduler
+from dependency_manager import DependencyManager
 
 class SyncPortal:
     def __init__(self, config_path="config.json"):
         self.config_path = Path(config_path)
         self.config = self.load_config()
+        self.deps = DependencyManager()
 
     def load_config(self):
         if self.config_path.exists():
@@ -23,6 +25,12 @@ class SyncPortal:
 
     def setup(self):
         print("\n--- Universal Schematic Sync Portal Setup ---")
+        
+        # 1. Dependency Check
+        if not self.deps.doctor():
+            print("\n[WARNING] Some dependencies are still missing. Sync might fail.")
+
+        print("\n--- Configuration ---")
         self.config['url'] = input("Remote URL (e.g., https://example.com/): ").strip()
         self.config['user'] = input("Username: ").strip()
         self.config['pwd'] = input("Password: ").strip()
