@@ -11,8 +11,11 @@ class DependencyManager:
     def check_rclone(self):
         return shutil.which("rclone") is not None
 
-    def check_7z(self):
-        return shutil.which("7z") is not None or shutil.which("7za") is not None
+    def check_archive_engine(self):
+        for cmd in ["7z", "7za", "unrar", "rar", "UnRar.exe", "Rar.exe"]:
+            if shutil.which(cmd):
+                return True
+        return False
 
     def check_requests(self):
         try:
@@ -54,11 +57,11 @@ class DependencyManager:
         print("\n--- Dependency Check ---")
         rclone_ok = self.check_rclone()
         requests_ok = self.check_requests()
-        p7zip_ok = self.check_7z()
+        archive_ok = self.check_archive_engine()
 
         print(f"Rclone Engine:    {'[OK]' if rclone_ok else '[MISSING]'}")
-        print(f"7-Zip Engine:     {'[OK]' if p7zip_ok else '[MISSING]'}")
-        print(f"Python Requests: {'[OK]' if requests_ok else '[MISSING]'}")
+        print(f"Archive Engine:   {'[OK]' if archive_ok else '[MISSING] (7-Zip or WinRAR)'}")
+        print(f"Python Requests:  {'[OK]' if requests_ok else '[MISSING]'}")
 
         if not requests_ok:
             if input("Install missing Python 'requests' library? (y/n): ").lower() == 'y':
@@ -69,8 +72,8 @@ class DependencyManager:
             if input("Attempt to install rclone? (y/n): ").lower() == 'y':
                 self.install_rclone()
         
-        if not p7zip_ok:
-            print("\n[OPTIONAL] 7-zip is required for 'Surgical Malware Cleanup'.")
-            print("Please install 7-zip or p7zip manually on your system.")
+        if not archive_ok:
+            print("\n[OPTIONAL] 7-Zip or WinRAR is required for 'Surgical Malware Cleanup'.")
+            print("Please ensure one of these is installed and in your PATH.")
         
         return self.check_rclone() and self.check_requests()
