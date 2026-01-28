@@ -40,7 +40,8 @@ class DependencyManager:
     def install_requests(self):
         print("Installing 'requests' via pip...")
         try:
-            subprocess.run([sys.executable, "-m", "pip", "install", "requests"], check=True)
+            # Use --user to avoid permission issues on most systems
+            subprocess.run([sys.executable, "-m", "pip", "install", "requests", "--user"], check=True)
             return True
         except Exception as e:
             print(f"Failed to install requests: {e}")

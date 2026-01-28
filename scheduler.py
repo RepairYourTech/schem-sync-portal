@@ -59,7 +59,10 @@ WantedBy=timers.target
     def _install_windows(self):
         # Using Task Scheduler (schtasks)
         task_name = "SchematicSyncPortal"
-        cmd = f'schtasks /create /tn "{task_name}" /tr "{sys.executable} {self.script_path} --sync" /sc weekly /d SUN /st 02:00 /f'
+        # Robustly quote paths for Windows
+        python_exe = f'"{sys.executable}"'
+        script_arg = f'"{self.script_path}"'
+        cmd = f'schtasks /create /tn "{task_name}" /tr "{python_exe} {script_arg} --sync" /sc weekly /d SUN /st 02:00 /f'
         try:
             subprocess.run(cmd, shell=True, check=True)
             print(f"Windows Task '{task_name}' created successfully (Weekly on Sundays at 2:00 AM).")

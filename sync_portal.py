@@ -112,16 +112,23 @@ class SyncPortal:
             print(f"\n[ERROR] Sync failed: {e}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Universal Schematic Sync Portal")
-    parser.add_argument("--setup", action="store_true", help="Run interactive setup")
-    parser.add_argument("--sync", action="store_true", help="Start synchronization")
-    
-    args = parser.parse_args()
-    portal = SyncPortal()
+    try:
+        parser = argparse.ArgumentParser(description="Universal Schematic Sync Portal")
+        parser.add_argument("--setup", action="store_true", help="Run interactive setup")
+        parser.add_argument("--sync", action="store_true", help="Start synchronization")
+        
+        args = parser.parse_args()
+        portal = SyncPortal()
 
-    if args.setup:
-        portal.setup()
-    elif args.sync:
-        portal.run_sync()
-    else:
-        parser.print_help()
+        if args.setup:
+            portal.setup()
+        elif args.sync:
+            portal.run_sync()
+        else:
+            parser.print_help()
+    except KeyboardInterrupt:
+        print("\n[INFO] Operation cancelled by user. Exiting...")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n[CRITICAL] Unexpected error: {e}")
+        sys.exit(1)

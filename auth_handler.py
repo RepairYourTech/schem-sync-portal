@@ -5,6 +5,10 @@ def get_copyparty_cookie(url, username, password):
     """
     Simulates a login to copyparty to extract the cppws session cookie.
     """
+    # Normalize URL
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+    
     login_url = f"{url.rstrip('/')}/?login"
     payload = {
         'u': username,
@@ -12,11 +16,17 @@ def get_copyparty_cookie(url, username, password):
     }
     
     print(f"Attempting login to {login_url}...")
+    session = requests.Session()
     try:
-        response = requests.post(login_url, data=payload, allow_redirects=False, timeout=10)
-        
+        # Try with verification first
+        response = session.post(login_url, data=payload, allow_redirects=True, timeout=10)
+    except requests.exceptions.SSLError:
+        print("[WARNING] SSL Verification failed. Retrying without verification...")
+        response = session.post(login_url, data=payload, allow_redirects=True, timeout=10, verify=False)
+    
+    try:
         # Copyparty usually sets 'cppws' cookie on successful login
-        cookies = response.cookies.get_dict()
+        cookies = session.cookies.get_dict()
         if 'cppws' in cookies:
             print("Successfully extracted authentication cookie.")
             return f"Cookie,cppws={cookies['cppws']}"
