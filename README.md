@@ -13,7 +13,7 @@ A cross-platform (Windows, Mac, Linux) utility to synchronize massive schematic 
 
 1. **Download & Run**:
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/RepairYourTech/schem-sync-portal.git
    cd schem-sync-portal
    python sync_portal.py --setup
    ```
