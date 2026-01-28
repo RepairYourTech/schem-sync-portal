@@ -145,14 +145,35 @@ class SyncPortal:
                 print(f"\n[CLOUD] Backing up to {self.config['gdrive_remote']}...")
                 cloud_cmd = [
                     "rclone", "sync", self.config['local_dir'], self.config['gdrive_remote'],
-                    "--progress",
                     "--size-only",
                     "--fast-list",
                     "--transfers", "4",
                     "--checkers", "16",
                     "--drive-use-trash=false"
                 ]
-                subprocess.run(cloud_cmd, check=False)
+                
+                # Run and capture output to detect quota issues
+                result = subprocess.run(cloud_cmd, capture_output=True, text=True, check=False)
+                
+                if result.returncode != 0:
+                    error_msg = result.stderr.lower()
+                    if "storage quota exceeded" in error_msg or "403" in error_msg:
+                        print("\n[ALERT] Google Drive Storage Quota Exceeded!")
+                        print("It looks like your GDrive is full or your subscription has lapsed.")
+                        
+                        # Only ask if interactive
+                        is_interactive = sys.stdin.isatty()
+                        if is_interactive:
+                            print("\nWould you like to return to 'Download Only' mode for future runs?")
+                            choice = input("Disable Cloud Sync? (y/n): ").lower()
+                            if choice == 'y':
+                                self.config['gdrive_sync'] = False
+                                self.save_config()
+                                print("[SUCCESS] Cloud Sync disabled. You are now in 'Download Only' mode.")
+                        else:
+                            print("[INFO] Background task detected quota failure. Cloud sync skipped.")
+                    else:
+                        print(f"\n[ERROR] Cloud Sync failed: {result.stderr[:200]}...")
 
             print("\n========================================")
             print("   SCHEMATIC SYNC PORTAL: COMPLETE")
