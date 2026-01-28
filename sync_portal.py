@@ -41,9 +41,9 @@ class SyncPortal:
         # Expand local directory path
         self.config['local_dir'] = str(Path(self.config['local_dir']).expanduser().absolute())
         
-        print("\nSurgical Malware Cleanup:")
+        print("\nSurgical Malware Cleanup (Gdrive):")
         print("1. Keep everything (Default)")
-        print("2. Automatically purge bloat/potential malware (Recommended)")
+        print("2. Automatically purge bloat/potential malware (Recommended if flagging)")
         clean_choice = input("Select an option [1-2]: ").strip()
         self.config['clean_sync'] = (clean_choice == "2")
 

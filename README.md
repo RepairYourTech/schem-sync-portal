@@ -6,7 +6,7 @@ A cross-platform (Windows, Mac, Linux) utility to synchronize massive schematic 
 - **Auto-Auth**: Programmatically extracts session cookies from login credentials—no more editing `rclone.conf`.
 - **Dependency Doctor**: Automatically checks for and installs `rclone` and the required Python libraries.
 - **Cross-Platform Scheduling**: Native background sync for Windows (Task Scheduler), macOS (launchd), and Linux (systemd).
-- **Surgical Malware Cleanup**: Optional automatic purging of known malware signatures and bloat from downloaded archives.
+- **Surgical Malware Cleanup**: Optional automatic purging of known malware signatures and bloat from downloaded archives (If GDrive is flagging any uploads).
 - **Robust Sync**: Parallel transfers, retries, and high-speed metadata checks.
 - **Manifest Ready**: Built-in support for friend-provided manifest optimizations.
 - **Cloud Backup Option**: Optional secondary sync to Google Drive to keep your data safe in the cloud.
