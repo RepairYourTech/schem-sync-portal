@@ -89,7 +89,9 @@ class SyncPortal:
             print("[SKIP] Manifest check failed. Falling back to standard deep-sync.")
 
         # 4. Execute Sync
+        log_file = Path(self.config['local_dir']) / "sync_portal.log"
         print(f"\n[SYNC] {self.config['url']} -> {self.config['local_dir']}...")
+        print(f"[INFO] Logging to: {log_file}")
         
         cmd = [
             "rclone", "sync", "portal:", self.config['local_dir'],
@@ -99,6 +101,10 @@ class SyncPortal:
             "--transfers", "4",
             "--checkers", "16",
             "--timeout", "15m",
+            "--retries", "10",            # Robustness: Retry failed chunks 10 times
+            "--low-level-retries", "20",  # Robustness: Retry low-level network errors 20 times
+            "--log-file", str(log_file),  # Persistent logging for background runs
+            "--log-level", "INFO",
             "--ignore-errors",
             "--links"
         ]
@@ -109,7 +115,8 @@ class SyncPortal:
             print("   SCHEMATIC SYNC PORTAL: COMPLETE")
             print("========================================")
         except subprocess.CalledProcessError as e:
-            print(f"\n[ERROR] Sync failed: {e}")
+            print(f"\n[ERROR] Sync interrupted or failed. Rclone will resume next run.")
+            print(f"Details in: {log_file}")
 
 if __name__ == "__main__":
     try:
