@@ -1,3 +1,6 @@
+import os
+import subprocess
+import shutil
 from pathlib import Path
 
 # Detect 7z binary

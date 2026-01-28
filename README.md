@@ -9,17 +9,24 @@ A cross-platform (Windows, Mac, Linux) utility to synchronize massive schematic 
 - **Surgical Malware Cleanup**: Optional automatic purging of known malware signatures and bloat from downloaded archives.
 - **Robust Sync**: Parallel transfers, retries, and high-speed metadata checks.
 - **Manifest Ready**: Built-in support for friend-provided manifest optimizations.
+- **Cloud Backup Option**: Optional secondary sync to Google Drive to keep your data safe in the cloud.
 
 ## Getting Started
+1. **Clone**: `git clone https://github.com/RepairYourTech/schem-sync-portal.git`
+2. **Setup**: `python sync_portal.py --setup`
+3. **Sync**: `python sync_portal.py --sync`
 
-1. **Download & Run**:
-   ```bash
-   git clone https://github.com/RepairYourTech/schem-sync-portal.git
-   cd schem-sync-portal
-   python sync_portal.py --setup
-   ```
-2. **Follow the Prompts**: The script will check your system for `rclone`, offer to install missing pieces, and ask for your credentials.
-3. **Set it & Forget it**: Choose the **Weekly Auto-Sync** option during setup to stay updated automatically.
+## Cloud Storage Strategy (The "Life Hack")
+Storing 180GB+ of schematics on Google Drive for free is impossible (15GB limit), but you can manage it strategically:
+
+### 1. Cost Optimization
+* **The Plan**: Subscribe to the **Google One 2TB plan** for ~$10/month.
+* **The Hack**: If you don't want to pay every month, Google will retain your data for **2 years** after a subscription lapses. You can pay for 1 month to "refresh" the timer and perform a massive up-sync, then cancel. Your data stays safe and readable.
+
+### 2. Safety First (Dedicated Account)
+> [!IMPORTANT]
+> **Use an alternate Google Account** (not your primary email/contacts/photos).
+> When you are over-quota (after a sub lapses), you **cannot send or receive emails** or upload new files. Keeping this on a separate "Storage Only" account ensures your primary communication is never interrupted.
 
 ## Requirements
 - `python3` (Standard)

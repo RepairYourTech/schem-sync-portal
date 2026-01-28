@@ -1,3 +1,7 @@
+import os
+import subprocess
+import json
+import argparse
 import sys
 from pathlib import Path
 from auth_handler import get_copyparty_cookie
@@ -42,6 +46,15 @@ class SyncPortal:
         print("2. Automatically purge bloat/potential malware (Recommended)")
         clean_choice = input("Select an option [1-2]: ").strip()
         self.config['clean_sync'] = (clean_choice == "2")
+
+        print("\nGoogle Drive Cloud Backup:")
+        print("1. Local only (Disable Cloud Sync)")
+        print("2. Enable secondary sync to Google Drive")
+        cloud_choice = input("Select an option [1-2]: ").strip()
+        self.config['gdrive_sync'] = (cloud_choice == "2")
+        if self.config['gdrive_sync']:
+            print("\nNote: Ensure you have an rclone remote configured (e.g., 'gdrive')")
+            self.config['gdrive_remote'] = input("Enter rclone remote and path (e.g., gdrive:Schematics): ").strip()
 
         print("\nScheduling Options:")
         print("1. Manual Only")
@@ -126,6 +139,20 @@ class SyncPortal:
             # Post-Sync Cleanup if enabled
             if self.config.get('clean_sync'):
                 run_cleanup_sweep(self.config['local_dir'], exclude_file)
+
+            # 5. Optional Cloud Sync to Google Drive
+            if self.config.get('gdrive_sync') and self.config.get('gdrive_remote'):
+                print(f"\n[CLOUD] Backing up to {self.config['gdrive_remote']}...")
+                cloud_cmd = [
+                    "rclone", "sync", self.config['local_dir'], self.config['gdrive_remote'],
+                    "--progress",
+                    "--size-only",
+                    "--fast-list",
+                    "--transfers", "4",
+                    "--checkers", "16",
+                    "--drive-use-trash=false"
+                ]
+                subprocess.run(cloud_cmd, check=False)
 
             print("\n========================================")
             print("   SCHEMATIC SYNC PORTAL: COMPLETE")
