@@ -1,11 +1,9 @@
-import os
-import subprocess
-import json
-import argparse
+import sys
 from pathlib import Path
 from auth_handler import get_copyparty_cookie
 from scheduler import Scheduler
 from dependency_manager import DependencyManager
+from cleanup_handler import run_cleanup_sweep
 
 class SyncPortal:
     def __init__(self, config_path="config.json"):
@@ -39,14 +37,20 @@ class SyncPortal:
         # Expand local directory path
         self.config['local_dir'] = str(Path(self.config['local_dir']).expanduser().absolute())
         
+        print("\nSurgical Malware Cleanup:")
+        print("1. Keep everything (Default)")
+        print("2. Automatically purge bloat/potential malware (Recommended)")
+        clean_choice = input("Select an option [1-2]: ").strip()
+        self.config['clean_sync'] = (clean_choice == "2")
+
         print("\nScheduling Options:")
         print("1. Manual Only")
         print("2. Weekly Auto-Sync (Recommended)")
-        choice = input("Select an option [1-2]: ").strip()
+        sched_choice = input("Select an option [1-2]: ").strip()
         
         self.save_config()
         
-        if choice == "2":
+        if sched_choice == "2":
             sched = Scheduler(__file__, self.config['local_dir'])
             sched.install_weekly()
         
@@ -90,6 +94,12 @@ class SyncPortal:
 
         # 4. Execute Sync
         log_file = Path(self.config['local_dir']) / "sync_portal.log"
+        exclude_file = Path(self.config['local_dir']) / "schematics-exclude.txt"
+        
+        # Ensure exclude file exists
+        if not exclude_file.exists():
+            exclude_file.touch()
+
         print(f"\n[SYNC] {self.config['url']} -> {self.config['local_dir']}...")
         print(f"[INFO] Logging to: {log_file}")
         
@@ -101,16 +111,22 @@ class SyncPortal:
             "--transfers", "4",
             "--checkers", "16",
             "--timeout", "15m",
-            "--retries", "10",            # Robustness: Retry failed chunks 10 times
-            "--low-level-retries", "20",  # Robustness: Retry low-level network errors 20 times
-            "--log-file", str(log_file),  # Persistent logging for background runs
+            "--retries", "10",
+            "--low-level-retries", "20",
+            "--log-file", str(log_file),
             "--log-level", "INFO",
             "--ignore-errors",
+            "--exclude-from", str(exclude_file),
             "--links"
         ]
 
         try:
             subprocess.run(cmd, env=env, check=True)
+            
+            # Post-Sync Cleanup if enabled
+            if self.config.get('clean_sync'):
+                run_cleanup_sweep(self.config['local_dir'], exclude_file)
+
             print("\n========================================")
             print("   SCHEMATIC SYNC PORTAL: COMPLETE")
             print("========================================")

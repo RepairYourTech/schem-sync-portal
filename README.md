@@ -5,8 +5,9 @@ A cross-platform (Windows, Mac, Linux) utility to synchronize massive schematic 
 ## Features
 - **Auto-Auth**: Programmatically extracts session cookies from login credentials—no more editing `rclone.conf`.
 - **Dependency Doctor**: Automatically checks for and installs `rclone` and the required Python libraries.
-- **One-Click Scheduling**: Native installers for **Windows Task Scheduler**, **Linux Systemd**, and **Mac Launchd**.
-- **Turbo Sync**: Pre-configured high-parallelism engine (`--size-only`, `--fast-list`).
+- **Cross-Platform Scheduling**: Native background sync for Windows (Task Scheduler), macOS (launchd), and Linux (systemd).
+- **Surgical Malware Cleanup**: Optional automatic purging of known malware signatures and bloat from downloaded archives.
+- **Robust Sync**: Parallel transfers, retries, and high-speed metadata checks.
 - **Manifest Ready**: Built-in support for friend-provided manifest optimizations.
 
 ## Getting Started
