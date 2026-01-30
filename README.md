@@ -12,9 +12,20 @@ A cross-platform (Windows, Mac, Linux) utility to synchronize massive schematic 
 - **Cloud Backup Option**: Optional secondary sync to Google Drive to keep your data safe in the cloud.
 
 ## Getting Started
-1. **Clone**: `git clone https://github.com/RepairYourTech/schem-sync-portal.git`
-2. **Setup**: `python sync_portal.py --setup`
-3. **Sync**: `python sync_portal.py --sync`
+
+To install dependencies:
+
+```bash
+bun install
+```
+
+To run:
+
+```bash
+bun dev
+```
+
+This project was created using `bun create tui`. [create-tui](https://git.new/create-tui) is the easiest way to get started with OpenTUI.
 
 ## Cloud Storage Strategy (The "Life Hack")
 Storing 180GB+ of schematics on Google Drive for free is impossible (15GB limit), but you can manage it strategically:
@@ -30,5 +41,4 @@ Storing 180GB+ of schematics on Google Drive for free is impossible (15GB limit)
 
 ## Requirements
 - `python3` (Standard)
-- `7-Zip` OR `WinRAR` (Required for **Surgical Malware Cleanup**)
 - All other dependencies (`rclone`, `requests`) are handled automatically by the setup wizard.
