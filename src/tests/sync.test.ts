@@ -1,0 +1,91 @@
+import { expect, test, describe, beforeAll, afterAll } from "bun:test";
+import { runSync, type SyncProgress } from "../lib/sync";
+import type { PortalConfig } from "../lib/config";
+import { Env } from "../lib/env";
+import { Logger } from "../lib/logger";
+import { join } from "path";
+import { mkdirSync, writeFileSync } from "fs";
+
+describe("Sync Engine Integration", () => {
+    const testDir = join(process.cwd(), "test_sync_dir");
+
+    const mockConfig: PortalConfig = {
+        source_provider: "gdrive",
+        backup_provider: "b2",
+        upsync_enabled: true,
+        local_dir: testDir,
+        strict_mirror: true,
+        enable_malware_shield: false,
+        malware_policy: "purge",
+        desktop_shortcut: 0,
+        debug_mode: true
+    };
+
+    beforeAll(() => {
+        if (!require("fs").existsSync(testDir)) mkdirSync(testDir, { recursive: true });
+        // Set up MockRclone
+        process.env.MOCK_RCLONE = "src/tests/mock_rclone.ts";
+        process.env.MOCK_LATENCY = "10"; // Fast tests
+        Logger.setLevel("DEBUG");
+        Logger.clearLogs();
+    });
+
+    afterAll(() => {
+        // Clean up
+        delete process.env.MOCK_RCLONE;
+        delete process.env.MOCK_LATENCY;
+    });
+
+    test("should parse progress correctly from MockRclone", async () => {
+        Logger.clearLogs();
+        const progressUpdates: SyncProgress[] = [];
+
+        await runSync(mockConfig, (p) => {
+            progressUpdates.push(p);
+        });
+
+        // Check if we got progress updates
+        const pullUpdates = progressUpdates.filter(u => u.phase === "pull");
+        expect(pullUpdates.length).toBeGreaterThan(0);
+
+        // Check if percentage reached 100
+        const lastPull = pullUpdates[pullUpdates.length - 1];
+        expect(lastPull?.percentage).toBe(100);
+
+        // Check for detailed stats in middle updates
+        const midPull = pullUpdates.find(u => u.percentage > 0 && u.percentage < 100);
+        if (midPull) {
+            expect(midPull.transferSpeed).toBeDefined();
+            expect(midPull.eta).toBeDefined();
+            expect(midPull.bytesTransferred).toContain("MiB");
+        }
+    });
+
+    test("should handle rclone failures", async () => {
+        Logger.clearLogs();
+        process.env.MOCK_FAIL_PROBABILITY = "1.0";
+
+        const progressUpdates: SyncProgress[] = [];
+        await runSync(mockConfig, (p) => {
+            progressUpdates.push(p);
+        });
+
+        const errorUpdate = progressUpdates.find(u => u.phase === "error");
+        expect(errorUpdate).toBeDefined();
+        expect(errorUpdate?.description).toContain("Sync Failed");
+
+        delete process.env.MOCK_FAIL_PROBABILITY;
+    });
+
+    test("should handle credential rejections", async () => {
+        Logger.clearLogs();
+        process.env.MOCK_REJECT_CREDENTIALS = "true";
+
+        await runSync(mockConfig, () => { });
+
+        const logs = Logger.getRecentLogs(10);
+        expect(logs.some(l => l.includes("401 Unauthorized"))).toBe(true);
+
+        delete process.env.MOCK_REJECT_CREDENTIALS;
+    });
+});

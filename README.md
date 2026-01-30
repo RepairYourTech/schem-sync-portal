@@ -1,44 +1,65 @@
-# Universal Schematic Sync Portal 🌐📦
+# 🦅 Schematic Sync Portal
 
-A cross-platform (Windows, Mac, Linux) utility to synchronize massive schematic archives from a remote `copyparty` server with **zero manual configuration**.
+> **The Zero-Terminal, Multi-Cloud Solution for Secure Schematic Management.**
 
-## Features
-- **Auto-Auth**: Programmatically extracts session cookies from login credentials—no more editing `rclone.conf`.
-- **Dependency Doctor**: Automatically checks for and installs `rclone` and the required Python libraries.
-- **Cross-Platform Scheduling**: Native background sync for Windows (Task Scheduler), macOS (launchd), and Linux (systemd).
-- **Surgical Malware Cleanup**: Optional automatic purging of known malware signatures and bloat from downloaded archives (If GDrive is flagging any uploads).
-- **Robust Sync**: Parallel transfers, retries, and high-speed metadata checks.
-- **Manifest Ready**: Built-in support for friend-provided manifest optimizations.
-- **Cloud Backup Option**: Optional secondary sync to Google Drive to keep your data safe in the cloud.
+The **Schematic Sync Portal** is a high-security TUI (Terminal User Interface) application designed to bridge your local schematic archives with the cloud *without* exposing your main OS credentials or mixing environments.
 
-## Getting Started
+It supports **8+ Cloud Providers** in a completely isolated environment, ensuring your sensitive boardviews and PDFs are safe, synced, and separated from your personal data.
 
-To install dependencies:
+## 🚀 Features
+
+### ☁️ Multi-Cloud Sovereign Containers
+Choose your backend. The Portal creates a dedicated, isolated remote for:
+*   **Google Drive** (Project-Isolated w/ Guided Setup)
+*   **Backblaze B2** ($6/TB Pro Storage)
+*   **pCloud** (Swiss Privacy)
+*   **SFTP / Private Server** (Self-Hosted/NAS)
+*   **OneDrive** (Corporate/O365)
+*   **Dropbox** (Classic Sync)
+*   **Mega.nz** (Encrypted/Free Tier)
+*   **Cloudflare R2** (Zero Egress Fees)
+
+### 🛡️ Security First
+*   **Surgical Isolation**: Creates dedicated remotes that never touch your system's global `rclone.conf` `[drive]` configuration.
+*   **Zero-Terminal Handshake**: Handles OAuth and token exchanges interactively within the UI—no manual config editing required.
+*   **Rclone CLI Backend**: Leverages the industry-standard `rclone` binary for robust, obfuscated credential management.
+*   **Malware Policy**: Optional "Surgical Purge" or "Isolate" modes for handling questionable files often found in schematic dumps.
+
+### 🖥️ Native Experience
+*   **TUI Wizard**: A beautiful, mouse-supported terminal interface.
+*   **Desktop Integration**: Auto-creates `.desktop` entries or Start Menu shortcuts.
+*   **Input-Lag Free**: Optimized input handling for rapid navigation.
+
+## 📦 Installation & Usage
+
+**Prerequisites:** `bun` (Runtime) and `rclone` (Backend).
 
 ```bash
+# 1. Install Dependencies
 bun install
-```
 
-To run:
-
-```bash
+# 2. Run the Portal
 bun dev
 ```
 
-This project was created using `bun create tui`. [create-tui](https://git.new/create-tui) is the easiest way to get started with OpenTUI.
+The First-Run Wizard will guide you through:
+1.  **shortcut integration**: Adding the app to your system menu.
+2.  **Source Config**: Setting your schematic source URL.
+3.  **Cloud Provider Selection**: Choosing and authenticating your preferred cloud provider.
 
-## Cloud Storage Strategy (The "Life Hack")
-Storing 180GB+ of schematics on Google Drive for free is impossible (15GB limit), but you can manage it strategically:
+## 🔧 Architecture
 
-### 1. Cost Optimization
-* **The Plan**: Subscribe to the **Google One 2TB plan** for ~$10/month.
-* **The Hack**: If you don't want to pay every month, Google will retain your data for **2 years** after a subscription lapses. You can pay for 1 month to "refresh" the timer and perform a massive up-sync, then cancel. Your data stays safe and readable.
+*   **Frontend**: React TUI (Ink/OpenTUI)
+*   **Backend**: Bun + Rclone CLI Wrapper
+*   **State**: `~/.config/schem-sync-portal/config.json`
+*   **Logs**: `./logs/auth_debug.log`
 
-### 2. Safety First (Dedicated Account)
-> [!IMPORTANT]
-> **Use an alternate Google Account** (not your primary email/contacts/photos).
-> When you are over-quota (after a sub lapses), you **cannot send or receive emails** or upload new files. Keeping this on a separate "Storage Only" account ensures your primary communication is never interrupted.
+## ⚠️ Safe Mode (Reset)
 
-## Requirements
-- `python3` (Standard)
-- All other dependencies (`rclone`, `requests`) are handled automatically by the setup wizard.
+If you need to nuke the Portal's configuration without touching your other system backups:
+1.  Launch the app.
+2.  Hold `ESC` on the dashboard to access the reset menu.
+3.  Select **Portal Only** reset.
+
+---
+*Built for the Birdman Workspace. 🦅*

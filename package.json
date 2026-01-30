@@ -1,20 +1,27 @@
 {
-  "name": "/home/birdman/schem-sync-next",
+  "name": "schem-sync-portal",
   "module": "src/index.tsx",
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run --watch src/index.tsx"
+    "lint": "bun run scripts/lint-tui.ts && eslint src",
+    "lint:fix": "eslint src --fix"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/node": "^25.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-react": "^7.37.5"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@opentui/core": "^0.1.75",
     "@opentui/react": "^0.1.75",
-    "react": "^19.2.3"
+    "glob": "^13.0.0",
+    "react": "^19.3.0-canary-230772f9-20260128"
   }
 }
