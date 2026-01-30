@@ -47,12 +47,14 @@ export async function performUpdate(): Promise<UpdateStatus> {
 
             Logger.info("SYSTEM", "System updated successfully.");
             return { success: true, message: `Updated successfully from ${remoteUrl}` };
-        } catch (err: any) {
-            Logger.error("SYSTEM", "Update failed", err);
-            return { success: false, message: `Update failed: ${err.message}` };
+        } catch (err: unknown) {
+            const error = err as Error;
+            Logger.error("SYSTEM", "Update failed", error);
+            return { success: false, message: `Update failed: ${error.message}` };
         }
-    } catch (err: any) {
-        Logger.error("SYSTEM", "Unexpected update error", err);
-        return { success: false, message: `Unexpected error: ${err.message}` };
+    } catch (err: unknown) {
+        const error = err as Error;
+        Logger.error("SYSTEM", "Unexpected update error", error);
+        return { success: false, message: `Unexpected error: ${error.message}` };
     }
 }

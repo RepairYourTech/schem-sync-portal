@@ -2,10 +2,8 @@ import React from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 
-import { useTheme } from "../lib/theme";
 
 export function Splash() {
-    const { colors } = useTheme();
     const { width } = useTerminalDimensions();
 
     const schematic = [

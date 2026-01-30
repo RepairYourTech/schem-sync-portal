@@ -1,19 +1,23 @@
-import { expect, test, describe, beforeAll, mock } from "bun:test";
+import { expect, test, describe, beforeAll } from "bun:test";
 import { Env } from "../lib/env";
 import { Logger } from "../lib/logger";
+import type { Dirent } from "fs";
+import type { DependencyStatus, FontDetectionResult } from "../lib/doctor";
 
 describe("System Diagnostics (Doctor)", () => {
-    let checkDependencies: any;
-    let __setSpawnSync: any;
+    let checkDependencies: () => Promise<DependencyStatus>;
+    let detectNerdFonts: () => Promise<FontDetectionResult>;
+    let __setSpawnSync: (fn: (args: string[]) => { success: boolean; stdout: Buffer }) => void;
 
-    beforeAll(() => {
-        const doctor = require("../lib/doctor");
+    beforeAll(async () => {
+        const doctor = await import("../lib/doctor");
         checkDependencies = doctor.checkDependencies;
-        __setSpawnSync = doctor.__setSpawnSync;
+        detectNerdFonts = doctor.detectNerdFonts;
+        __setSpawnSync = (doctor as unknown as { __setSpawnSync: typeof __setSpawnSync }).__setSpawnSync;
         Logger.setLevel("DEBUG");
     });
 
-    test("should detect dependency versions (Linux flow)", () => {
+    test("should detect dependency versions (Linux flow)", async () => {
         // Mock Linux environment
         Object.defineProperty(Env, "isWin", { get: () => false, configurable: true });
         Object.defineProperty(Env, "isMac", { get: () => false, configurable: true });
@@ -31,7 +35,7 @@ describe("System Diagnostics (Doctor)", () => {
         const originalFindBinary = Env.findBinary;
         Env.findBinary = () => "/usr/bin/7z";
 
-        const status = checkDependencies();
+        const status = await checkDependencies();
 
         expect(status.bun).toBe("1.0.0");
         expect(status.diskSpace).toBe("80G");
@@ -40,7 +44,7 @@ describe("System Diagnostics (Doctor)", () => {
         Env.findBinary = originalFindBinary;
     });
 
-    test("should detect dependency versions (Mac flow)", () => {
+    test("should detect dependency versions (Mac flow)", async () => {
         // Mock Mac environment
         Object.defineProperty(Env, "isWin", { get: () => false, configurable: true });
         Object.defineProperty(Env, "isMac", { get: () => true, configurable: true });
@@ -57,7 +61,7 @@ describe("System Diagnostics (Doctor)", () => {
         const originalFindBinary = Env.findBinary;
         Env.findBinary = () => "/usr/local/bin/7z";
 
-        const status = checkDependencies();
+        const status = await checkDependencies();
 
         expect(status.bun).toBe("1.1.0");
         expect(status.diskSpace).toBe("80G");
@@ -66,7 +70,7 @@ describe("System Diagnostics (Doctor)", () => {
         Env.findBinary = originalFindBinary;
     });
 
-    test("should detect dependency versions (Windows flow)", () => {
+    test("should detect dependency versions (Windows flow)", async () => {
         // Mock Windows environment
         Object.defineProperty(Env, "isWin", { get: () => true, configurable: true });
 
@@ -79,17 +83,81 @@ describe("System Diagnostics (Doctor)", () => {
             return { success: false, stdout: Buffer.from("") };
         });
 
-        const status = checkDependencies();
+        const status = await checkDependencies();
 
         expect(status.diskSpace).toBe("128.5 GB");
     });
 
-    test("should handle missing dependencies gracefully", () => {
+    test("should detect v2 fonts via fc-list", async () => {
+        Object.defineProperty(Env, "isWin", { get: () => false, configurable: true });
+        __setSpawnSync((args: string[]) => {
+            if (args.join(' ').includes(':charset=f61a')) {
+                return { success: true, stdout: Buffer.from("/path/to/font: MaterialCat:style=Regular\n") };
+            }
+            return { success: false, stdout: Buffer.from("") };
+        });
+
+        const result = await detectNerdFonts();
+        expect(result.isInstalled).toBe(true);
+        expect(result.version).toBe(2);
+        expect(result.method).toBe('fc-list');
+        expect(result.installedFonts).toContain("MaterialCat");
+    });
+
+    test("should detect fonts via filesystem (Linux)", async () => {
+        Object.defineProperty(Env, "isWin", { get: () => false, configurable: true });
+        Object.defineProperty(Env, "isMac", { get: () => false, configurable: true });
+
+        // Mock failing fc-list
+        __setSpawnSync(() => ({ success: false, stdout: Buffer.from("") }));
+
+        const { __setReaddirSync } = await import("../lib/doctor");
+        // @ts-expect-error: mocking internal readdirSync which uses Dirent
+        __setReaddirSync((dir: string) => {
+            if (dir.includes('.local/share/fonts')) {
+                return [
+                    { name: 'FiraCodeNerdFont-Regular.ttf', isFile: () => true, isDirectory: () => false }
+                ] as unknown as Dirent[];
+            }
+            return [];
+        });
+
+        const result = await detectNerdFonts();
+        expect(result.isInstalled).toBe(true);
+        expect(result.method).toBe('filesystem');
+        expect(result.installedFonts).toContain("FiraCodeNerdFont-Regular.ttf");
+    });
+
+    test("should fallback to heuristics when detection fails", async () => {
+        __setSpawnSync(() => ({ success: false, stdout: Buffer.from("") }));
+        const { __setReaddirSync } = await import("../lib/doctor");
+        __setReaddirSync(() => []);
+
+        // Mock Ghostty for v3 heuristic
+        process.env.TERM_PROGRAM = "Ghostty";
+
+        const result = await detectNerdFonts();
+        expect(result.isInstalled).toBe(false);
+        expect(result.method).toBe('heuristic');
+        expect(result.version).toBe(3);
+    });
+
+    test("should handle readdirSync errors gracefully", async () => {
+        __setSpawnSync(() => ({ success: false, stdout: Buffer.from("") }));
+        const { __setReaddirSync } = await import("../lib/doctor");
+        __setReaddirSync(() => { throw new Error("Permission denied"); });
+
+        const result = await detectNerdFonts();
+        expect(result.isInstalled).toBe(false); // Should fallback to heuristic
+        expect(result.method).toBe('heuristic');
+    });
+
+    test("should handle missing dependencies gracefully", async () => {
         __setSpawnSync(() => ({ success: false, stdout: Buffer.from("") }));
         const originalFindBinary = Env.findBinary;
         Env.findBinary = () => null;
 
-        const status = checkDependencies();
+        const status = await checkDependencies();
 
         expect(status.bun).toBeNull();
         expect(status.zig).toBeNull();

@@ -16,7 +16,7 @@ export function Hotkey({
     label,
     color,
     isFocused = false,
-    layout = "prefix",
+    layout = "inline",
     bold = false
 }: HotkeyProps) {
     const { colors } = useTheme();
@@ -42,38 +42,73 @@ export function Hotkey({
         <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{label}</text>
     ) : null;
 
+    if (layout === "prefix") {
+        return (
+            <box flexDirection="row">
+                {renderKey()}
+                {label ? <text fg={labelColor}> </text> : null}
+                {renderLabel()}
+            </box>
+        );
+    }
+
+    if (layout === "suffix") {
+        return (
+            <box flexDirection="row">
+                {renderLabel()}
+                {label ? <text fg={labelColor}> </text> : null}
+                {renderKey()}
+            </box>
+        );
+    }
+
+    // --- INLINE / NESTED LOGIC ---
+    if (!label) return <box flexDirection="row">{renderKey()}</box>;
+
+    // 1. Check for manual brackets first: [C]ontinue or [Co]ntinue
+    // Escape keyLabel for regex safety
+    const escapedKeyLabel = keyLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const manualMatch = label.match(new RegExp(`(\\[${escapedKeyLabel}[a-z]*\\])`, "i"));
+
+    if (manualMatch && manualMatch[0]) {
+        const parts = label.split(manualMatch[0]);
+        const innerKey = manualMatch[0].slice(1, -1);
+        return (
+            <box flexDirection="row">
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{parts[0] || ""}</text>
+                <box flexDirection="row">
+                    <text fg={bracketColor}>[</text>
+                    <text fg={keyColor} attributes={TextAttributes.BOLD}>{innerKey.toUpperCase()}</text>
+                    <text fg={bracketColor}>]</text>
+                </box>
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{parts[1] || ""}</text>
+            </box>
+        );
+    }
+
+    // 2. Auto-nest: Find the first occurrence of the hotkey character
+    const charIndex = label.toLowerCase().indexOf(keyLabel.toLowerCase());
+    if (charIndex !== -1 && keyLabel.length === 1) {
+        const char = label[charIndex] || "";
+        return (
+            <box flexDirection="row">
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{label.substring(0, charIndex)}</text>
+                <box flexDirection="row">
+                    <text fg={bracketColor}>[</text>
+                    <text fg={keyColor} attributes={TextAttributes.BOLD}>{char.toUpperCase()}</text>
+                    <text fg={bracketColor}>]</text>
+                </box>
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{label.substring(charIndex + 1)}</text>
+            </box>
+        );
+    }
+
+    // 3. Fallback: Prefix layout if no match found
     return (
         <box flexDirection="row">
-            {layout === "prefix" && (
-                <>
-                    {renderKey()}
-                    {label ? <text fg={labelColor}> </text> : null}
-                    {renderLabel()}
-                </>
-            )}
-            {layout === "suffix" && (
-                <>
-                    {renderLabel()}
-                    {label ? <text fg={labelColor}> </text> : null}
-                    {renderKey()}
-                </>
-            )}
-            {layout === "inline" && (
-                <box flexDirection="row">
-                    {label?.split(new RegExp(`(\\[${keyLabel}\\])`, 'i')).map((part, i) => {
-                        if (part.toLowerCase() === `[${keyLabel.toLowerCase()}]`) {
-                            return (
-                                <box key={i} flexDirection="row">
-                                    <text fg={bracketColor}>[</text>
-                                    <text fg={keyColor} attributes={TextAttributes.BOLD}>{keyLabel.toUpperCase()}</text>
-                                    <text fg={bracketColor}>]</text>
-                                </box>
-                            );
-                        }
-                        return <text key={i} fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{part}</text>;
-                    })}
-                </box>
-            )}
+            {renderKey()}
+            <text fg={labelColor}> </text>
+            {renderLabel()}
         </box>
     );
 }

@@ -1,10 +1,9 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { runSync, type SyncProgress } from "../lib/sync";
 import type { PortalConfig } from "../lib/config";
-import { Env } from "../lib/env";
 import { Logger } from "../lib/logger";
 import { join } from "path";
-import { mkdirSync, writeFileSync } from "fs";
+import { mkdirSync, existsSync } from "fs";
 
 describe("Sync Engine Integration", () => {
     const testDir = join(process.cwd(), "test_sync_dir");
@@ -22,7 +21,7 @@ describe("Sync Engine Integration", () => {
     };
 
     beforeAll(() => {
-        if (!require("fs").existsSync(testDir)) mkdirSync(testDir, { recursive: true });
+        if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });
         // Set up MockRclone
         process.env.MOCK_RCLONE = "src/tests/mock_rclone.ts";
         process.env.MOCK_LATENCY = "10"; // Fast tests

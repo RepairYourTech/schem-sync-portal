@@ -28,7 +28,14 @@ export interface PortalConfig {
     };
     desktop_shortcut: number; // 0=unset, 1=on, 2=skipped
     debug_mode: boolean;
+    nerd_font_version?: 2 | 3;
     cookie?: string; // Opt-in cookie for CopyParty or other HTTP remotes
+
+    // Font Presence tracking
+    nerd_font_auto_install?: boolean;
+    nerd_font_auto_install_dismissed?: boolean;
+    nerd_font_installed_family?: string;
+    nerd_font_last_check?: number; // Unix timestamp
 }
 
 // Project root is two levels up from src/lib/config.ts
@@ -47,7 +54,11 @@ export const EMPTY_CONFIG: PortalConfig = {
     malware_policy: "purge",
     enable_malware_shield: false,
     desktop_shortcut: 0,
-    debug_mode: false
+    debug_mode: false,
+    nerd_font_auto_install: undefined,
+    nerd_font_auto_install_dismissed: undefined,
+    nerd_font_installed_family: undefined,
+    nerd_font_last_check: undefined
 };
 
 export function loadConfig(): PortalConfig {
@@ -58,8 +69,8 @@ export function loadConfig(): PortalConfig {
             // Merge with empty config to ensure all keys exist
             return { ...EMPTY_CONFIG, ...parsed };
         }
-    } catch (err) {
-        Logger.error("SYSTEM", "Error loading config", err);
+    } catch (err: unknown) {
+        Logger.error("SYSTEM", "Error loading config", err as Error);
     }
     return { ...EMPTY_CONFIG };
 }
@@ -78,12 +89,18 @@ export function saveConfig(config: PortalConfig): void {
             last_sync_stats: config.last_sync_stats,
             desktop_shortcut: config.desktop_shortcut,
             debug_mode: config.debug_mode,
-            cookie: config.cookie
+            nerd_font_version: config.nerd_font_version,
+            cookie: config.cookie,
+            nerd_font_auto_install: config.nerd_font_auto_install,
+            nerd_font_auto_install_dismissed: config.nerd_font_auto_install_dismissed,
+            nerd_font_installed_family: config.nerd_font_installed_family,
+            nerd_font_last_check: config.nerd_font_last_check
         };
+
         const data = JSON.stringify(clean, null, 2);
         writeFileSync(CONFIG_PATH, data, "utf-8");
-    } catch (err) {
-        Logger.error("SYSTEM", "Error saving config", err);
+    } catch (err: unknown) {
+        Logger.error("SYSTEM", "Error saving config", err as Error);
     }
 }
 

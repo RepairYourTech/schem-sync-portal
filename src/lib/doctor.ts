@@ -1,12 +1,35 @@
 import { spawnSync } from "bun";
+import { readdirSync } from "fs";
+import type { Dirent } from "fs";
+import { join } from "path";
 import { Env } from "./env";
 import { Logger } from "./logger";
 
 let _spawnSync = spawnSync;
+let _readdirSync = readdirSync;
+let _detectNerdFonts = internalDetectNerdFonts;
 
 /** @internal - Exported for testing only */
 export function __setSpawnSync(mock: typeof spawnSync) {
     _spawnSync = mock;
+}
+
+/** @internal - Exported for testing only */
+export function __setReaddirSync(mock: typeof readdirSync) {
+    _readdirSync = mock;
+}
+
+/** @internal - Exported for testing only */
+export function __setDetectNerdFonts(mock: typeof internalDetectNerdFonts) {
+    _detectNerdFonts = mock;
+}
+
+export interface FontDetectionResult {
+    isInstalled: boolean;
+    version: 2 | 3 | null;
+    method: 'fc-list' | 'filesystem' | 'heuristic' | 'none';
+    confidence: 'high' | 'medium' | 'low';
+    installedFonts: string[];
 }
 
 export interface DependencyStatus {
@@ -15,9 +38,166 @@ export interface DependencyStatus {
     rclone: string | null;
     archive: string | null;
     diskSpace: string | null;
+    nerdFont: string | null;
+    recommendedVersion: 2 | 3;
+    nerdFontDetailed: FontDetectionResult;
 }
 
-export function checkDependencies(): DependencyStatus {
+/**
+ * Enhanced Nerd Font detection using multiple methods
+ */
+export async function detectNerdFonts(): Promise<FontDetectionResult> {
+    return _detectNerdFonts();
+}
+
+async function internalDetectNerdFonts(): Promise<FontDetectionResult> {
+    const result: FontDetectionResult = {
+        isInstalled: false,
+        version: null,
+        method: 'none',
+        confidence: 'low',
+        installedFonts: []
+    };
+
+    try {
+        // Method 1 - fc-list codepoint check (Linux/macOS preferred)
+        if (!Env.isWin) {
+            Logger.debug('SYSTEM', 'Attempting font detection via fc-list');
+            const v3Result = _spawnSync(['fc-list', ':charset=eeed']);
+            if (v3Result.success && v3Result.stdout.toString().trim().length > 0) {
+                const fonts = v3Result.stdout.toString().split('\n')
+                    .map(line => line.split(':')[1]?.trim())
+                    .filter((f): f is string => !!f);
+
+                return {
+                    isInstalled: true,
+                    version: 3,
+                    method: 'fc-list',
+                    confidence: 'high',
+                    installedFonts: fonts
+                };
+            }
+
+            const v2Result = _spawnSync(['fc-list', ':charset=f61a']);
+            if (v2Result.success && v2Result.stdout.toString().trim().length > 0) {
+                const fonts = v2Result.stdout.toString().split('\n')
+                    .map(line => line.split(':')[1]?.trim())
+                    .filter((f): f is string => !!f);
+
+                return {
+                    isInstalled: true,
+                    version: 2,
+                    method: 'fc-list',
+                    confidence: 'high',
+                    installedFonts: fonts
+                };
+            }
+        }
+
+        // Method 2 - Filesystem scan
+        Logger.debug('SYSTEM', 'Attempting font detection via filesystem scan');
+        const home = Env.getPaths().home;
+        let fontDirs: string[] = [];
+
+        if (Env.isWin) {
+            const localAppData = process.env.LOCALAPPDATA || "";
+            fontDirs = [join(localAppData, 'Microsoft', 'Windows', 'Fonts')];
+        } else if (Env.isMac) {
+            fontDirs = [join(home, 'Library', 'Fonts')];
+        } else {
+            fontDirs = [join(home, '.local', 'share', 'fonts')];
+        }
+
+        const nerdFontPattern = /Nerd.*Font.*\.(ttf|otf)$/i;
+        const foundFonts: string[] = [];
+
+        const walk = (dir: string) => {
+            try {
+                const entries = _readdirSync(dir, { withFileTypes: true }) as unknown as Dirent[];
+                for (const entry of entries) {
+                    const fullPath = join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        walk(fullPath);
+                    } else if (entry.isFile() && nerdFontPattern.test(entry.name)) {
+                        foundFonts.push(fullPath);
+                    }
+                }
+            } catch {
+                // Directory might not exist or be readable
+            }
+        };
+
+        for (const dir of fontDirs) {
+            walk(dir);
+        }
+
+        if (foundFonts.length > 0) {
+            // Determine version by checking for v3 indicators (e.g., "NF" suffix in filenames)
+            const isV3 = foundFonts.some(f => f.includes('NF') || f.includes('v3'));
+            return {
+                isInstalled: true,
+                version: isV3 ? 3 : 2,
+                method: 'filesystem',
+                confidence: 'medium',
+                installedFonts: foundFonts.map(f => f.split(/[\\/]/).pop()!)
+            };
+        }
+
+        // Method 3 - Terminal heuristics (fallback)
+        Logger.debug('SYSTEM', 'Falling back to terminal heuristics for font version');
+        const heuristicVersion = detectNerdFontVersion();
+        return {
+            isInstalled: false, // Heuristics don't guarantee installation
+            version: heuristicVersion,
+            method: 'heuristic',
+            confidence: 'low',
+            installedFonts: []
+        };
+
+    } catch (err) {
+        Logger.error('SYSTEM', 'Error during Nerd Font detection', err as Error);
+    }
+
+    return result;
+}
+
+function detectNerdFontVersion(): 2 | 3 {
+    try {
+        // Check for v3 first (Font Awesome 6 Cat face)
+        const v3Result = _spawnSync(["fc-list", ":charset=eeed"]);
+        if (v3Result.success && v3Result.stdout.toString().trim().length > 0) {
+            return 3;
+        }
+
+        // Check for v2 (Material Design Cat face)
+        const v2Result = _spawnSync(["fc-list", ":charset=f61a"]);
+        if (v2Result.success && v2Result.stdout.toString().trim().length > 0) {
+            return 2;
+        }
+    } catch {
+        // Silently fail, move to heuristics
+    }
+
+    const term = process.env.TERM_PROGRAM || "";
+    const termName = process.env.TERM || "";
+
+    // Warp, Ghostty, WezTerm, Alacritty, and Kitty are modern and almost always use v3
+    const isModern = term.includes("Warp") ||
+        term.includes("Ghostty") ||
+        termName.includes("wezterm") ||
+        termName.includes("alacritty") ||
+        termName.includes("xterm-kitty") ||
+        term.includes("rio");
+
+    if (isModern) {
+        return 3;
+    }
+
+    // Older or more conservative environments default to v2
+    return 2;
+}
+
+export async function checkDependencies(): Promise<DependencyStatus> {
     const isWin = Env.isWin;
 
     const getVersion = (cmd: string, args: string[] = ["--version"]) => {
@@ -28,8 +208,8 @@ export function checkDependencies(): DependencyStatus {
                 Logger.debug("SYSTEM", `Dependency check: ${cmd} -> ${version}`);
                 return version;
             }
-        } catch (err) {
-            Logger.error("SYSTEM", `Failed to check dependency: ${cmd}`, err);
+        } catch {
+            Logger.error("SYSTEM", `Failed to check dependency: ${cmd}`);
         }
         return null;
     };
@@ -63,11 +243,36 @@ export function checkDependencies(): DependencyStatus {
         return binary ? "Available" : null;
     };
 
+    const checkFont = () => {
+        // Nerd Fonts can't be strictly detected by binary, but we can check terminal environments
+        // or just return a suggestion for visual check.
+        const term = process.env.TERM_PROGRAM || "";
+        const terminal = process.env.LC_TERMINAL || "";
+
+        if (term.includes("vscode") || term.includes("iTerm") || term.includes("Warp") ||
+            term.includes("Apple_Terminal") || terminal.includes("iterm2")) {
+            return "Detected (Visual verification required)";
+        }
+
+        // ZSH check (user mentioned zsh)
+        if (process.env.ZSH_NAME || process.env.SHELL?.includes("zsh")) {
+            return "Likely Patchable (User ZSH detected)";
+        }
+
+        return "Requires Visual Verification";
+    };
+
+    const nerdFontDetailed = await detectNerdFonts();
+
     return {
         bun: getVersion("bun"),
         zig: getVersion("zig", ["version"]),
         rclone: getVersion("rclone", ["version"]),
         archive: checkArchive(),
         diskSpace: getDiskSpace(),
+        nerdFont: checkFont(),
+        recommendedVersion: nerdFontDetailed.version || 2,
+        nerdFontDetailed
     };
 }
+

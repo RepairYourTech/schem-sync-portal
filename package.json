@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "dev": "bun run src/index.tsx",
     "lint": "bun run scripts/lint-tui.ts && eslint src",
     "lint:fix": "eslint src --fix"
   },

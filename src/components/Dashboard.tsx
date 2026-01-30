@@ -92,7 +92,7 @@ export function Dashboard({ config, isFocused, selectedIndex }: DashboardProps) 
                         paddingLeft={1}
                         paddingRight={1}
                     >
-                        <Hotkey keyLabel="s" label="Begin Setup" layout="prefix" isFocused={isFocused && selectedIndex === 0} bold />
+                        <Hotkey keyLabel="s" label="Begin Setup" isFocused={isFocused && selectedIndex === 0} bold />
                     </box>
                 ) : !complete ? (
                     <box flexDirection="row" gap={2} alignItems="center">
@@ -103,7 +103,7 @@ export function Dashboard({ config, isFocused, selectedIndex }: DashboardProps) 
                             paddingLeft={1}
                             paddingRight={1}
                         >
-                            <Hotkey keyLabel="c" label="Continue Setup" layout="prefix" isFocused={isFocused && selectedIndex === 0} bold />
+                            <Hotkey keyLabel="c" label="[C]ontinue Setup" isFocused={isFocused && selectedIndex === 0} bold />
                         </box>
                         <text fg={colors.dim}>|</text>
                         <box
@@ -113,7 +113,7 @@ export function Dashboard({ config, isFocused, selectedIndex }: DashboardProps) 
                             paddingLeft={1}
                             paddingRight={1}
                         >
-                            <Hotkey keyLabel="s" label="Restart Setup" layout="prefix" isFocused={isFocused && selectedIndex === 1} />
+                            <Hotkey keyLabel="s" label="Restart Setup" isFocused={isFocused && selectedIndex === 1} />
                         </box>
                     </box>
                 ) : (
@@ -124,7 +124,7 @@ export function Dashboard({ config, isFocused, selectedIndex }: DashboardProps) 
                         paddingLeft={1}
                         paddingRight={1}
                     >
-                        <Hotkey keyLabel="p" label="Sync Portal" layout="prefix" isFocused={isFocused && selectedIndex === 0} bold />
+                        <Hotkey keyLabel="p" label="Sync Portal" isFocused={isFocused && selectedIndex === 0} bold />
                     </box>
                 )}
             </box>

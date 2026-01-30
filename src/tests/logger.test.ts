@@ -1,10 +1,8 @@
-import { expect, test, describe, beforeAll, afterAll } from "bun:test";
+import { expect, test, describe, beforeAll } from "bun:test";
 import { Logger } from "../lib/logger";
-import { Env } from "../lib/env";
-import { existsSync, unlinkSync, readFileSync } from "fs";
+
 
 describe("Logger Service", () => {
-    const logPath = Env.getLogPath("system.log");
 
     beforeAll(() => {
         Logger.clearLogs();

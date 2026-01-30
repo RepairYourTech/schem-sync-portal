@@ -1,9 +1,9 @@
-import { expect, test, describe, beforeAll, afterAll, mock } from "bun:test";
+import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 // NO STATIC IMPORTS OF MODULES UNDER TEST IF WE NEED TO MOCK THEIR DEPENDENCIES
 // import { runCleanupSweep, __setArchiveEngine } from "../lib/cleanup";
 import { Logger } from "../lib/logger";
 import { join } from "path";
-import { mkdirSync, writeFileSync, existsSync, readFileSync, unlinkSync } from "fs";
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from "fs";
 
 // Manual mock setup in beforeAll
 
@@ -11,15 +11,15 @@ describe("Malware Shield (Cleanup)", () => {
     const testDir = join(process.cwd(), "test_cleanup_dir");
     const excludeFile = join(testDir, "exclude.txt");
 
-    let runCleanupSweep: any;
-    let __setArchiveEngine: any;
-    let __setSpawnSync: any;
+    let runCleanupSweep: (localDir: string, excludeFile: string, policy: "purge" | "isolate") => Promise<void>;
+    let __setArchiveEngine: (engine: { type: string; bin: string }) => void;
+    let __setSpawnSync: (fn: (args: string[]) => { stdout: Buffer; success: boolean; exitCode?: number }) => void;
 
-    beforeAll(() => {
-        const cleanup = require("../lib/cleanup");
+    beforeAll(async () => {
+        const cleanup = await import("../lib/cleanup");
         runCleanupSweep = cleanup.runCleanupSweep;
-        __setArchiveEngine = cleanup.__setArchiveEngine;
-        __setSpawnSync = cleanup.__setSpawnSync;
+        __setArchiveEngine = (cleanup as unknown as { __setArchiveEngine: typeof __setArchiveEngine }).__setArchiveEngine;
+        __setSpawnSync = (cleanup as unknown as { __setSpawnSync: typeof __setSpawnSync }).__setSpawnSync;
 
         __setSpawnSync((args: string[]) => {
             const cmd = args.join(" ");

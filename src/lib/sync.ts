@@ -57,7 +57,36 @@ export async function runSync(
             sourceFlags = ["--header", config.cookie];
         }
 
+        // --- MANIFEST DISCOVERY ---
+        // Attempt to pull manifest.txt from source to enable faster sync
+        const localManifest = join(config.local_dir, "manifest.txt");
+        try {
+            Logger.debug("SYNC", "Checking for remote manifest.txt...");
+            await executeRclone([
+                "copyto", `${sourceRemote}manifest.txt`, localManifest,
+                ...sourceFlags,
+                ...RETRY_FLAGS
+            ], () => { });
+            Logger.info("SYNC", "Remote manifest.txt found at Source.");
+        } catch {
+            Logger.debug("SYNC", "No manifest.txt at Source, checking Backup...");
+            // If not at source, check backup (if configured)
+            if (config.upsync_enabled && config.backup_provider !== "none") {
+                const destRemote = `${Env.REMOTE_PORTAL_BACKUP}:/`;
+                try {
+                    await executeRclone([
+                        "copyto", `${destRemote}manifest.txt`, localManifest,
+                        ...RETRY_FLAGS
+                    ], () => { });
+                    Logger.info("SYNC", "Remote manifest.txt found at Backup.");
+                } catch {
+                    Logger.debug("SYNC", "No manifest.txt at Backup either.");
+                }
+            }
+        }
+
         const pullCmd = config.strict_mirror ? "sync" : "copy";
+        const hasManifest = existsSync(localManifest);
 
         const pullArgs = [
             pullCmd, sourceRemote, config.local_dir,
@@ -68,9 +97,9 @@ export async function runSync(
             ...RETRY_FLAGS
         ];
 
-        const manifest = join(config.local_dir, "manifest_optimized.txt");
-        if (existsSync(manifest)) {
-            pullArgs.push("--files-from", manifest);
+        if (hasManifest) {
+            Logger.info("SYNC", "Using manifest.txt for optimized Pull.");
+            pullArgs.push("--files-from", localManifest);
         }
 
         onProgress({ phase: "pull", description: `Downloading from ${sourceRemote}...`, percentage: 0 });
@@ -103,6 +132,11 @@ export async function runSync(
                 ...RETRY_FLAGS
             ];
 
+            if (hasManifest) {
+                Logger.info("SYNC", "Using manifest.txt for optimized Push.");
+                cloudArgs.push("--files-from", localManifest);
+            }
+
             // GDrive specific flags (if dest is gdrive)
             if (config.backup_provider === "gdrive") {
                 cloudArgs.push("--drive-use-trash=false");
@@ -117,9 +151,10 @@ export async function runSync(
         }
 
         onProgress({ phase: "done", description: "MISSION ACCOMPLISHED. SYSTEM RESILIENT.", percentage: 100 });
-    } catch (err: any) {
-        Logger.error("SYNC", "Sync failed", err);
-        onProgress({ phase: "error", description: `Sync Failed: ${err.message}`, percentage: 0 });
+    } catch (err: unknown) {
+        const error = err as Error;
+        Logger.error("SYNC", "Sync failed", error);
+        onProgress({ phase: "error", description: `Sync Failed: ${error.message}`, percentage: 0 });
     }
 }
 

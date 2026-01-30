@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync } from "fs";
+import { appendFileSync, existsSync, statSync, renameSync, unlinkSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { Env } from "./env";
 
@@ -76,7 +76,6 @@ export class Logger {
             const logPath = Env.getLogPath(filename);
             if (!existsSync(logPath)) return;
 
-            const { statSync, renameSync, unlinkSync, appendFileSync } = require("fs");
             const stats = statSync(logPath);
             if (stats.size > maxBytes) {
                 const oldPath = `${logPath}.old`;
@@ -96,7 +95,7 @@ export class Logger {
             const logPath = Env.getLogPath(filename);
             if (!existsSync(logPath)) return ["No logs found."];
 
-            const content = require("fs").readFileSync(logPath, "utf-8");
+            const content = readFileSync(logPath, "utf-8");
             return content.split("\n").filter((l: string) => l.trim() !== "").slice(-lines);
         } catch {
             return ["Failed to read logs."];
@@ -106,7 +105,6 @@ export class Logger {
     static clearLogs(): void {
         try {
             const { logsDir } = Env.getPaths();
-            const { readdirSync, unlinkSync } = require("fs");
             if (!existsSync(logsDir)) return;
 
             const files = readdirSync(logsDir);
@@ -176,7 +174,7 @@ export class Logger {
         try {
             const logPath = Env.getLogPath("system.log");
             appendFileSync(logPath, line);
-        } catch (err) {
+        } catch {
             // Silently fail if we can't write logs to file
         }
     }

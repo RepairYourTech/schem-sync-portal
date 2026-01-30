@@ -1,5 +1,5 @@
 import { join } from "path";
-import { existsSync, mkdirSync, appendFileSync, statSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { which } from "bun";
 
 export type Platform = "win32" | "darwin" | "linux";

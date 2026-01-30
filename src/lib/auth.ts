@@ -27,9 +27,9 @@ export async function getCopypartyCookie(
         };
 
         const getCookies = (res: Response) => {
-            return (res.headers as any).getSetCookie
-                ? (res.headers as any).getSetCookie()
-                : [res.headers.get("set-cookie")].filter(Boolean);
+            return (res.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie
+                ? (res.headers as unknown as { getSetCookie: () => string[] }).getSetCookie()
+                : [res.headers.get("set-cookie")].filter(Boolean) as string[];
         };
 
         // STEP 0: Establish session
@@ -51,7 +51,7 @@ export async function getCopypartyCookie(
 
         while (attempts < 2) {
             attempts++;
-            const requestHeaders: any = { ...browserHeaders, "Origin": baseUrl };
+            const requestHeaders: Record<string, string> = { ...browserHeaders, "Origin": baseUrl };
             if (activeCookies.length > 0) {
                 requestHeaders["Cookie"] = activeCookies.join("; ");
             }

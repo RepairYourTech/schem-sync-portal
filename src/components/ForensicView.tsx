@@ -14,7 +14,7 @@ interface ForensicViewProps {
     onCancel: () => void;
 }
 
-export function ForensicView({ targetDir, gdriveRemote, onComplete, onCancel }: ForensicViewProps) {
+export function ForensicView({ targetDir, gdriveRemote, onComplete: _onComplete, onCancel }: ForensicViewProps) {
     const { colors } = useTheme();
     const [progress, setProgress] = useState<ForensicProgress | null>(null);
 
@@ -55,17 +55,6 @@ export function ForensicView({ targetDir, gdriveRemote, onComplete, onCancel }: 
                         <text fg={colors.danger}>❌ SCANNER FAILURE: {progress?.currentFile}</text>
                     )}
                     <text fg={colors.dim}>Results isolated to _risk_tools/ and excluded from Cloud Sync.</text>
-                    <box
-                        marginTop={1}
-                        border
-                        borderStyle="single"
-                        borderColor={colors.danger}
-                        paddingLeft={1}
-                        paddingRight={1}
-                        width="auto"
-                    >
-                        <Hotkey keyLabel="esc" label="Back to Options" layout="prefix" isFocused={true} />
-                    </box>
                 </box>
             )}
         </box>

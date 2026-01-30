@@ -1,7 +1,6 @@
-import { createCliRenderer, TextAttributes, SyntaxStyle } from "@opentui/core";
+import { createCliRenderer, TextAttributes } from "@opentui/core";
 import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import React, { useState, useEffect, useCallback } from "react";
-import { join } from "path";
 import { spawn } from "child_process";
 import { Splash } from "./components/Splash";
 import { Dashboard } from "./components/Dashboard";
@@ -12,9 +11,8 @@ import { SyncPortal } from "./components/SyncPortal";
 import { ThemeProvider, useTheme } from "./lib/theme";
 import { loadConfig, saveConfig, isConfigComplete, isConfigEmpty, type PortalConfig } from "./lib/config";
 import { useSync } from "./hooks/useSync";
-import { bootstrapSystem } from "./lib/deploy";
-import { createRcloneRemote, removePortalConfig } from "./lib/rclone";
-import { checkDependencies } from "./lib/doctor";
+import { checkDependencies, type DependencyStatus } from "./lib/doctor";
+import { checkFontGuard } from "./lib/fontGuard";
 import { Env } from "./lib/env";
 import { Logger } from "./lib/logger";
 import { Hotkey } from "./components/Hotkey";
@@ -38,7 +36,7 @@ function AppContent() {
   const [backSignal, setBackSignal] = useState(0);
 
   const { colors } = useTheme();
-  const [deps, setDeps] = useState(checkDependencies());
+  const [deps, setDeps] = useState<DependencyStatus | null>(null);
   const renderer = useRenderer();
   const { progress, isRunning, start, stop } = useSync();
 
@@ -46,10 +44,43 @@ function AppContent() {
   const [bodyIndex, setBodyIndex] = useState(0);
   const [footerFocus, setFooterFocus] = useState<number | null>(null);
   const { width, height } = useTerminalDimensions();
+  const [showFontInstallPrompt, setShowFontInstallPrompt] = useState(false);
 
   useEffect(() => {
-    setDeps(checkDependencies());
-  }, [view]);
+    const runChecks = async () => {
+      const currentDeps = await checkDependencies();
+      setDeps(currentDeps);
+
+      // Auto-detect Nerd Font version if not set
+      if (config.nerd_font_version === undefined) {
+        const detected = currentDeps.recommendedVersion;
+        const newConfig = { ...config, nerd_font_version: detected };
+        setConfig(newConfig);
+        saveConfig(newConfig);
+        Logger.debug("SYSTEM", `Auto-detected Nerd Font v${detected} environment. Saving preference.`);
+      }
+
+      const guardStatus = await checkFontGuard(config);
+      if (guardStatus.requiresInstallation && !config.nerd_font_auto_install_dismissed) {
+        setShowFontInstallPrompt(true);
+      }
+
+      if (guardStatus.isInstalled && guardStatus.installedFamily) {
+        const newConfig = {
+          ...config,
+          nerd_font_installed_family: guardStatus.installedFamily,
+          nerd_font_last_check: Date.now()
+        };
+        setConfig(newConfig);
+        saveConfig(newConfig);
+      }
+      Logger.debug('SYSTEM', `Font Guard status: ${guardStatus.message}`);
+    };
+
+    runChecks();
+  }, [view, config.nerd_font_auto_install_dismissed]);
+
+  const activeFontVersion = config.nerd_font_version || 2;
 
   const handleStartSync = useCallback(() => {
     if (config.source_provider !== "none" && !isRunning) {
@@ -316,22 +347,35 @@ function AppContent() {
 
         {view === "doctor" && (
           <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ SYSTEM DIAGNOSTICS ]" gap={1}>
-            <text fg={deps.bun ? colors.success : colors.danger}>Bun Runtime: {deps.bun || "MISSING"}</text>
-            <text fg={deps.zig ? colors.success : colors.danger}>Zig Compiler: {deps.zig || "MISSING"}</text>
-            <text fg={deps.rclone ? colors.success : colors.danger}>Rclone Sync: {deps.rclone || "MISSING"}</text>
-            <text fg={deps.archive ? colors.success : colors.danger}>Archive Engines (7z/RAR): {deps.archive || "MISSING"}</text>
-            <text fg={colors.primary}>Free Disk Space: {deps.diskSpace}</text>
-            <box
-              marginTop="auto"
-              border
-              borderStyle="single"
-              borderColor={colors.danger}
-              paddingLeft={1}
-              paddingRight={1}
-              width="auto"
-            >
-              <Hotkey keyLabel="esc" label="Back to Options" layout="prefix" isFocused={true} />
-            </box>
+            {deps ? (
+              <>
+                <text fg={deps.bun ? colors.success : colors.danger}>Bun Runtime: {deps.bun || "MISSING"}</text>
+                <text fg={deps.zig ? colors.success : colors.danger}>Zig Compiler: {deps.zig || "MISSING"}</text>
+                <text fg={deps.rclone ? colors.success : colors.danger}>Rclone Sync: {deps.rclone || "MISSING"}</text>
+                <text fg={deps.archive ? colors.success : colors.danger}>Archive Engines (7z/RAR): {deps.archive || "MISSING"}</text>
+                <text fg={colors.primary}>Font Health: {deps.nerdFont}</text>
+                <text fg={colors.primary}>Recommended Version: v{deps.recommendedVersion}</text>
+                <text fg={colors.primary}>Free Disk Space: {deps.diskSpace}</text>
+
+                <box flexDirection="column" marginTop={1} padding={1} border borderStyle="rounded" borderColor={colors.success} title="[ GLYPH TEST ]">
+                  <box flexDirection="column" gap={0}>
+                    <box flexDirection="row" gap={2}>
+                      <text fg={activeFontVersion === 2 ? colors.success : colors.dim}>[ {'\uf61a'} ] Legacy Cat (v2){activeFontVersion === 2 ? " ★" : ""}</text>
+                      <text fg={activeFontVersion === 3 ? colors.success : colors.dim}>[ {'\ueeed'} ] Modern Cat (v3 FA){activeFontVersion === 3 ? " ★" : ""}</text>
+                    </box>
+                    <box flexDirection="row" gap={2}>
+                      <text fg={activeFontVersion === 3 ? colors.success : colors.dim}>[ {'\uf011b'} ] MDI Cat (v3 MDI)</text>
+                      <text fg={colors.success}>[ {'\uf07b'} ] Folder</text>
+                      <text fg={colors.success}>[ {'\ue615'} ] Gear</text>
+                    </box>
+                  </box>
+                  <text marginTop={1} fg={colors.dim} attributes={TextAttributes.DIM}>Identify which cat renders correctly. Switch versions in Options.</text>
+                  <text fg={colors.dim} attributes={TextAttributes.DIM}>★ indicates your current preference.</text>
+                </box>
+              </>
+            ) : (
+              <text fg={colors.dim}>Running diagnostics...</text>
+            )}
           </box>
         )}
       </box>
@@ -354,7 +398,7 @@ function AppContent() {
               </text>
             </box>
             <box flexDirection="row" alignItems="center" gap={1}>
-              <SlimeIcon />
+              <SlimeIcon version={activeFontVersion} />
               <text
                 onMouseDown={() => {
                   const url = "https://slimeinacloak.github.io/crypto";
@@ -386,7 +430,6 @@ function AppContent() {
                     keyLabel={action.key === "escape" ? "ESC" : action.key}
                     label={action.label}
                     isFocused={isFocused}
-                    layout="prefix"
                   />
                 </box>
               );

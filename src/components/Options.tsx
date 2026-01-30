@@ -1,12 +1,11 @@
 import React, { useState, useCallback } from "react";
-import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { useKeyboard } from "@opentui/react";
 import { useTheme } from "../lib/theme";
 import { performUpdate, type UpdateStatus } from "../lib/updater";
 import { Hotkey } from "./Hotkey";
 import { type PortalConfig } from "../lib/config";
 import { TextAttributes } from "@opentui/core";
 
-import { Env } from "../lib/env";
 import { Logger } from "../lib/logger";
 
 interface OptionsProps {
@@ -44,10 +43,19 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
             description: "Cycle logging verbosity (NORMAL, DEBUG, VERBOSE).",
             key: "3"
         },
-        { label: "Log Viewer", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "4" },
-        { label: "Force Forensic Sweep", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "5" },
-        { label: "Reset Configuration", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "6" },
-        { label: "Back to Home", action: onBack, description: "Return to the main screen.", key: "7" }
+        {
+            label: `Nerd Font Version: [v${config.nerd_font_version || 2}]`,
+            action: () => {
+                const next = config.nerd_font_version === 3 ? 2 : 3;
+                onUpdateConfig({ ...config, nerd_font_version: next });
+            },
+            description: "Toggle between Legacy (v2) and Modern (v3) codepoints.",
+            key: "4"
+        },
+        { label: "Log Viewer", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "5" },
+        { label: "Force Forensic Sweep", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "6" },
+        { label: "Reset Configuration", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "7" },
+        { label: "Back to Home", action: onBack, description: "Return to the main screen.", key: "8" }
     ];
 
     const handleUpdate = useCallback(async () => {
@@ -75,6 +83,7 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
             else if (e.name === "5") setSelectedIndex(4);
             else if (e.name === "6") setSelectedIndex(5);
             else if (e.name === "7") setSelectedIndex(6);
+            else if (e.name === "8") setSelectedIndex(7);
             else if (e.name === "a") setSubView("about");
             else if (e.name === "up") {
                 setSelectedIndex(prev => (prev > 0 ? prev - 1 : options.length - 1));
@@ -117,9 +126,8 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
 
                 <box border borderStyle="single" borderColor={colors.border} padding={1} marginTop="auto" flexDirection="row" gap={2}>
                     <box border={isFocusedOnClear} borderStyle="single" borderColor={isFocusedOnClear ? colors.success : "transparent"} paddingLeft={1} paddingRight={1}>
-                        <Hotkey keyLabel="c" label="Clear Logs" layout="prefix" isFocused={isFocusedOnClear} />
+                        <Hotkey keyLabel="c" label="Clear Logs" isFocused={isFocusedOnClear} />
                     </box>
-                    <Hotkey keyLabel="esc" label="Back" layout="prefix" />
                 </box>
             </box>
         );
@@ -158,7 +166,6 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
                             <Hotkey
                                 keyLabel="u"
                                 label={isUpdating ? "UPDATING..." : "Check for Updates"}
-                                layout="prefix"
                                 isFocused={isUpdateActionFocused}
                             />
                         </box>
@@ -170,10 +177,6 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
                             </text>
                         </box>
                     ) : null}
-                </box>
-
-                <box marginTop="auto">
-                    <Hotkey keyLabel="esc" label="Back" layout="prefix" />
                 </box>
             </box>
         );
@@ -195,7 +198,6 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
                             <Hotkey
                                 keyLabel={opt.key}
                                 label={opt.label}
-                                layout="prefix"
                                 isFocused={isSelected}
                             />
                         </box>

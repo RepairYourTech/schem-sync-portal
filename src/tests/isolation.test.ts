@@ -1,6 +1,6 @@
 import { expect, test, describe } from "bun:test";
-import { updateGdriveRemote, removePortalConfig } from "../lib/rclone";
-import { readFileSync, existsSync, writeFileSync } from "fs";
+import { removePortalConfig } from "../lib/rclone";
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from "fs";
 import { Env } from "../lib/env";
 
 describe("Config Isolation", () => {
@@ -9,7 +9,7 @@ describe("Config Isolation", () => {
     test("should surgically remove only portal remotes", () => {
         // Ensure config exists and has a "safe" remote
         const initialContent = `[protected_remote]\ntype = drive\nscope = drive\n\n`;
-        if (!existsSync(Env.getPaths().rcloneConfigDir)) require("fs").mkdirSync(Env.getPaths().rcloneConfigDir, { recursive: true });
+        if (!existsSync(Env.getPaths().rcloneConfigDir)) mkdirSync(Env.getPaths().rcloneConfigDir, { recursive: true });
         writeFileSync(rcloneConfig, initialContent);
 
         // 1. Manually add Portal Remote (Simulate creation)

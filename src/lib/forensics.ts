@@ -74,8 +74,9 @@ export async function runForensicSweep(
         onProgress({ currentFile: "Forensic Sweep Complete.", filesProcessed: total, totalFiles: total, status: "done" });
         Logger.info("SYNC", "Forensic Sweep Complete.");
 
-    } catch (err: any) {
-        onProgress({ currentFile: `Forensic Error: ${err.message}`, filesProcessed: 0, totalFiles: 0, status: "error" });
-        Logger.error("SYNC", "Forensic Sweep failed", err);
+    } catch (err: unknown) {
+        const error = err as Error;
+        onProgress({ currentFile: `Forensic Error: ${error.message}`, filesProcessed: 0, totalFiles: 0, status: "error" });
+        Logger.error("SYNC", "Forensic Sweep failed", error);
     }
 }

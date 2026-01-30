@@ -17,7 +17,7 @@ interface SyncPortalProps {
     onFocusChange: (area: "body" | "footer") => void;
 }
 
-export function SyncPortal({ config, progress, isRunning, onStop, onStart, configLoaded, focusArea, onFocusChange }: SyncPortalProps) {
+export function SyncPortal({ config, progress, isRunning, onStop: _onStop, onStart: _onStart, configLoaded, focusArea, onFocusChange: _onFocusChange }: SyncPortalProps) {
     const { width } = useTerminalDimensions();
     const { colors } = useTheme();
 
@@ -137,7 +137,6 @@ export function SyncPortal({ config, progress, isRunning, onStop, onStart, confi
                         <Hotkey
                             keyLabel="return"
                             label={isDone ? "Sync Again" : "Start Sync"}
-                            layout="prefix"
                             isFocused={isBodyFocused && configLoaded}
                         />
                     </box>
@@ -152,7 +151,6 @@ export function SyncPortal({ config, progress, isRunning, onStop, onStart, confi
                         <Hotkey
                             keyLabel="?"
                             label="STOP (TBD)"
-                            layout="prefix"
                             isFocused={isBodyFocused}
                         />
                     </box>

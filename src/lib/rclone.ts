@@ -1,4 +1,4 @@
-import { execFileSync, execFile } from "child_process";
+import { execFile } from "child_process";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { spawnSync } from "bun";
 import { Env } from "./env";
