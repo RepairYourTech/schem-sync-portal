@@ -7,6 +7,63 @@ import { Env } from "./env";
 import { Logger } from "./logger";
 import { readFileSync, writeFileSync, readdirSync } from "fs";
 
+/**
+ * Represents an individual file being transferred during sync operations.
+ * Populated in downloadQueue during pull phase and uploadQueue during cloud phase.
+ */
+export interface FileTransferItem {
+    filename: string;
+    size: number;
+    transferred: number;
+    percentage: number;
+    speed: string;
+    status: "queued" | "active" | "completed" | "failed";
+    eta?: string;
+}
+
+/**
+ * Statistics regarding the manifest analysis phase.
+ * Populated in manifestStats during pull phase.
+ */
+export interface ManifestStats {
+    remoteFileCount: number;
+    localFileCount: number;
+    missingFileCount: number;
+    optimizationMode: "manifest" | "full";
+    manifestSource?: "source" | "backup" | "none";
+}
+
+/**
+ * Statistics for the malware shield cleanup operation.
+ * Populated in cleanupStats during clean phase.
+ */
+export interface CleanupStats {
+    totalArchives: number;
+    scannedArchives: number;
+    currentArchive?: string;
+    currentArchiveSize?: number;
+    safePatternCount: number;
+    riskyPatternCount: number;
+    cleanArchives: number;
+    flaggedArchives: number;
+    extractedFiles: number;
+    purgedFiles: number;
+    isolatedFiles: number;
+    policyMode: "purge" | "isolate";
+}
+
+/**
+ * Summary statistics for cloud sync operations.
+ * Populated in cloudStats during cloud phase.
+ */
+export interface CloudSyncStats {
+    newFiles: number;
+    updatedFiles: number;
+    deletedFiles: number;
+    provider?: string;
+    trashEnabled?: boolean;
+}
+
 export interface SyncProgress {
     phase: "pull" | "clean" | "cloud" | "done" | "error";
     description: string;
@@ -17,6 +74,14 @@ export interface SyncProgress {
     totalFiles?: number;
     bytesTransferred?: string;
     errorCount?: number;
+
+    // New optional fields for enhanced tracking
+    manifestStats?: ManifestStats;
+    downloadQueue?: FileTransferItem[];
+    uploadQueue?: FileTransferItem[];
+    cleanupStats?: CleanupStats;
+    cloudStats?: CloudSyncStats;
+    transferSlots?: { active: number; total: number };
 }
 
 const RETRY_FLAGS = [
