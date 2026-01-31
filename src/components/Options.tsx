@@ -21,7 +21,7 @@ interface OptionsProps {
     onUpdateConfig: (config: PortalConfig) => void;
 }
 
-export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusArea, onFocusChange, tabTransition, config, onUpdateConfig }: OptionsProps) {
+export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onBack, focusArea, onFocusChange, tabTransition, config, onUpdateConfig }: OptionsProps) => {
     const { colors } = useTheme();
     const [subView, setSubView] = useState<"menu" | "about" | "logs">("menu");
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -31,24 +31,31 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
     const [logs, setLogs] = useState<string[]>([]);
 
     const options = [
-        { label: "System Diagnostics (Doctor)", action: onDoctor, description: "Verify dependencies and system health.", key: "1" },
-        { label: "Edit Settings (Granular Menu)", action: onSetup, description: "Jump directly to specific settings without a full restart.", key: "2" },
+        { label: "System Diagnostics ([1])", action: onDoctor, description: "Verify dependencies and system health.", key: "1" },
+        { label: "Edit [S]ettings", action: onSetup, description: "Jump directly to specific settings without a full restart.", key: "2" },
         {
-            label: `Log Level: [${Logger.getLevel()}]`,
+            label: `Debug Mode: [${config.debug_mode ? "ON" : "OFF"}] ([3])`,
             action: () => {
-                const levels: ("NORMAL" | "DEBUG" | "VERBOSE")[] = ["NORMAL", "DEBUG", "VERBOSE"];
-                const current = Logger.getLevel();
-                const next = levels[(levels.indexOf(current) + 1) % levels.length] as ("NORMAL" | "DEBUG" | "VERBOSE");
-                Logger.setLevel(next);
-                onUpdateConfig({ ...config, debug_mode: next !== "NORMAL" });
+                onUpdateConfig({ ...config, debug_mode: !config.debug_mode });
             },
-            description: "Cycle logging verbosity (NORMAL, DEBUG, VERBOSE).",
+            description: "Enable internal system telemetry and developer view.",
             key: "3"
         },
-        { label: "Log Viewer", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "4" },
-        { label: "Force Forensic Sweep", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "5" },
-        { label: "Reset Configuration", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "6" },
-        { label: "Back", action: onBack, description: "Return to the previous screen.", key: "b" }
+        {
+            label: `Log Level: [${config.log_level || "NORMAL"}] ([4])`,
+            action: () => {
+                const levels: ("NORMAL" | "DEBUG" | "VERBOSE")[] = ["NORMAL", "DEBUG", "VERBOSE"];
+                const current = config.log_level || "NORMAL";
+                const next = levels[(levels.indexOf(current) + 1) % levels.length] as ("NORMAL" | "DEBUG" | "VERBOSE");
+                onUpdateConfig({ ...config, log_level: next });
+            },
+            description: "Cycle logging verbosity (NORMAL, DEBUG, VERBOSE).",
+            key: "4"
+        },
+        { label: "Log [V]iewer", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "5" },
+        { label: "Force Forensic [S]weep", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "6" },
+        { label: "Reset [C]onfiguration", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "7" },
+        { label: "[B]ack", action: onBack, description: "Return to the previous screen.", key: "b" }
     ];
 
     const handleUpdate = useCallback(async () => {
@@ -109,6 +116,7 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
                 else if (e.name === "4") setSelectedIndex(3);
                 else if (e.name === "5") setSelectedIndex(4);
                 else if (e.name === "6") setSelectedIndex(5);
+                else if (e.name === "7") setSelectedIndex(6);
                 else if (e.name === "b") onBack();
                 else if (e.name === "a") setSubView("about");
                 else if (e.name === "up") {
@@ -277,4 +285,5 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
 
         </box>
     );
-}
+});
+Options.displayName = "Options";

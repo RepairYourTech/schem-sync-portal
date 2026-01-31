@@ -1,6 +1,6 @@
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync } from "fs";
-import { Logger } from "./logger";
+import { Logger, type LogLevel } from "./logger";
 
 export type PortalProvider = "copyparty" | "gdrive" | "b2" | "sftp" | "pcloud" | "onedrive" | "dropbox" | "mega" | "r2" | "none" | "unconfigured";
 
@@ -27,6 +27,7 @@ export interface PortalConfig {
     };
     desktop_shortcut: number; // 0=unset, 1=on, 2=skipped
     debug_mode: boolean;
+    log_level?: LogLevel;
     nerd_font_version?: 2 | 3;
     cookie?: string;
     copyparty_method?: "webdav" | "http";
@@ -38,9 +39,13 @@ export interface PortalConfig {
     nerd_font_auto_install_dismissed?: boolean;
     nerd_font_installed_family?: string;
     nerd_font_last_check?: number;
+
+    // 5. Performance
+    downsync_transfers?: 4 | 6 | 8;
+    upsync_transfers?: 4 | 6 | 8;
 }
 
-const PROJECT_ROOT = join(import.meta.dir, "..", "..");
+const PROJECT_ROOT = join(process.cwd());
 const CONFIG_PATH = join(PROJECT_ROOT, "config.json");
 
 /**
@@ -56,10 +61,13 @@ export const EMPTY_CONFIG: PortalConfig = {
     enable_malware_shield: false,
     desktop_shortcut: 0,
     debug_mode: false,
+    log_level: "NORMAL",
     nerd_font_auto_install: undefined,
     nerd_font_auto_install_dismissed: undefined,
     nerd_font_installed_family: undefined,
-    nerd_font_last_check: undefined
+    nerd_font_last_check: undefined,
+    downsync_transfers: 4,
+    upsync_transfers: 4
 };
 
 export function loadConfig(): PortalConfig {
@@ -71,6 +79,13 @@ export function loadConfig(): PortalConfig {
             // MIGRATION: Convert legacy "none" defaults to "unconfigured" or ""
             if (parsed.source_provider === "none") parsed.source_provider = "unconfigured";
             if (parsed.local_dir === "none") parsed.local_dir = "";
+
+            // MIGRATION: log_level replacement for debug_mode
+            if (parsed.log_level === undefined && parsed.debug_mode === true) {
+                parsed.log_level = "DEBUG";
+            } else if (parsed.log_level === undefined) {
+                parsed.log_level = "NORMAL";
+            }
 
             return { ...EMPTY_CONFIG, ...parsed };
         }
@@ -94,6 +109,7 @@ export function saveConfig(config: PortalConfig): void {
             last_sync_stats: config.last_sync_stats,
             desktop_shortcut: config.desktop_shortcut,
             debug_mode: config.debug_mode,
+            log_level: config.log_level || "NORMAL",
             nerd_font_version: config.nerd_font_version,
             cookie: config.cookie,
             copyparty_method: config.copyparty_method,
@@ -102,7 +118,9 @@ export function saveConfig(config: PortalConfig): void {
             nerd_font_auto_install: config.nerd_font_auto_install,
             nerd_font_auto_install_dismissed: config.nerd_font_auto_install_dismissed,
             nerd_font_installed_family: config.nerd_font_installed_family,
-            nerd_font_last_check: config.nerd_font_last_check
+            nerd_font_last_check: config.nerd_font_last_check,
+            downsync_transfers: config.downsync_transfers || 4,
+            upsync_transfers: config.upsync_transfers || 4
         };
 
         const data = JSON.stringify(clean, null, 2);

@@ -30,7 +30,7 @@ import { FlexBVIcon } from "./components/FlexBVIcon";
 import { SlimeIcon } from "./components/SlimeIcon";
 
 export type ViewName = "dashboard" | "wizard" | "doctor" | "options" | "sync" | "forensic" | "fontinstaller" | "fontguide";
-type WizardMode = "continue" | "restart";
+type WizardMode = "continue" | "restart" | "edit";
 type FocusArea = "body" | "footer";
 
 function AppContent() {
@@ -42,12 +42,14 @@ function AppContent() {
   const { colors } = useTheme();
   const [deps, setDeps] = useState<DependencyStatus | null>(null);
   const renderer = useRenderer();
-  const { progress, isRunning, start, stop } = useSync();
+  const { progress, isRunning, start, stop, pause, resume } = useSync();
 
   const [focusArea, setFocusArea] = useState<FocusArea>("body");
   const tabDirection = useRef<"forward" | "backward" | null>(null);
   const [bodyIndex, setBodyIndex] = useState(0);
   const [doctorIndex, setDoctorIndex] = useState(0);
+  const [syncFocusIndex, setSyncFocusIndex] = useState(0);
+  const [syncSubFocusIndex, setSyncSubFocusIndex] = useState(0);
   const [footerFocus, setFooterFocus] = useState<number | null>(null);
   const { width, height } = useTerminalDimensions();
   const [showFontInstallPrompt, setShowFontInstallPrompt] = useState(false);
@@ -97,6 +99,12 @@ function AppContent() {
     runChecks();
   }, [view, config.nerd_font_auto_install_dismissed]);
 
+  // Sync Logger with config
+  useEffect(() => {
+    const level = config.log_level || (config.debug_mode ? "DEBUG" : "NORMAL");
+    Logger.setLevel(level);
+  }, [config.log_level, config.debug_mode]);
+
   // Clear tabDirection after use
   useEffect(() => {
     tabDirection.current = null;
@@ -118,13 +126,17 @@ function AppContent() {
       case "doctor": setView("options"); setFocusArea("body"); break;
       case "forensic": setView("options"); setFocusArea("body"); break;
       case "wizard": setBackSignal(prev => prev + 1); break;
+      case "sync":
+        if (isRunning) stop();
+        setView("dashboard");
+        break;
       case "fontinstaller":
       case "fontguide":
         setView(fontInstallerReturnView);
         break;
       default: setView("dashboard");
     }
-  }, [view, fontInstallerReturnView]);
+  }, [view, fontInstallerReturnView, isRunning, stop]);
 
   const hasConfig = config.source_provider !== "none";
 
@@ -164,7 +176,14 @@ function AppContent() {
     }
 
     // Always include Exit as the final action
-    actions.push({ key: "escape", label: "Exit", action: () => renderer.destroy() });
+    actions.push({
+      key: "escape",
+      label: "Exit",
+      action: () => {
+        if (isRunning) stop();
+        renderer.destroy();
+      }
+    });
 
     return actions;
   }, [view, isRunning, stop, renderer]);
@@ -172,8 +191,107 @@ function AppContent() {
   useKeyboard((key) => {
     if (!key) return;
 
-    // View-specific back navigation priority
-    if (key.name === "b" && view !== "dashboard") {
+    // --- PRIORITY 1: SYNC VIEW DELEGATION ---
+    // If we're in sync view, these keys take absolute priority to ensure internal responsiveness
+    if (view === "sync") {
+      const showSource = config.source_provider !== "none";
+      const showShield = config.enable_malware_shield === true;
+      const showDest = config.upsync_enabled && config.backup_provider !== "none";
+      const panelCount = 1 + (showSource ? 1 : 0) + (showShield ? 1 : 0) + (showDest ? 1 : 0);
+
+      // S[T]art / S[T]op Toggle
+      if (key.name === "t") {
+        if (isRunning) stop();
+        else handleStartSync();
+        return;
+      }
+
+      // Up/Down Navigation (Switch Panels)
+      if (key.name === "up" || key.name === "k") {
+        setSyncFocusIndex(prev => (prev === 0 ? panelCount - 1 : prev - 1));
+        setSyncSubFocusIndex(0);
+        return;
+      }
+      if (key.name === "down" || key.name === "j") {
+        setSyncFocusIndex(prev => (prev === panelCount - 1 ? 0 : prev + 1));
+        setSyncSubFocusIndex(0);
+        return;
+      }
+
+      // Left/Right Navigation (Switch Sub-controls)
+      if (key.name === "left" || key.name === "h") {
+        // We'll calculate sub-control count based on panel index
+        // Focus 0: Header (No sub-controls yet)
+        // Focus 1-3: Panels (Pause/Resume, Skip, Speed)
+        if (syncFocusIndex > 0) {
+          setSyncSubFocusIndex(prev => (prev === 0 ? 3 : prev - 1));
+        }
+        return;
+      }
+      if (key.name === "right" || key.name === "l") {
+        if (syncFocusIndex > 0) {
+          setSyncSubFocusIndex(prev => (prev === 3 ? 0 : prev + 1));
+        }
+        return;
+      }
+
+      // [P]ause / [R]esume
+      if (key.name === "p") {
+        if (!progress.isPaused) pause();
+        return;
+      }
+      if (key.name === "r") {
+        if (progress.isPaused) resume();
+        return;
+      }
+
+      // Performance Mode Hotkeys [4]-[6]-[8]
+      if (key.name === "4" || key.name === "6" || key.name === "8") {
+        const rate = parseInt(key.name) as 4 | 6 | 8;
+        // Focus 0: Global (Update Both)
+        // Focus 1: Source
+        // Focus 2: Shield (N/A but we'll allow it)
+        // Focus 3: Dest
+
+        let newConfig = { ...config };
+        if (syncFocusIndex === 0) {
+          newConfig.downsync_transfers = rate;
+          newConfig.upsync_transfers = rate;
+        } else if (syncFocusIndex === 1) {
+          newConfig.downsync_transfers = rate;
+        } else if (syncFocusIndex === 3) {
+          newConfig.upsync_transfers = rate;
+        }
+
+        setConfig(newConfig);
+        return;
+      }
+
+      // Standard Return Behavior (Trigger highlighted sub-action)
+      if (key.name === "return") {
+        if (syncFocusIndex === 0) {
+          if (isRunning) stop();
+          else handleStartSync();
+        } else if (syncFocusIndex > 0) {
+          // Trigger panel-specific sub-action
+          // Sub-focus 0: Pause/Resume, 1: 4x, 2: 6x, 3: 8x
+          if (syncSubFocusIndex === 0) {
+            if (progress.isPaused) resume();
+            else pause();
+          } else if (syncSubFocusIndex >= 1 && syncSubFocusIndex <= 3) {
+            const rate = (syncSubFocusIndex === 1 ? 4 : syncSubFocusIndex === 2 ? 6 : 8) as 4 | 6 | 8;
+            let newConfig = { ...config };
+            if (syncFocusIndex === 1) newConfig.downsync_transfers = rate;
+            if (syncFocusIndex === 3) newConfig.upsync_transfers = rate;
+            setConfig(newConfig);
+          }
+        }
+        return;
+      }
+    }
+
+    // View-specific back navigation priority (if NOT in sync view)
+    if (key.name === "b" && view !== "dashboard" && view !== "sync") {
       handleBack();
       return;
     }
@@ -284,7 +402,29 @@ function AppContent() {
           return;
         }
 
-        if (view === "sync" || view === "fontinstaller" || view === "fontguide") {
+        if (view === "sync") {
+          const showSource = config.source_provider !== "none";
+          const showShield = config.enable_malware_shield === true;
+          const showDest = config.upsync_enabled && config.backup_provider !== "none";
+          const count = 1 + (showSource ? 1 : 0) + (showShield ? 1 : 0) + (showDest ? 1 : 0);
+
+          if (key.shift) {
+            if (syncFocusIndex === 0) {
+              tabDirection.current = "backward";
+              setFocusArea("footer");
+              setFooterFocus(0);
+            } else setSyncFocusIndex(prev => prev - 1);
+          } else {
+            if (syncFocusIndex >= count - 1) {
+              tabDirection.current = "forward";
+              setFocusArea("footer");
+              setFooterFocus(0);
+            } else setSyncFocusIndex(prev => prev + 1);
+          }
+          return;
+        }
+
+        if (view === "fontinstaller" || view === "fontguide") {
           // These views only have one body interaction or are static/guides
           tabDirection.current = key.shift ? "backward" : "forward";
           setFocusArea("footer");
@@ -352,7 +492,7 @@ function AppContent() {
         if (key.name === "c" && !isEmpty && !isComplete) {
           setBodyIndex(0);
         }
-        if (key.name === "p" && isComplete) {
+        if (key.name === "t" && isComplete) {
           setBodyIndex(0);
         }
       }
@@ -449,7 +589,8 @@ function AppContent() {
                 } else if (key === "c") {
                   setView("wizard");
                   setWizardMode("continue");
-                } else if (key === "p") {
+                } else if (key === "t") {
+                  setView("sync"); // Switch view first
                   handleStartSync();
                 }
               }}
@@ -488,9 +629,20 @@ function AppContent() {
             isRunning={isRunning}
             onStop={stop}
             onStart={handleStartSync}
+            onPause={pause}
+            onResume={resume}
             configLoaded={hasConfig}
             focusArea={focusArea}
             onFocusChange={setFocusArea}
+            focusIndex={syncFocusIndex}
+            onFocusIndexChange={setSyncFocusIndex}
+            subFocusIndex={syncSubFocusIndex}
+            onSubFocusIndexChange={setSyncSubFocusIndex}
+            onUpdateConfig={(newConfig) => {
+              setConfig(newConfig);
+              saveConfig(newConfig);
+              Logger.info("SYNC", "Performance settings updated.");
+            }}
           />
         )}
 
@@ -512,7 +664,7 @@ function AppContent() {
         {view === "options" && (
           <Options
             onDoctor={() => setView("doctor")}
-            onSetup={() => { setView("wizard"); setWizardMode("continue"); }}
+            onSetup={() => { setView("wizard"); setWizardMode("edit"); }}
             onForensic={() => setView("forensic")}
             onReset={onReset}
             onBack={() => setView("dashboard")}

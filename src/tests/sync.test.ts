@@ -38,9 +38,8 @@ describe("Sync Engine Integration", () => {
     test("should parse progress correctly from MockRclone", async () => {
         Logger.clearLogs();
         const progressUpdates: SyncProgress[] = [];
-
         await runSync(mockConfig, (p) => {
-            progressUpdates.push(p);
+            progressUpdates.push(p as SyncProgress);
         });
 
         // Check if we got progress updates
@@ -57,6 +56,12 @@ describe("Sync Engine Integration", () => {
             expect(midPull.transferSpeed).toBeDefined();
             expect(midPull.eta).toBeDefined();
             expect(midPull.bytesTransferred).toContain("MiB");
+
+            // NEW: Verify File Queue population
+            const queue = midPull.downloadQueue!;
+            expect(queue).toBeDefined();
+            expect(queue.length).toBeGreaterThan(0);
+            expect(queue[0]!.filename).toContain("file_");
         }
     });
 
@@ -66,7 +71,7 @@ describe("Sync Engine Integration", () => {
 
         const progressUpdates: SyncProgress[] = [];
         await runSync(mockConfig, (p) => {
-            progressUpdates.push(p);
+            progressUpdates.push(p as SyncProgress);
         });
 
         const errorUpdate = progressUpdates.find(u => u.phase === "error");

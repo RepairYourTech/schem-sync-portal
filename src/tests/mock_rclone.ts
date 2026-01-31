@@ -33,6 +33,10 @@ async function simulate() {
             // Files line: Files: 1 / 10, 10%
             console.log(`Files:               ${i / 10} / 10, ${i}%`);
 
+            // Simulate 2 individual file transfers
+            console.log(`* file_${i}.bin: ${i}% /100 MiB, 1 MiB/s, ${100 - i}s`);
+            console.log(`* file_${i + 1}.bin: ${Math.min(100, i + 5)}% /50 MiB, 0.5 MiB/s, ${90 - i}s`);
+
             await new Promise(r => setTimeout(r, LATENCY_MS));
         }
     }

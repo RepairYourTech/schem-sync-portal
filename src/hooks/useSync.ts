@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import type { PortalConfig } from "../lib/config";
-import { runSync, stopSync, type SyncProgress } from "../lib/sync";
+import { runSync, stopSync, pauseSync, resumeSync, clearSyncSession, type SyncProgress } from "../lib/sync";
 
 export function useSync() {
     const [progress, setProgress] = useState<SyncProgress>({
@@ -16,8 +16,13 @@ export function useSync() {
         stopRequested.current = false;
         try {
             await runSync(config, (p) => {
-                setProgress(p);
+                setProgress(prev => ({
+                    ...prev,
+                    ...p
+                }));
             });
+            // Clear session state after successful completion
+            clearSyncSession();
         } catch (err) {
             setProgress({
                 phase: "error",
@@ -40,10 +45,20 @@ export function useSync() {
         });
     }, []);
 
+    const pause = useCallback(() => {
+        pauseSync();
+    }, []);
+
+    const resume = useCallback(() => {
+        resumeSync();
+    }, []);
+
     return {
         progress,
         isRunning,
         start,
         stop,
+        pause,
+        resume
     };
 }

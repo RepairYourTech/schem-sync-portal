@@ -13,7 +13,7 @@ interface DashboardProps {
     onAction?: (key: string) => void;
 }
 
-export function Dashboard({ config, isFocused, selectedIndex, onSelectionChange, onFocusChange, onAction }: DashboardProps) {
+export const Dashboard = React.memo(({ config, isFocused, selectedIndex, onSelectionChange, onFocusChange, onAction }: DashboardProps) => {
     const { colors } = useTheme();
     const complete = isConfigComplete(config);
     const empty = isConfigEmpty(config);
@@ -38,7 +38,7 @@ export function Dashboard({ config, isFocused, selectedIndex, onSelectionChange,
 
                     {/* Source */}
                     <box flexDirection="column" gap={0} alignItems="center">
-                        <text fg="#3a7af5">{'\ueac2'} Source</text>
+                        <text fg="#3a7af5"><text>{'\ueac2'}</text> Source</text>
                         <text fg={(config.source_provider !== 'none' && config.source_provider !== 'unconfigured') ? colors.success : colors.primary}>
                             {(config.source_provider === 'none' || config.source_provider === 'unconfigured') ? "NOT CONFIGURED" : `${config.source_provider.toUpperCase()}`}
                         </text>
@@ -46,7 +46,7 @@ export function Dashboard({ config, isFocused, selectedIndex, onSelectionChange,
 
                     {/* Local */}
                     <box flexDirection="column" gap={0} alignItems="center">
-                        <text fg="#3a7af5">{'\uebdf'} Local Directory</text>
+                        <text fg="#3a7af5"><text>{'\uebdf'}</text> Local Directory</text>
                         <text fg={(config.local_dir && config.local_dir !== "" && config.local_dir !== "none") ? colors.success : colors.primary}>
                             {(config.local_dir && config.local_dir !== "" && config.local_dir !== "none") ? config.local_dir : "NOT CONFIGURED"}
                         </text>
@@ -54,7 +54,7 @@ export function Dashboard({ config, isFocused, selectedIndex, onSelectionChange,
 
                     {/* Backup */}
                     <box flexDirection="column" gap={0} alignItems="center">
-                        <text fg="#3a7af5">{'\ueac3'} Backup Destination</text>
+                        <text fg="#3a7af5"><text>{'\ueac3'}</text> Backup Destination</text>
                         <text fg={(config.upsync_enabled && config.backup_provider !== 'none' && config.backup_provider !== 'unconfigured') ? colors.success : colors.primary}>
                             {(config.upsync_enabled && config.backup_provider !== 'none' && config.backup_provider !== 'unconfigured')
                                 ? `${config.backup_provider.toUpperCase()}${config.enable_malware_shield ? " (+🛡️)" : ""}`
@@ -140,17 +140,18 @@ export function Dashboard({ config, isFocused, selectedIndex, onSelectionChange,
                             onFocusChange?.("body");
                             onSelectionChange?.(0);
                         }}
-                        onMouseDown={() => onAction?.("p")}
+                        onMouseDown={() => onAction?.("t")}
                         border={isFocused && selectedIndex === 0}
                         borderStyle="single"
                         borderColor={(isFocused && selectedIndex === 0) ? colors.success : "transparent"}
                         paddingLeft={1}
                         paddingRight={1}
                     >
-                        <Hotkey keyLabel="p" label="Sync Portal" isFocused={isFocused && selectedIndex === 0} bold />
+                        <Hotkey keyLabel="t" label="Sync Por[T]al" isFocused={isFocused && selectedIndex === 0} bold />
                     </box>
                 )}
             </box>
         </box>
     );
-}
+});
+Dashboard.displayName = "Dashboard";

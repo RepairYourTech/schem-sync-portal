@@ -1,10 +1,9 @@
-import React, { useMemo } from "react";
-import { useTerminalDimensions } from "@opentui/react";
+import React, { useMemo, useEffect, useRef } from "react";
 import { TextAttributes } from "@opentui/core";
-import { type PortalConfig } from "../lib/config";
+import { useTerminalDimensions } from "@opentui/react";
 import type { SyncProgress } from "../lib/sync";
-import { useTheme } from "../lib/theme";
-import { Hotkey } from "./Hotkey";
+import type { PortalConfig } from "../lib/config";
+import { DownsyncPanel, LocalShieldPanel, UpsyncPanel, type ThemeColors } from "./SyncPortalParts";
 
 interface SyncPortalProps {
     config: PortalConfig;
@@ -12,158 +11,309 @@ interface SyncPortalProps {
     isRunning: boolean;
     onStop: () => void;
     onStart: () => void;
+    onPause: () => void;
+    onResume: () => void;
     configLoaded: boolean;
     focusArea: "body" | "footer";
     onFocusChange: (area: "body" | "footer") => void;
+    focusIndex: number;
+    onFocusIndexChange: (index: number) => void;
+    subFocusIndex: number;
+    onSubFocusIndexChange: (index: number) => void;
+    onUpdateConfig: (newConfig: PortalConfig) => void;
 }
 
-export function SyncPortal({ config, progress, isRunning, onStop: _onStop, onStart: _onStart, configLoaded, focusArea, onFocusChange: _onFocusChange }: SyncPortalProps) {
+export function SyncPortal({
+    config,
+    progress,
+    isRunning,
+    onStop: _onStop,
+    onStart: _onStart,
+    onPause,
+    onResume,
+    configLoaded,
+    focusArea,
+    onFocusChange,
+    focusIndex,
+    onFocusIndexChange,
+    subFocusIndex,
+    onSubFocusIndexChange,
+    onUpdateConfig
+}: SyncPortalProps) {
     const { width } = useTerminalDimensions();
-    const { colors } = useTheme();
+    const colors: ThemeColors = {
+        primary: "#3b82f6",
+        success: "#22c55e",
+        warning: "#eab308",
+        danger: "#ef4444",
+        accent: "#a855f7",
+        setup: "#ec4899",
+        bg: "#0f172a",
+        fg: "#f8fafc",
+        border: "#334155",
+        dim: "#64748b"
+    };
 
-    // ... (rest of logic stays same)
     const isPull = progress.phase === "pull";
-    const isClean = progress.phase === "clean";
     const isCloud = progress.phase === "cloud";
+    const isClean = progress.phase === "clean";
     const isError = progress.phase === "error";
     const isDone = progress.phase === "done";
 
-    // Progress Bar Logic (Global)
-    const progressBarWidth = useMemo(() => Math.max(20, Math.min(width - 30, 80)), [width]);
-    const completedWidth = Math.round((progress.percentage / 100) * progressBarWidth);
-    const remainingWidth = progressBarWidth - completedWidth;
+    const sourceType = config.source_provider === "copyparty" ? "SERVER" : "CLOUD";
+    const destType = config.backup_provider === "copyparty" ? "SERVER" : "CLOUD";
 
-    const barColor = useMemo(() => {
+    const showSource = config.source_provider !== "none";
+    const showShield = config.enable_malware_shield === true;
+    const showDest = config.upsync_enabled && config.backup_provider !== "none";
+
+    // Forced stop on unmount logic
+    const isRunningRef = useRef(isRunning);
+    isRunningRef.current = isRunning;
+    useEffect(() => {
+        return () => {
+            if (isRunningRef.current) {
+                _onStop();
+            }
+        };
+    }, [_onStop]);
+
+    const statusText = useMemo(() => {
+        if (isError) return "❌ ERROR";
+        if (isDone && progress.percentage === 100) return "✓ SYNC COMPLETE";
+        if (isDone) return "● STOPPED";
+        if (isCloud) return "☁️ UPLOADING TO CLOUD...";
+        if (isClean) return "🛡️ MALWARE SHIELD ACTIVE";
+        if (isPull) return "⬇️ DOWNLOADING...";
+        return "● READY";
+    }, [isError, isDone, isCloud, isClean, isPull, progress.percentage]);
+
+    const statusColor = useMemo(() => {
         if (isError) return colors.danger;
         if (isDone) return colors.success;
         if (isCloud) return colors.accent;
         if (isClean) return colors.setup;
-        return colors.primary;
-    }, [isError, isDone, isCloud, isClean, colors]);
+        if (isPull) return colors.primary;
+        return colors.dim;
+    }, [isError, isDone, isCloud, isClean, isPull, colors]);
 
-    // Dynamic Labels from Config (One SSoT)
-    const showSource = config.source_provider !== "none";
-    const showDest = config.upsync_enabled && config.backup_provider !== "none";
-
-    const sourceType = config.source_provider === "copyparty" ? "CopyParty" : (config.source_provider?.toUpperCase() || "SOURCE");
-    const destType = config.backup_provider?.toUpperCase() || "BACKUP";
-
+    // Focus Management
     const isBodyFocused = focusArea === "body";
+    const isGlobalFocused = isBodyFocused && focusIndex === 0;
+
+    const visiblePanels: ("source" | "shield" | "dest")[] = [];
+    if (showSource) visiblePanels.push("source");
+    if (showShield) visiblePanels.push("shield");
+    if (showDest) visiblePanels.push("dest");
+
+    const visiblePanelCount = visiblePanels.length;
+
+    const getPanelFocus = (type: "source" | "shield" | "dest") => {
+        if (!isBodyFocused) return false;
+        const idx = visiblePanels.indexOf(type);
+        return focusIndex === idx + 1;
+    };
+
+    const handleFocus = (type: "global" | "source" | "shield" | "dest") => {
+        onFocusChange("body");
+        if (type === "global") onFocusIndexChange(0);
+        else {
+            const idx = visiblePanels.indexOf(type);
+            if (idx !== -1) onFocusIndexChange(idx + 1);
+        }
+    };
+
+    const isWide = width >= 80;
 
     return (
-        <box flexDirection="column" padding={1} gap={1} width="100%">
+        <box flexDirection="column" gap={1} height="100%">
+            {/* === GLOBAL HEADER === */}
+            <box
+                flexDirection="row"
+                justifyContent="space-between"
+                alignItems="center"
+                paddingLeft={1}
+                paddingRight={1}
+                height={isRunning ? 2 : 3}
+                border
+                borderStyle="single"
+                borderColor={isGlobalFocused ? colors.fg : colors.border}
+            >
+                <box flexDirection="column" gap={0}>
+                    <text fg={colors.fg} attributes={TextAttributes.BOLD}>SYNC PORTAL</text>
+                    <text fg={statusColor}>{statusText}</text>
+                </box>
 
-            {/* === PIPELINE STATUS === */}
-            <box flexDirection="row" gap={1} justifyContent="center" alignItems="center" height={8} border borderStyle="single" borderColor={barColor}>
-                {showSource && (
-                    <box flexDirection="column" width={24} padding={1} alignItems="center" gap={1} borderColor={isPull ? colors.primary : colors.dim} border borderStyle={isPull ? "double" : "single"}>
-                        <text attributes={TextAttributes.BOLD} fg={isPull ? colors.primary : colors.dim}>{'\ueac2'} {sourceType}</text>
-                        {isPull ? (
-                            <box flexDirection="column" alignItems="center">
-                                <text fg={colors.fg} attributes={TextAttributes.BOLD}>{'\ueac2'} DOWNLOADING...</text>
-                                {progress.transferSpeed ? <text fg={colors.dim}>{progress.transferSpeed}</text> : null}
-                                {progress.eta ? <text fg={colors.dim} attributes={TextAttributes.ITALIC}>ETA: {progress.eta}</text> : null}
-                            </box>
-                        ) : (
-                            <text fg={colors.dim}>Idle</text>
-                        )}
-                    </box>
-                )}
-                {showSource && (
-                    <box alignItems="center"><text fg={isPull ? colors.success : colors.dim} attributes={TextAttributes.BOLD}> {isPull ? ">>>" : "➜"} </text></box>
-                )}
-                <box flexDirection="column" width={30} padding={1} alignItems="center" gap={1} borderColor={isClean ? colors.setup : colors.dim} border borderStyle="single">
-                    <text attributes={TextAttributes.BOLD} fg={isClean ? colors.setup : colors.fg}>{'\uebdf'} LOCAL</text>
-                    {isClean ? (
-                        <box flexDirection="column" alignItems="center">
-                            <text fg={colors.setup} attributes={TextAttributes.BOLD}>🛡️ SCANNING</text>
-                            <text fg={colors.dim}>Verifying Integrity...</text>
+                <box flexDirection="row" gap={2} alignItems="center">
+                    {!isRunning ? (
+                        <box
+                            onMouseDown={() => { handleFocus("global"); if (configLoaded) _onStart(); }}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            border
+                            borderStyle="single"
+                            borderColor={isGlobalFocused ? colors.fg : (configLoaded ? colors.success : colors.dim)}
+                        >
+                            <text fg={isGlobalFocused ? colors.fg : (configLoaded ? colors.success : colors.dim)} attributes={TextAttributes.BOLD}>
+                                {isGlobalFocused ? "▶ START SYNC" : "S[T]ART SYNC"}
+                            </text>
                         </box>
                     ) : (
-                        <text fg={colors.success} attributes={TextAttributes.BOLD}>ACTIVE</text>
+                        <box
+                            onMouseDown={() => { handleFocus("global"); _onStop(); }}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            border
+                            borderStyle="single"
+                            borderColor={isGlobalFocused ? colors.fg : colors.danger}
+                        >
+                            <text fg={isGlobalFocused ? colors.fg : colors.danger} attributes={TextAttributes.BOLD}>
+                                {isGlobalFocused ? "■ STOP SYNC" : "S[T]OP SYNC"}
+                            </text>
+                        </box>
                     )}
                 </box>
-                {showDest && (
-                    <box alignItems="center"><text fg={isCloud ? colors.primary : colors.dim} attributes={TextAttributes.BOLD}> {isCloud ? ">>>" : "➜"} </text></box>
-                )}
-                {showDest && (
-                    <box flexDirection="column" width={24} padding={1} alignItems="center" gap={1} borderColor={isCloud ? colors.accent : colors.dim} border borderStyle={isCloud ? "double" : "single"}>
-                        <text attributes={TextAttributes.BOLD} fg={isCloud ? colors.accent : colors.dim}>{'\ueac3'} {destType}</text>
-                        {isCloud ? (
-                            <box flexDirection="column" alignItems="center">
-                                <text fg={colors.accent} attributes={TextAttributes.BOLD}>{'\ueac3'} UPLOADING...</text>
-                                {progress.transferSpeed ? <text fg={colors.dim}>{progress.transferSpeed}</text> : null}
-                                <text fg={colors.dim}>Syncing Changes</text>
-                            </box>
-                        ) : (
-                            <text fg={colors.dim}>Idle</text>
-                        )}
-                    </box>
-                )}
             </box>
+
+            {/* === PANELS LAYOUT === */}
+            {isWide ? (
+                // Wide layout: columns side by side
+                <box
+                    flexDirection="row"
+                    gap={1}
+                    height={isRunning ? (Math.max(config.downsync_transfers || 4, config.upsync_transfers || 4) >= 8 ? 22 : 18) : 12}
+                >
+                    {showSource && (
+                        <box flexGrow={1}>
+                            <DownsyncPanel
+                                progress={progress}
+                                sourceType={sourceType}
+                                colors={colors}
+                                width={Math.floor(width / visiblePanelCount) - 2}
+                                onPause={onPause}
+                                onResume={onResume}
+                                height={isRunning ? ((config.downsync_transfers || 4) >= 8 ? 22 : 18) : 12}
+                                maxFiles={(config.downsync_transfers || 4) >= 8 ? 12 : (isPull ? 10 : 5)}
+                                transfers={config.downsync_transfers}
+                                onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
+                                isFocused={getPanelFocus("source")}
+                                onFocus={() => handleFocus("source")}
+                                subFocusIndex={subFocusIndex}
+                                onSubFocusIndexChange={onSubFocusIndexChange}
+                            />
+                        </box>
+                    )}
+
+                    {showShield && (
+                        <box flexGrow={1}>
+                            <LocalShieldPanel
+                                progress={progress}
+                                colors={colors}
+                                width={Math.floor(width / visiblePanelCount) - 2}
+                                shieldEnabled={true}
+                                onPause={onPause}
+                                onResume={onResume}
+                                isFocused={getPanelFocus("shield")}
+                                onFocus={() => handleFocus("shield")}
+                                subFocusIndex={subFocusIndex}
+                                onSubFocusIndexChange={onSubFocusIndexChange}
+                                height={isRunning ? (Math.max(config.downsync_transfers || 4, config.upsync_transfers || 4) >= 8 ? 22 : 18) : 12}
+                                isRunning={isRunning}
+                            />
+                        </box>
+                    )}
+
+                    {showDest && (
+                        <box flexGrow={1}>
+                            <UpsyncPanel
+                                progress={progress}
+                                destType={destType}
+                                colors={colors}
+                                width={Math.floor(width / visiblePanelCount) - 2}
+                                upsyncEnabled={true}
+                                onPause={onPause}
+                                onResume={onResume}
+                                height={isRunning ? ((config.upsync_transfers || 4) >= 8 ? 22 : 18) : 12}
+                                maxFiles={(config.upsync_transfers || 4) >= 8 ? 12 : (isCloud ? 10 : 5)}
+                                transfers={config.upsync_transfers}
+                                onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
+                                isFocused={getPanelFocus("dest")}
+                                onFocus={() => handleFocus("dest")}
+                                subFocusIndex={subFocusIndex}
+                                onSubFocusIndexChange={onSubFocusIndexChange}
+                            />
+                        </box>
+                    )}
+                </box>
+            ) : (
+                // Narrow layout: single column
+                <box flexDirection="column" gap={1} flexGrow={1}>
+                    {showSource && (
+                        <DownsyncPanel
+                            progress={progress}
+                            sourceType={sourceType}
+                            colors={colors}
+                            width={width - 2}
+                            onPause={onPause}
+                            onResume={onResume}
+                            height={isRunning ? ((config.downsync_transfers || 4) >= 8 ? 20 : 15) : 10}
+                            transfers={config.downsync_transfers}
+                            onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
+                            isFocused={getPanelFocus("source")}
+                            onFocus={() => handleFocus("source")}
+                            subFocusIndex={subFocusIndex}
+                            onSubFocusIndexChange={onSubFocusIndexChange}
+                        />
+                    )}
+                    {showShield && (
+                        <LocalShieldPanel
+                            progress={progress}
+                            colors={colors}
+                            width={width - 2}
+                            shieldEnabled={true}
+                            onPause={onPause}
+                            onResume={onResume}
+                            isFocused={getPanelFocus("shield")}
+                            onFocus={() => handleFocus("shield")}
+                            subFocusIndex={subFocusIndex}
+                            onSubFocusIndexChange={onSubFocusIndexChange}
+                            height={isRunning ? (Math.max(config.downsync_transfers || 4, config.upsync_transfers || 4) >= 8 ? 20 : 15) : 10}
+                            isRunning={isRunning}
+                        />
+                    )}
+                    {showDest && (
+                        <UpsyncPanel
+                            progress={progress}
+                            destType={destType}
+                            colors={colors}
+                            width={width - 2}
+                            upsyncEnabled={true}
+                            onPause={onPause}
+                            onResume={onResume}
+                            height={isRunning ? ((config.upsync_transfers || 4) >= 8 ? 20 : 15) : 10}
+                            transfers={config.upsync_transfers}
+                            onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
+                            isFocused={getPanelFocus("dest")}
+                            onFocus={() => handleFocus("dest")}
+                            subFocusIndex={subFocusIndex}
+                            onSubFocusIndexChange={onSubFocusIndexChange}
+                        />
+                    )}
+                </box>
+            )}
 
             {/* === GLOBAL PROGRESS === */}
-            <box flexDirection="column" alignItems="center" gap={1}>
-                <text fg={barColor} attributes={TextAttributes.BOLD}>{progress.description}</text>
-                <box flexDirection="row" alignItems="center" gap={1}>
-                    <box flexDirection="row">
-                        <text fg={barColor}>[</text>
-                        <text fg={barColor}>{"█".repeat(completedWidth)}</text>
-                        <text fg={colors.dim}>{"░".repeat(remainingWidth)}</text>
-                        <text fg={barColor}>]</text>
-                        <text> </text>
-                        <text fg={colors.fg} attributes={TextAttributes.BOLD}>{progress.percentage}%</text>
-                    </box>
-                </box>
-                {(progress.filesTransferred || progress.bytesTransferred) && (
-                    <text fg={colors.dim}>
-                        {progress.filesTransferred ? `Files: ${progress.filesTransferred}` : ""}
-                        {progress.totalFiles ? ` / ${progress.totalFiles}` : ""}
-                        {progress.bytesTransferred ? `  |  Size: ${progress.bytesTransferred}` : ""}
+            {isRunning && (
+                <box flexDirection="column" gap={0} paddingLeft={1} paddingRight={1}>
+                    <text fg={colors.dim}>TOTAL PROGRESS</text>
+                    <text fg={colors.success} attributes={TextAttributes.BOLD}>
+                        {`[${"█".repeat(Math.round(progress.percentage / 4))}${"░".repeat(25 - Math.round(progress.percentage / 4))}] ${progress.percentage}%`}
                     </text>
-                )}
-            </box>
-
-            {/* === ACTIONS === */}
-            <box flexDirection="row" gap={2} justifyContent="center" marginTop={1}>
-                {!isRunning ? (
-                    <box
-                        onMouseOver={() => {
-                            _onFocusChange("body");
-                        }}
-                        onMouseDown={() => configLoaded && _onStart()}
-                        border={isBodyFocused && configLoaded}
-                        borderStyle="single"
-                        borderColor={(isBodyFocused && configLoaded) ? colors.success : colors.dim}
-                        paddingLeft={1}
-                        paddingRight={1}
-                    >
-                        <Hotkey
-                            keyLabel="return"
-                            label={isDone ? "Sync Again" : "Start Sync"}
-                            isFocused={isBodyFocused && configLoaded}
-                        />
-                    </box>
-                ) : (
-                    <box
-                        onMouseOver={() => {
-                            _onFocusChange("body");
-                        }}
-                        onMouseDown={() => _onStop()}
-                        border={isBodyFocused}
-                        borderStyle="single"
-                        borderColor={isBodyFocused ? colors.danger : colors.dim}
-                        paddingLeft={1}
-                        paddingRight={1}
-                    >
-                        <Hotkey
-                            keyLabel="?"
-                            label="STOP (TBD)"
-                            isFocused={isBodyFocused}
-                        />
-                    </box>
-                )}
-            </box>
+                    <text fg={colors.dim} attributes={TextAttributes.ITALIC}>
+                        {progress.description}
+                    </text>
+                </box>
+            )}
         </box>
     );
 }

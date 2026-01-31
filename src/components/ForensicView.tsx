@@ -5,7 +5,7 @@ import { useTheme } from "../lib/theme";
 import { TextAttributes } from "@opentui/core";
 import { join } from "path";
 
-import { Hotkey } from "./Hotkey";
+
 
 interface ForensicViewProps {
     targetDir: string;
