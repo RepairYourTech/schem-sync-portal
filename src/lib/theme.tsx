@@ -5,6 +5,7 @@ export interface ThemeColors {
     setup: string;
     options: string;
     danger: string;
+    warning: string;
     success: string;
     dim: string;
     fg: string;
@@ -19,6 +20,7 @@ const DarkTheme: ThemeColors = {
     setup: "#ffd700",   // Gold
     options: "#00ff00", // Lime Green
     danger: "#ff5555",  // Bright Red
+    warning: "#ffff55", // Bright Yellow
     success: "#00ff00", // Lime
     dim: "#888888",
     fg: "#ffffff",
@@ -33,6 +35,7 @@ const LightTheme: ThemeColors = {
     setup: "#b8860b",   // Dark Goldenrod
     options: "#008000", // Green
     danger: "#cc0000",  // Dark Red
+    warning: "#cc7a00", // Dark Orange/Yellow
     success: "#008000",
     dim: "#555555",
     fg: "#000000",

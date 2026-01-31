@@ -422,11 +422,16 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         ];
 
         if (step === "security") {
-            return [
+            const opts = [
                 { val: "isolate", type: "sec_policy" },
                 { val: "purge", type: "sec_policy" },
                 { val: false, type: "sec_toggle" }
             ];
+            // Enforce mandatory malware shield for Google Drive
+            if (config.backup_provider === "gdrive") {
+                return opts.filter(o => o.val !== false);
+            }
+            return opts;
         }
 
 
@@ -1209,7 +1214,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
                                 { name: "NO", description: "Download Only (Standard)", value: "download_only", key: "1", icon: "\ueac2" },
-                                { name: "YES", description: "Enable Backup & Malware Shield", value: "sync_backup", key: "2", icon: "\ueac3" }
+                                { name: "YES", description: "Enable Cloud Backup", value: "sync_backup", key: "2", icon: "\ueac3" }
                             ].map((opt, i) => (
                                 <box
                                     key={i}
@@ -1242,6 +1247,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     <box flexDirection="column" gap={1}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: Malware Shield</text>
                         <text fg={colors.fg}>🛡️ Surgical Security Policy (How to handle risky tools):</text>
+                        {config.backup_provider === "gdrive" && (
+                            <text fg={colors.warning} attributes={TextAttributes.BOLD} marginTop={1}>
+                                ⚠️ Mandatory for Google Drive: Projects may be suspended without malware filtering.
+                            </text>
+                        )}
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
                                 { name: "RELOCATE & ISOLATE", description: "Move risks to local-only _risk_tools folder", value: "isolate", key: "1" },
