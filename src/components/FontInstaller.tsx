@@ -4,21 +4,24 @@ import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { installNerdFont, type InstallResult, type NerdFontName } from "../lib/fontInstaller";
 import { Hotkey } from "./Hotkey";
+import { type ViewName } from "../index";
 
 interface FontInstallerProps {
+    returnView: ViewName;
     onComplete: (result: InstallResult) => void;
     onCancel: () => void;
 }
 
 type InstallState = 'selecting' | 'downloading' | 'installing' | 'success' | 'error';
 
-export function FontInstaller({ onComplete, onCancel }: FontInstallerProps) {
+export function FontInstaller({ returnView: _returnView, onComplete, onCancel }: FontInstallerProps) {
     const { colors } = useTheme();
     const [installState, setInstallState] = useState<InstallState>('selecting');
     const [selectedFont, setSelectedFont] = useState<NerdFontName>('JetBrainsMono');
     const [progress, setProgress] = useState({ stage: '', percent: 0 });
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<InstallResult | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [abortController, setAbortController] = useState<any>(null);
 
     const fonts: { name: NerdFontName; label: string; desc: string }[] = [
@@ -30,6 +33,7 @@ export function FontInstaller({ onComplete, onCancel }: FontInstallerProps) {
     ];
 
     const handleInstall = useCallback(async (font: NerdFontName) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const controller = new AbortController() as any;
         setAbortController(controller);
         setInstallState('downloading');
@@ -70,10 +74,18 @@ export function FontInstaller({ onComplete, onCancel }: FontInstallerProps) {
         if (installState === 'selecting') {
             if (key?.name === 'up') {
                 const idx = fonts.findIndex(f => f.name === selectedFont);
-                if (idx !== -1) setSelectedFont(fonts[idx === 0 ? fonts.length - 1 : idx - 1].name);
+                if (idx !== -1) {
+                    const nextIdx = idx === 0 ? fonts.length - 1 : idx - 1;
+                    const nextFont = fonts[nextIdx];
+                    if (nextFont) setSelectedFont(nextFont.name);
+                }
             } else if (key?.name === 'down') {
                 const idx = fonts.findIndex(f => f.name === selectedFont);
-                if (idx !== -1) setSelectedFont(fonts[idx === fonts.length - 1 ? 0 : idx + 1].name);
+                if (idx !== -1) {
+                    const nextIdx = idx === fonts.length - 1 ? 0 : idx + 1;
+                    const nextFont = fonts[nextIdx];
+                    if (nextFont) setSelectedFont(nextFont.name);
+                }
             } else if (key?.name === 'return') {
                 handleInstall(selectedFont);
             } else if (key?.name === 'escape') {
@@ -117,18 +129,14 @@ export function FontInstaller({ onComplete, onCancel }: FontInstallerProps) {
 
     return (
         <box
-            position="absolute"
-            top="10%"
-            left="10%"
-            width="80%"
-            height="auto"
             border
             borderStyle="double"
             borderColor={colors.primary}
             title="[ NERD FONT INSTALLER ]"
             flexDirection="column"
-            padding={1}
+            padding={2}
             backgroundColor={colors.bg}
+            flexGrow={1}
         >
             {installState === 'selecting' && (
                 <box flexDirection="column">

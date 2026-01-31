@@ -69,12 +69,13 @@ export async function refreshFontCache(): Promise<CacheRefreshResult> {
             };
         }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         Logger.error('SYSTEM', 'Error refreshing font cache', err);
         return {
             success: false,
             method: 'manual',
-            message: `Error: ${err.message}. Try manually: fc-cache -fv`
+            message: `Error: ${message}. Try manually: fc-cache -fv`
         };
     }
 }

@@ -40,7 +40,7 @@ describe("FontCache", () => {
             success: true,
             stdout: Buffer.from(""),
             stderr: Buffer.from("")
-        } as any));
+        } as any)); // eslint-disable-line @typescript-eslint/no-explicit-any
 
         __setSpawnSync(mockSpawnSync);
 
@@ -79,7 +79,7 @@ describe("FontCache", () => {
             success: false,
             stdout: Buffer.from(""),
             stderr: Buffer.from("Error")
-        } as any));
+        } as any)); // eslint-disable-line @typescript-eslint/no-explicit-any
 
         __setSpawnSync(mockSpawnSync);
 

@@ -4,12 +4,14 @@ import { useTheme } from "../lib/theme";
 import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { Hotkey } from "./Hotkey";
+import { type ViewName } from "../index";
 
 interface ManualFontGuideProps {
+    returnView: ViewName;
     onClose: () => void;
 }
 
-export function ManualFontGuide({ onClose }: ManualFontGuideProps) {
+export function ManualFontGuide({ returnView: _returnView, onClose }: ManualFontGuideProps) {
     const { colors } = useTheme();
 
     useKeyboard((key) => {
@@ -49,18 +51,14 @@ export function ManualFontGuide({ onClose }: ManualFontGuideProps) {
 
     return (
         <box
-            position="absolute"
-            top="10%"
-            left="10%"
-            width="80%"
-            height="auto"
             border
             borderStyle="double"
             borderColor={colors.primary}
             title="[ MANUAL INSTALLATION GUIDE ]"
             flexDirection="column"
-            padding={1}
+            padding={2}
             backgroundColor={colors.bg}
+            flexGrow={1}
         >
             <text attributes={TextAttributes.BOLD} marginBottom={1}>
                 Platform: {Env.isWin ? "Windows" : (Env.isMac ? "macOS" : "Linux")}

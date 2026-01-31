@@ -21,7 +21,7 @@ export function __setSpawnSync(mock: typeof spawnSync) {
 
 /** @internal - Exported for testing only */
 export function __setFilesystem(mocks: {
-    mkdirSync?: any;
+    mkdirSync?: typeof mkdirSync;
     existsSync?: typeof existsSync;
     writeFileSync?: typeof writeFileSync;
     rmSync?: typeof rmSync;
@@ -86,26 +86,33 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
             _mkdirSync(tmpDir, { recursive: true });
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
 
         const url = `https://github.com/ryanoasis/nerd-fonts/releases/latest/download/${font}.zip`;
         onProgress?.({ stage: 'downloading', percent: 20 });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const controller = new AbortController() as any;
         const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         if (signal) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (signal as any).addEventListener('abort', () => controller.abort());
         }
 
         let response;
         try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             response = await _fetch(url, { signal: controller.signal as any });
-        } catch (err: any) {
-            if ((signal as any)?.aborted || err.name === 'AbortError') {
+        } catch (err: unknown) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const isAborted = ((signal as any)?.aborted) || (err instanceof Error && err.name === 'AbortError');
+            if (isAborted) {
                 return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
             }
-            Logger.error('SYSTEM', `Network error during font download: ${err.message}`);
+            const message = err instanceof Error ? err.message : String(err);
+            Logger.error('SYSTEM', `Network error during font download: ${message}`);
             return { success: false, installedPath: '', installedFamily: font, error: 'Network error', requiresRestart: false };
         } finally {
             clearTimeout(timeoutId);
@@ -117,12 +124,13 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
         }
 
         const contentLength = response.headers.get('Content-Length');
-        if (contentLength && parseInt(contentLength, 10) > 50 * 1024 * 1024) {
-            Logger.error('SYSTEM', 'Font archive is too large (> 50MB)');
+        if (contentLength && parseInt(contentLength, 10) > 200 * 1024 * 1024) {
+            Logger.error('SYSTEM', 'Font archive is too large (> 200MB)');
             return { success: false, installedPath: '', installedFamily: font, error: 'Font archive too large', requiresRestart: false };
         }
 
         const arrayBuffer = await response.arrayBuffer();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
         _writeFileSync(zipPath, Buffer.from(arrayBuffer));
         onProgress?.({ stage: 'downloading', percent: 50 });
@@ -148,9 +156,9 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
         }
 
         const variantPattern = /^[^-]+-?(Regular|Bold|Italic|BoldItalic)?\.(ttf|otf)$/i;
-        const files = _readdirSync(tmpDir, { withFileTypes: true }) as any;
+        const files = _readdirSync(tmpDir, { withFileTypes: true });
         const fontFiles = files
-            .filter((f: any) => f.isFile() && variantPattern.test(f.name))
+            .filter((f) => f.isFile() && variantPattern.test(f.name))
             .slice(0, 4);
 
         if (fontFiles.length === 0) {
@@ -161,6 +169,7 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
         Logger.debug('SYSTEM', 'Extracted font files');
 
         // 3. Install Phase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
         onProgress?.({ stage: 'installing', percent: 80 });
         if (!_existsSync(targetDir)) {
@@ -168,6 +177,7 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
         }
 
         for (const file of fontFiles) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
             // Sanitize: ensure no path traversal (though readdirSync should be safe)
             const safeName = file.name.replace(/[\\/]/g, '_');
@@ -176,6 +186,13 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
 
         onProgress?.({ stage: 'installing', percent: 90 });
         Logger.info('SYSTEM', 'Installed fonts to ' + targetDir);
+
+        // Update font cache on Linux
+        if (!Env.isWin && !Env.isMac) {
+            onProgress?.({ stage: 'refreshing-cache', percent: 95 });
+            Logger.info('SYSTEM', 'Refreshing font cache...');
+            _spawnSync(['fc-cache', '-f']);
+        }
 
         // 4. Verify Phase
         const detection = await detectNerdFonts();
@@ -193,15 +210,16 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
         onProgress?.({ stage: 'complete', percent: 100 });
         return { success: true, installedPath: targetDir, installedFamily: font, requiresRestart: Env.isWin };
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         Logger.error('SYSTEM', 'Font installation failed', err);
-        return { success: false, installedPath: '', installedFamily: font, error: err.message || 'Unknown error', requiresRestart: false };
+        return { success: false, installedPath: '', installedFamily: font, error: message || 'Unknown error', requiresRestart: false };
     } finally {
         try {
             if (_existsSync(tmpDir)) {
                 _rmSync(tmpDir, { recursive: true, force: true });
             }
-        } catch (e) {
+        } catch {
             Logger.debug('SYSTEM', 'Failed to cleanup font-install-tmp directory');
         }
     }

@@ -26,10 +26,14 @@ export function FontMissingBanner({ onInstall, onSkip, onLearnMore }: FontMissin
         if (!key) return;
         if (key?.name === 'left' || key?.name === 'up') {
             const idx = options.findIndex(o => o.id === selectedOption);
-            setSelectedOption(options[idx === 0 ? options.length - 1 : idx - 1].id);
+            const nextIdx = idx === 0 ? options.length - 1 : idx - 1;
+            const nextOption = options[nextIdx];
+            if (nextOption) setSelectedOption(nextOption.id);
         } else if (key?.name === 'right' || key?.name === 'down') {
             const idx = options.findIndex(o => o.id === selectedOption);
-            setSelectedOption(options[idx === options.length - 1 ? 0 : idx + 1].id);
+            const nextIdx = idx === options.length - 1 ? 0 : idx + 1;
+            const nextOption = options[nextIdx];
+            if (nextOption) setSelectedOption(nextOption.id);
         } else if (key?.name === 'return') {
             options.find(o => o.id === selectedOption)?.action();
         } else if (key?.name === 'y') {

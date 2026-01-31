@@ -29,7 +29,7 @@ Logger.rotateLogs("deploy_error.log", 2 * 1024 * 1024); // Cleanup legacy log if
 import { FlexBVIcon } from "./components/FlexBVIcon";
 import { SlimeIcon } from "./components/SlimeIcon";
 
-type ViewName = "dashboard" | "wizard" | "doctor" | "options" | "sync" | "forensic";
+export type ViewName = "dashboard" | "wizard" | "doctor" | "options" | "sync" | "forensic" | "fontinstaller" | "fontguide";
 type WizardMode = "continue" | "restart";
 type FocusArea = "body" | "footer";
 
@@ -46,11 +46,11 @@ function AppContent() {
 
   const [focusArea, setFocusArea] = useState<FocusArea>("body");
   const [bodyIndex, setBodyIndex] = useState(0);
+  const [doctorIndex, setDoctorIndex] = useState(0);
   const [footerFocus, setFooterFocus] = useState<number | null>(null);
   const { width, height } = useTerminalDimensions();
   const [showFontInstallPrompt, setShowFontInstallPrompt] = useState(false);
-  const [showFontInstaller, setShowFontInstaller] = useState(false);
-  const [showManualGuide, setShowManualGuide] = useState(false);
+  const [fontInstallerReturnView, setFontInstallerReturnView] = useState<ViewName>("doctor");
   const [glyphHighlight, setGlyphHighlight] = useState(false);
 
   useEffect(() => {
@@ -97,6 +97,20 @@ function AppContent() {
     }
   }, [config, isRunning, start]);
 
+  const handleBack = useCallback(() => {
+    switch (view) {
+      case "options": setView("dashboard"); setFocusArea("body"); break;
+      case "doctor": setView("options"); setFocusArea("body"); break;
+      case "forensic": setView("options"); setFocusArea("body"); break;
+      case "wizard": setBackSignal(prev => prev + 1); break;
+      case "fontinstaller":
+      case "fontguide":
+        setView(fontInstallerReturnView);
+        break;
+      default: setView("dashboard");
+    }
+  }, [view, fontInstallerReturnView]);
+
   const hasConfig = config.source_provider !== "none";
 
   const getFooterActions = useCallback(() => {
@@ -114,7 +128,13 @@ function AppContent() {
 
     if (view === "wizard") {
       actions.push({
-        key: "b", label: "Back", action: () => setBackSignal(prev => prev + 1)
+        key: "b", label: "Back", action: handleBack
+      });
+    }
+
+    if (view !== "dashboard" && view !== "wizard") {
+      actions.push({
+        key: "b", label: "Back", action: handleBack
       });
     }
 
@@ -135,19 +155,43 @@ function AppContent() {
   }, [view, isRunning, stop, renderer]);
 
   useKeyboard((key) => {
+    if (!key) return;
+
+    // View-specific back navigation priority
+    if (key.name === "b" && view !== "dashboard") {
+      handleBack();
+      return;
+    }
+
     if (view === "doctor" && focusArea === "body") {
-      if (key.name === "r" && (!deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2)) {
-        setShowFontInstaller(true);
+      const showRepair = !deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2;
+      const showUpgrade = deps?.nerdFontDetailed.version === 2;
+
+      const doctorActions: { key: string; action: () => void }[] = [];
+      if (showRepair) doctorActions.push({ key: "r", action: () => { setFontInstallerReturnView("doctor"); setView('fontinstaller'); } });
+      if (showUpgrade) doctorActions.push({ key: "u", action: () => { setFontInstallerReturnView("doctor"); setView('fontinstaller'); } });
+      doctorActions.push({ key: "t", action: () => { setGlyphHighlight(true); setTimeout(() => setGlyphHighlight(false), 2000); } });
+      doctorActions.push({ key: "m", action: () => { setFontInstallerReturnView("doctor"); setView('fontguide'); } });
+      doctorActions.push({ key: "b", action: handleBack });
+
+      if (key.name === "left" || key.name === "up") {
+        setDoctorIndex(prev => (prev === 0 ? doctorActions.length - 1 : prev - 1));
+        return;
       }
-      if (key.name === "u" && deps?.nerdFontDetailed.version === 2) {
-        setShowFontInstaller(true);
+      if (key.name === "right" || key.name === "down") {
+        setDoctorIndex(prev => (prev === doctorActions.length - 1 ? 0 : prev + 1));
+        return;
       }
-      if (key.name === "m") {
-        setShowManualGuide(true);
+      if (key.name === "return") {
+        doctorActions[doctorIndex]?.action();
+        return;
       }
-      if (key.name === "t") {
-        setGlyphHighlight(true);
-        setTimeout(() => setGlyphHighlight(false), 2000);
+
+      // Hotkey highlight-only SOP
+      const hotkeyIdx = doctorActions.findIndex(a => a.key === key.name);
+      if (hotkeyIdx !== -1) {
+        setDoctorIndex(hotkeyIdx);
+        return;
       }
     }
 
@@ -319,7 +363,8 @@ function AppContent() {
           <FontMissingBanner
             onInstall={async () => {
               setShowFontInstallPrompt(false);
-              setShowFontInstaller(true);
+              setFontInstallerReturnView("dashboard");
+              setView('fontinstaller');
             }}
             onSkip={() => {
               setShowFontInstallPrompt(false);
@@ -332,7 +377,8 @@ function AppContent() {
             }}
             onLearnMore={() => {
               setShowFontInstallPrompt(false);
-              setShowManualGuide(true);
+              setFontInstallerReturnView("dashboard");
+              setView('fontguide');
             }}
           />
         )}
@@ -415,14 +461,96 @@ function AppContent() {
 
                 <box flexDirection="column" marginTop={1} padding={1} border borderStyle="single" borderColor={colors.border} title="[ FONT MANAGEMENT ]">
                   <box flexDirection="row" gap={2} flexWrap="wrap">
-                    {(!deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2) && (
-                      <Hotkey keyLabel="r" label="Repair/Install" />
-                    )}
-                    {deps?.nerdFontDetailed.version === 2 && (
-                      <Hotkey keyLabel="u" label="Upgrade to v3" />
-                    )}
-                    <Hotkey keyLabel="t" label="Test Glyphs" />
-                    <Hotkey keyLabel="m" label="Manual Guide" />
+                    {(() => {
+                      const showRepair = !deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2;
+                      const showUpgrade = deps?.nerdFontDetailed.version === 2;
+                      let currentIdx = 0;
+
+                      const elements = [];
+                      if (showRepair) {
+                        const isFocused = focusArea === "body" && doctorIndex === currentIdx;
+                        elements.push(
+                          <box
+                            key="r"
+                            border={isFocused}
+                            borderStyle="single"
+                            borderColor={isFocused ? colors.success : "transparent"}
+                            paddingLeft={1}
+                            paddingRight={1}
+                            height={1}
+                          >
+                            <Hotkey keyLabel="r" label="Repair/Install" isFocused={isFocused} />
+                          </box>
+                        );
+                        currentIdx++;
+                      }
+                      if (showUpgrade) {
+                        const isFocused = focusArea === "body" && doctorIndex === currentIdx;
+                        elements.push(
+                          <box
+                            key="u"
+                            border={isFocused}
+                            borderStyle="single"
+                            borderColor={isFocused ? colors.success : "transparent"}
+                            paddingLeft={1}
+                            paddingRight={1}
+                            height={1}
+                          >
+                            <Hotkey keyLabel="u" label="Upgrade to v3" isFocused={isFocused} />
+                          </box>
+                        );
+                        currentIdx++;
+                      }
+
+                      const tFocused = focusArea === "body" && doctorIndex === currentIdx;
+                      elements.push(
+                        <box
+                          key="t"
+                          border={tFocused}
+                          borderStyle="single"
+                          borderColor={tFocused ? colors.success : "transparent"}
+                          paddingLeft={1}
+                          paddingRight={1}
+                          height={1}
+                        >
+                          <Hotkey keyLabel="t" label="Test Glyphs" isFocused={tFocused} />
+                        </box>
+                      );
+                      currentIdx++;
+
+                      const mFocused = focusArea === "body" && doctorIndex === currentIdx;
+                      elements.push(
+                        <box
+                          key="m"
+                          border={mFocused}
+                          borderStyle="single"
+                          borderColor={mFocused ? colors.success : "transparent"}
+                          paddingLeft={1}
+                          paddingRight={1}
+                          height={1}
+                        >
+                          <Hotkey keyLabel="m" label="Manual Guide" isFocused={mFocused} />
+                        </box>
+                      );
+                      currentIdx++;
+
+                      const bFocused = focusArea === "body" && doctorIndex === currentIdx;
+                      elements.push(
+                        <box
+                          key="b"
+                          border={bFocused}
+                          borderStyle="single"
+                          borderColor={bFocused ? colors.success : "transparent"}
+                          paddingLeft={1}
+                          paddingRight={1}
+                          height={1}
+                        >
+                          <Hotkey keyLabel="b" label="Back" isFocused={bFocused} />
+                        </box>
+                      );
+
+                      return elements;
+                    })()}
                   </box>
                 </box>
 
@@ -433,12 +561,12 @@ function AppContent() {
                       <text fg={activeFontVersion === 3 ? colors.success : colors.dim}>[ {'\ueeed'} ] Modern Cat (v3 FA){activeFontVersion === 3 ? " ★" : ""}</text>
                     </box>
                     <box flexDirection="row" gap={2}>
-                      <text fg={activeFontVersion === 3 ? colors.success : colors.dim}>[ {'\uf011b'} ] MDI Cat (v3 MDI)</text>
+                      <text fg={activeFontVersion === 3 ? colors.success : colors.dim}>[ {'\u{f011b}'} ] MDI Cat (v3 MDI)</text>
                       <text fg={colors.success}>[ {'\uf07b'} ] Folder</text>
                       <text fg={colors.success}>[ {'\ue615'} ] Gear</text>
                     </box>
                   </box>
-                  <text marginTop={1} fg={colors.dim} attributes={TextAttributes.DIM}>Identify which cat renders correctly. Switch versions in Options.</text>
+                  <text marginTop={1} fg={colors.dim} attributes={TextAttributes.DIM}>Identify which cat renders correctly.</text>
                   <text fg={colors.dim} attributes={TextAttributes.DIM}>★ indicates your current preference.</text>
                 </box>
               </>
@@ -448,10 +576,10 @@ function AppContent() {
           </box>
         )}
 
-        {showFontInstaller && (
+        {view === "fontinstaller" && (
           <FontInstaller
+            returnView={fontInstallerReturnView}
             onComplete={async (result: InstallResult) => {
-              setShowFontInstaller(false);
               if (result.success) {
                 const newConfig = {
                   ...config,
@@ -465,13 +593,17 @@ function AppContent() {
                 const newDeps = await checkDependencies();
                 setDeps(newDeps);
               }
+              setView(fontInstallerReturnView);
             }}
-            onCancel={() => setShowFontInstaller(false)}
+            onCancel={() => setView(fontInstallerReturnView)}
           />
         )}
 
-        {showManualGuide && (
-          <ManualFontGuide onClose={() => setShowManualGuide(false)} />
+        {view === "fontguide" && (
+          <ManualFontGuide
+            returnView={fontInstallerReturnView}
+            onClose={() => setView(fontInstallerReturnView)}
+          />
         )}
       </box>
 

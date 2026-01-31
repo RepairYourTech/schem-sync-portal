@@ -43,19 +43,10 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
             description: "Cycle logging verbosity (NORMAL, DEBUG, VERBOSE).",
             key: "3"
         },
-        {
-            label: `Nerd Font Version: [v${config.nerd_font_version || 2}]`,
-            action: () => {
-                const next = config.nerd_font_version === 3 ? 2 : 3;
-                onUpdateConfig({ ...config, nerd_font_version: next });
-            },
-            description: "Toggle between Legacy (v2) and Modern (v3) codepoints.",
-            key: "4"
-        },
-        { label: "Log Viewer", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "5" },
-        { label: "Force Forensic Sweep", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "6" },
-        { label: "Reset Configuration", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "7" },
-        { label: "Back to Home", action: onBack, description: "Return to the main screen.", key: "8" }
+        { label: "Log Viewer", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "4" },
+        { label: "Force Forensic Sweep", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "5" },
+        { label: "Reset Configuration", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "6" },
+        { label: "Back", action: onBack, description: "Return to the previous screen.", key: "b" }
     ];
 
     const handleUpdate = useCallback(async () => {
@@ -82,8 +73,7 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
             else if (e.name === "4") setSelectedIndex(3);
             else if (e.name === "5") setSelectedIndex(4);
             else if (e.name === "6") setSelectedIndex(5);
-            else if (e.name === "7") setSelectedIndex(6);
-            else if (e.name === "8") setSelectedIndex(7);
+            else if (e.name === "b") onBack();
             else if (e.name === "a") setSubView("about");
             else if (e.name === "up") {
                 setSelectedIndex(prev => (prev > 0 ? prev - 1 : options.length - 1));

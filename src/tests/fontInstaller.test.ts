@@ -5,14 +5,16 @@ import { Env } from "../lib/env";
 
 describe("FontInstaller", () => {
     // Default filesystem mocks
-    let fsMocks: any;
+    let fsMocks: Parameters<typeof __setFilesystem>[0];
 
     beforeEach(() => {
         fsMocks = {
-            mkdirSync: mock(() => { }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            mkdirSync: mock(() => { }) as any,
             existsSync: mock(() => true),
             writeFileSync: mock(() => { }),
             rmSync: mock(() => { }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             readdirSync: mock(() => [{ name: 'font.ttf', isFile: () => true, isDirectory: () => false }] as any),
             copyFileSync: mock(() => { })
         };
@@ -20,30 +22,33 @@ describe("FontInstaller", () => {
     });
 
     test("Successful Installation", async () => {
-        const mockFetch = mock(async () => ({
-            ok: true,
-            headers: new Map([['Content-Length', '1000']]),
-            arrayBuffer: async () => new ArrayBuffer(1000)
-        } as any));
+        const mockFetch = mock(async () => {
+            const res = {
+                ok: true,
+                headers: new Map([['Content-Length', '1000']]),
+                arrayBuffer: async () => new ArrayBuffer(1000)
+            };
+            return res as unknown as Response;
+        });
 
         const mockSpawnSync = mock(() => ({
             success: true,
             stdout: Buffer.from(""),
             stderr: Buffer.from("")
-        } as any));
+        } as any)); // eslint-disable-line @typescript-eslint/no-explicit-any
 
         const mockDetect = mock(async () => ({
             isInstalled: true,
-            version: 3,
-            method: 'fc-list',
-            confidence: 'high',
+            version: 3 as const,
+            method: 'fc-list' as const,
+            confidence: 'high' as const,
             installedFonts: ['JetBrainsMono Nerd Font']
-        } as any));
+        }));
 
         const originalFindBinary = Env.findBinary;
         Env.findBinary = mock(() => "/usr/bin/7z");
 
-        __setFetch(mockFetch as any);
+        __setFetch(mockFetch as unknown as typeof fetch);
         __setSpawnSync(mockSpawnSync);
         __setDetectNerdFonts(mockDetect);
 
@@ -60,7 +65,7 @@ describe("FontInstaller", () => {
             throw new Error("timeout");
         });
 
-        __setFetch(mockFetch as any);
+        __setFetch(mockFetch as unknown as typeof fetch);
 
         const result = await installNerdFont({ font: 'JetBrainsMono', version: 3 });
 
@@ -69,12 +74,15 @@ describe("FontInstaller", () => {
     });
 
     test("File Size Validation", async () => {
-        const mockFetch = mock(async () => ({
-            ok: true,
-            headers: new Map([['Content-Length', (60 * 1024 * 1024).toString()]]),
-        } as any));
+        const mockFetch = mock(async () => {
+            const res = {
+                ok: true,
+                headers: new Map([['Content-Length', (250 * 1024 * 1024).toString()]]),
+            };
+            return res as unknown as Response;
+        });
 
-        __setFetch(mockFetch as any);
+        __setFetch(mockFetch as unknown as typeof fetch);
 
         const result = await installNerdFont({ font: 'JetBrainsMono', version: 3 });
 
@@ -83,19 +91,22 @@ describe("FontInstaller", () => {
     });
 
     test("Extraction Failure", async () => {
-        const mockFetch = mock(async () => ({
-            ok: true,
-            headers: new Map([['Content-Length', '1000']]),
-            arrayBuffer: async () => new ArrayBuffer(1000)
-        } as any));
+        const mockFetch = mock(async () => {
+            const res = {
+                ok: true,
+                headers: new Map([['Content-Length', '1000']]),
+                arrayBuffer: async () => new ArrayBuffer(1000)
+            };
+            return res as unknown as Response;
+        });
 
         const mockSpawnSync = mock(() => ({
             success: false,
             stdout: Buffer.from(""),
             stderr: Buffer.from("Unzip failed")
-        } as any));
+        } as any)); // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        __setFetch(mockFetch as any);
+        __setFetch(mockFetch as unknown as typeof fetch);
         __setSpawnSync(mockSpawnSync);
 
         const result = await installNerdFont({ font: 'JetBrainsMono', version: 3 });
@@ -111,20 +122,23 @@ describe("FontInstaller", () => {
 
         Object.defineProperty(Env, 'isWin', { get: () => false, configurable: true });
         Object.defineProperty(Env, 'isMac', { get: () => false, configurable: true });
-        Env.getPaths = mock(() => ({ home: '/home/user', configDir: '/home/user/.config' } as any));
+        Env.getPaths = mock(() => ({ home: '/home/user', configDir: '/home/user/.config' } as ReturnType<typeof Env.getPaths>));
 
-        const mockFetch = mock(async () => ({
-            ok: true,
-            headers: new Map([['Content-Length', '1000']]),
-            arrayBuffer: async () => new ArrayBuffer(1000)
-        } as any));
+        const mockFetch = mock(async () => {
+            const res = {
+                ok: true,
+                headers: new Map([['Content-Length', '1000']]),
+                arrayBuffer: async () => new ArrayBuffer(1000)
+            };
+            return res as unknown as Response;
+        });
 
-        const mockSpawnSync = mock(() => ({ success: true } as any));
-        const mockDetect = mock(async () => ({ isInstalled: true, version: 3, installedFonts: [] } as any));
+        const mockSpawnSync = mock(() => ({ success: true }) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+        const mockDetect = mock(async () => ({ isInstalled: true, version: 3 as const, installedFonts: [] } as any)); // eslint-disable-line @typescript-eslint/no-explicit-any
         const originalFindBinary = Env.findBinary;
         Env.findBinary = mock(() => "/usr/bin/7z");
 
-        __setFetch(mockFetch as any);
+        __setFetch(mockFetch as unknown as typeof fetch);
         __setSpawnSync(mockSpawnSync);
         __setDetectNerdFonts(mockDetect);
 
@@ -139,16 +153,19 @@ describe("FontInstaller", () => {
     });
 
     test("Permission Error", async () => {
-        const mockFetch = mock(async () => ({
-            ok: true,
-            headers: new Map([['Content-Length', '1000']]),
-            arrayBuffer: async () => new ArrayBuffer(1000)
-        } as any));
-        const mockSpawnSync = mock(() => ({ success: true } as any));
+        const mockFetch = mock(async () => {
+            const res = {
+                ok: true,
+                headers: new Map([['Content-Length', '1000']]),
+                arrayBuffer: async () => new ArrayBuffer(1000)
+            };
+            return res as unknown as Response;
+        });
+        const mockSpawnSync = mock(() => ({ success: true }) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
         const originalFindBinary = Env.findBinary;
         Env.findBinary = mock(() => "/usr/bin/7z");
 
-        __setFetch(mockFetch as any);
+        __setFetch(mockFetch as unknown as typeof fetch);
         __setSpawnSync(mockSpawnSync);
         __setFilesystem({
             ...fsMocks,
@@ -163,17 +180,20 @@ describe("FontInstaller", () => {
     });
 
     test("Verification Failure", async () => {
-        const mockFetch = mock(async () => ({
-            ok: true,
-            headers: new Map([['Content-Length', '1000']]),
-            arrayBuffer: async () => new ArrayBuffer(1000)
-        } as any));
-        const mockSpawnSync = mock(() => ({ success: true } as any));
-        const mockDetect = mock(async () => ({ isInstalled: false } as any));
+        const mockFetch = mock(async () => {
+            const res = {
+                ok: true,
+                headers: new Map([['Content-Length', '1000']]),
+                arrayBuffer: async () => new ArrayBuffer(1000)
+            };
+            return res as unknown as Response;
+        });
+        const mockSpawnSync = mock(() => ({ success: true }) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+        const mockDetect = mock(async () => ({ isInstalled: false } as any)); // eslint-disable-line @typescript-eslint/no-explicit-any
         const originalFindBinary = Env.findBinary;
         Env.findBinary = mock(() => "/usr/bin/7z");
 
-        __setFetch(mockFetch as any);
+        __setFetch(mockFetch as unknown as typeof fetch);
         __setSpawnSync(mockSpawnSync);
         __setDetectNerdFonts(mockDetect);
 

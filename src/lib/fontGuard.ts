@@ -1,7 +1,7 @@
 import { Logger } from "./logger";
 import { detectNerdFonts } from "./doctor";
 import { loadConfig, saveConfig, type PortalConfig } from "./config";
-import { installNerdFont, type InstallResult } from "./fontInstaller";
+import { installNerdFont, type InstallResult, type NerdFontName } from "./fontInstaller";
 import { refreshFontCache } from "./fontCache";
 
 export interface FontGuardStatus {
@@ -50,7 +50,7 @@ export async function checkFontGuard(config: PortalConfig): Promise<FontGuardSta
         installedFamily: installedFamily || null,
         installFont: async (font: string) => {
             const result = await installNerdFont({
-                font: font as any,
+                font: font as NerdFontName,
                 version: 3,
                 onProgress: (p) => Logger.debug('SYSTEM', `Install progress: ${p.stage} ${p.percent}%`)
             });
