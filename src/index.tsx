@@ -413,7 +413,7 @@ function AppContent() {
         {view === "options" && (
           <Options
             onDoctor={() => setView("doctor")}
-            onSetup={() => { setView("wizard"); setWizardMode("restart"); }}
+            onSetup={() => { setView("wizard"); setWizardMode("continue"); }}
             onForensic={() => setView("forensic")}
             onReset={onReset}
             onBack={() => setView("dashboard")}

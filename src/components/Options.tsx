@@ -31,7 +31,7 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
 
     const options = [
         { label: "System Diagnostics (Doctor)", action: onDoctor, description: "Verify dependencies and system health.", key: "1" },
-        { label: "Edit Settings (Setup Wizard)", action: onSetup, description: "Re-run the configuration wizard.", key: "2" },
+        { label: "Edit Settings (Granular Menu)", action: onSetup, description: "Jump directly to specific settings without a full restart.", key: "2" },
         {
             label: `Log Level: [${Logger.getLevel()}]`,
             action: () => {

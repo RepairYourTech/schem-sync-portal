@@ -44,6 +44,7 @@ type Step =
     | "dropbox_intro" | "dropbox_auth"
     | "mega_intro" | "mega_user" | "mega_pass"
     | "r2_intro" | "r2_id" | "r2_key" | "r2_endpoint"
+    | "edit_menu"
     | "deploy";
 
 export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, backSignal }: WizardProps) {
@@ -59,28 +60,32 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
     const findNextStep = (c: PortalConfig): Step => {
         if (mode === "restart") return "shortcut";
 
+        // If config is complete AND we are in continue mode, we probably want to edit specific things.
+        // However, if we're resuming a fresh install that was interrupted, we follow the normal flow.
+        const isComplete = c.source_provider !== "unconfigured" &&
+            c.local_dir && c.local_dir !== "none" &&
+            c.strict_mirror !== undefined &&
+            c.upsync_enabled !== undefined;
+
+        if (mode === "continue" && isComplete) return "edit_menu";
+
         // 1. Shortcut detection
         const skipShort = isSystemBootstrapped() || c.desktop_shortcut === 2;
         if (!skipShort) return "shortcut";
 
         // 2. Source Configuration (SSoT)
-        // If no provider selected, start there.
-        if (c.source_provider === "none") return "source_choice";
-
-        // If provider is copyparty, it's complete once we have local_dir (since URL is in rclone.conf)
-        // If provider is cloud, we check if we need auth.
-        // For now, assume if source is set and we're in the wizard, we might need setup.
+        if (c.source_provider === "unconfigured") return "source_choice";
 
         // 3. Local Dir
-        if (!c.local_dir) return "dir";
+        if (!c.local_dir || c.local_dir === "none") return "dir";
 
         // 4. Mirror Policy
         if (c.strict_mirror === undefined) return "mirror";
 
         // 5. Upsync / Backup
-        if (!c.upsync_enabled) return "upsync_ask";
+        if (c.upsync_enabled === undefined) return "upsync_ask";
 
-        if (c.upsync_enabled && c.backup_provider === "none") return "dest_cloud_select";
+        if (c.upsync_enabled && c.backup_provider === "unconfigured") return "dest_cloud_select";
 
         return "deploy";
     };
@@ -255,8 +260,9 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
                 // 2. Source Config
                 case "source_choice":
-                    resetWizardRefs(); // CLEAN SLATE for ANY provider
+                    resetWizardRefs();
                     setWizardContext("source");
+                    if (currentSource === "unconfigured") return prevStep; // VALIDATION
                     if (currentSource === "copyparty") {
                         nextStep = "copyparty_config";
                     } else if (currentSource === "gdrive") {
@@ -276,18 +282,18 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     } else if (currentSource === "r2") {
                         nextStep = "r2_intro";
                     } else {
-                        nextStep = "dir"; // Fallback
+                        nextStep = (mode === "continue" ? "edit_menu" : "dir");
                     }
                     break;
 
                 // CopyParty Branch
-                case "copyparty_config": nextStep = "dir"; break;
+                case "copyparty_config": nextStep = (mode === "continue" ? "edit_menu" : "dir"); break;
 
                 // Cloud Source Branch
 
                 // 3. Core
-                case "dir": nextStep = "mirror"; break;
-                case "mirror": nextStep = "upsync_ask"; break;
+                case "dir": nextStep = (mode === "continue" ? "edit_menu" : "mirror"); break;
+                case "mirror": nextStep = (mode === "continue" ? "edit_menu" : "upsync_ask"); break;
 
                 // 4. Upsync / Destination
                 case "upsync_ask":
@@ -314,7 +320,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     break;
 
                 // 5. Security (Only after Dest is set)
-                case "security": nextStep = "deploy"; break;
+                case "security": nextStep = (mode === "continue" ? "edit_menu" : "deploy"); break;
 
                 // PROVIDER FLOWS (Generic)
                 // When finishing a provider flow, we need to know WHERE to go next.
@@ -322,14 +328,14 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 // If Source -> Go to 'dir'
                 // If Dest -> Go to 'security'
 
-                case "gdrive_auth": nextStep = wizardContext === "source" ? "dir" : "security"; break;
-                case "b2_key": nextStep = wizardContext === "source" ? "dir" : "security"; break;
-                case "sftp_pass": nextStep = wizardContext === "source" ? "dir" : "security"; break;
-                case "pcloud_pass": nextStep = wizardContext === "source" ? "dir" : "security"; break;
-                case "onedrive_auth": nextStep = wizardContext === "source" ? "dir" : "security"; break;
-                case "dropbox_auth": nextStep = wizardContext === "source" ? "dir" : "security"; break;
-                case "mega_pass": nextStep = wizardContext === "source" ? "dir" : "security"; break;
-                case "r2_endpoint": nextStep = wizardContext === "source" ? "dir" : "security"; break;
+                case "gdrive_auth": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "b2_key": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "sftp_pass": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "pcloud_pass": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "onedrive_auth": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "dropbox_auth": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "mega_pass": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "r2_endpoint": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
 
                 // Intermediates
                 case "gdrive_intro": nextStep = "gdrive_id"; break;
@@ -368,8 +374,20 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 { val: 2, type: "shortcut" },
                 { val: 0, type: "skip" }
             ] : [
-                { val: 1, type: "bootstrap" },
-                { val: 0, type: "shortcut" }
+                { val: 1, type: "desktop_shortcut" },
+                { val: 0, type: "desktop_shortcut" }
+            ];
+        }
+
+        if (step === "edit_menu") {
+            return [
+                { val: "shortcut", type: "jump" },
+                { val: "source_choice", type: "jump" },
+                { val: "dir", type: "jump" },
+                { val: "mirror", type: "jump" },
+                { val: "upsync_ask", type: "jump" },
+                { val: "security", type: "jump" },
+                { val: "deploy", type: "jump" }
             ];
         }
 
@@ -387,6 +405,10 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
 
         if (step === "mirror") return [{ val: false, type: "mirror" }, { val: true, type: "mirror" }];
+
+        if (step === "dir") return [
+            { val: "confirm", type: "dir_confirm" }
+        ];
 
         if (step === "upsync_ask") return [
             { val: "download_only", type: "sync_mode" },
@@ -467,7 +489,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
             }
 
             // Universal Selectable Steps Logic
-            const selectableSteps: Step[] = ["shortcut", "source_choice", "mirror", "upsync_ask", "security", "dest_cloud_select", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "deploy"];
+            const selectableSteps: Step[] = ["shortcut", "source_choice", "mirror", "upsync_ask", "security", "dest_cloud_select", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "deploy"];
             if (selectableSteps.includes(step)) {
                 const options = getOptions();
 
@@ -511,8 +533,25 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         return;
                     }
 
-                    if (opt.type === "bootstrap") {
-                        bootstrapSystem(join(process.cwd(), "src/index.tsx"));
+                    if (opt.type === "desktop_shortcut") {
+                        if (opt.val === 1) {
+                            bootstrapSystem(join(process.cwd(), "src/index.tsx"));
+                        }
+                        updateConfig(prev => ({ ...prev, desktop_shortcut: opt.val as number }));
+                        next();
+                        return;
+                    }
+
+                    if (opt.type === "jump") {
+                        setStep(opt.val as Step);
+                        return;
+                    }
+
+                    if (opt.type === "dir_confirm") {
+                        if (config.local_dir && config.local_dir !== "none") {
+                            next();
+                        }
+                        return;
                     }
 
                     if (opt.type === "sec_policy") {
@@ -555,7 +594,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 }
             }
         }
-    }, [step, focusArea, selectedIndex, copyparty_config_index, config, getOptions, next, onComplete, onCancel]);
+    });
 
     const handleAuth = useCallback(async () => {
         setIsAuthLoading(true);
@@ -669,6 +708,40 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ SYSTEM CONFIGURATION WIZARD ]" gap={1}>
             {/* Instruction area: explicitly remove ESC from here as it now controls Exit App */}
             <text attributes={TextAttributes.DIM} fg={colors.dim}>Use Arrow Keys to navigate Selects, Enter to confirm.</text>
+            {step === "edit_menu" && (
+                <box flexDirection="column" gap={1}>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Configuration Menu</text>
+                    <text fg={colors.fg}>Select a section to edit:</text>
+                    <box flexDirection="column" gap={0} marginTop={1}>
+                        {[
+                            { name: "System integration", description: "Shortcut & Desktop Icon", value: "shortcut", key: "1" },
+                            { name: "Source Provider", description: "Remote & Authentication", value: "source_choice", key: "2" },
+                            { name: "Storage Path", description: "Local Sync Directory", value: "dir", key: "3" },
+                            { name: "Sync Strategy", description: "Mirror Mode / Deletion", value: "mirror", key: "4" },
+                            { name: "Backup Settings", description: "Cloud Upsync & Malware Shield", value: "upsync_ask", key: "5" },
+                            { name: "Security Policy", description: "Malware Handling", value: "security", key: "6" },
+                            { name: "Deploy & Finish", description: "Finalize changes", value: "deploy", key: "0" }
+                        ].map((opt, i) => (
+                            <box
+                                key={i}
+                                paddingLeft={2}
+                                border
+                                borderStyle="single"
+                                borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                            >
+                                <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                <Hotkey
+                                    keyLabel={opt.key}
+                                    label={opt.name}
+                                    isFocused={selectedIndex === i && focusArea === "body"}
+                                />
+                                <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                            </box>
+                        ))}
+                    </box>
+                </box>
+            )}
+
             {step === "shortcut" && (
                 <box flexDirection="column" gap={1}>
                     <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 1: System Integration</text>
@@ -806,7 +879,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {step === "dir" && (
                 <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 5: Storage</text>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 4: Storage Path</text>
                     <text fg={colors.fg}>📂 Local Sync Directory:</text>
                     <input
                         focused={focusArea === "body" && !isAuthLoading}
@@ -818,9 +891,41 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 </box>
             )}
 
+            {step === "mirror" && (
+                <box flexDirection="column" gap={1}>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 5: Sync Strategy</text>
+                    <text fg={colors.fg}>🔄 Mirror Mode (Delete local files not on remote?):</text>
+                    <box flexDirection="column" gap={0} marginTop={1}>
+                        {[
+                            { name: "NO", description: "Safe Mode: Never delete local files", value: false, key: "1" },
+                            { name: "YES", description: "Mirror Mode: Keep local perfectly synced with remote", value: true, key: "2" }
+                        ].map((opt, i) => (
+                            <box
+                                key={i}
+                                paddingLeft={2}
+                                border
+                                borderStyle="single"
+                                borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                flexDirection="row"
+                                alignItems="center"
+                                gap={1}
+                            >
+                                <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                <Hotkey
+                                    keyLabel={opt.key}
+                                    label={opt.name}
+                                    isFocused={selectedIndex === i && focusArea === "body"}
+                                />
+                                <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                            </box>
+                        ))}
+                    </box>
+                </box>
+            )}
+
             {step === "source_choice" && (
                 <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 2: Source Intelligence</text>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 2: Source Provider</text>
                     <text fg={colors.fg}>🔗 Select your "Source of Truth":</text>
                     <box flexDirection="column" gap={0} marginTop={1}>
                         {getOptions().map((opt, i) => {
@@ -865,7 +970,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 (step === "dest_cloud_select") && (
                     <box flexDirection="column" gap={1}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>
-                            Step 7b: Backup Provider
+                            Step 7: Backup Provider
                         </text>
                         <text fg={colors.fg}>☁️  Select your cloud storage provider:</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
@@ -910,12 +1015,12 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 )
             }
 
-            {/* ... inside upsync_ask step ... */}
+
 
             {
                 step === "upsync_ask" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 7: Cloud Backup (Optional)</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 6: Cloud Backup (Optional)</text>
                         <text fg={colors.fg}>🚀 Do you want to enable Upsync (Backup)?</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -946,7 +1051,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
             {
                 step === "security" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 6b: Malware Shield</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: Malware Shield</text>
                         <text fg={colors.fg}>🛡️ Surgical Security Policy (How to handle risky tools):</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -981,7 +1086,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
             {
                 step === "gdrive_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: Isolated Cloud Setup (Google Drive)</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 7: Cloud Setup (Google Drive)</text>
                         <text fg={colors.fg}>To keep your system backups safe, we need a dedicated Google Cloud Project.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[

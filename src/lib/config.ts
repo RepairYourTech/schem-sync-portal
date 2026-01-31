@@ -2,18 +2,18 @@ import { join } from "path";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { Logger } from "./logger";
 
-export type PortalProvider = "copyparty" | "gdrive" | "b2" | "sftp" | "pcloud" | "onedrive" | "dropbox" | "mega" | "r2" | "none";
+export type PortalProvider = "copyparty" | "gdrive" | "b2" | "sftp" | "pcloud" | "onedrive" | "dropbox" | "mega" | "r2" | "none" | "unconfigured";
 
 export interface PortalConfig {
     // 1. Connection & Providers (One SSoT) 🧠🛡️🦅
     // Remotes are ALWAYS: Env.REMOTE_PORTAL_SOURCE, Env.REMOTE_PORTAL_BACKUP in rclone.conf
     source_provider: PortalProvider;
     backup_provider: PortalProvider;
-    upsync_enabled: boolean;
+    upsync_enabled: boolean | undefined;
 
     // 2. Preferences
     local_dir: string;
-    strict_mirror: boolean; // true = sync, false = copy
+    strict_mirror: boolean | undefined; // true = sync, false = copy
 
     // 3. Security & Policy
     enable_malware_shield: boolean;
@@ -49,11 +49,11 @@ const CONFIG_PATH = join(PROJECT_ROOT, "config.json");
  * Pure Default Template
  */
 export const EMPTY_CONFIG: PortalConfig = {
-    source_provider: "none",
-    backup_provider: "none",
-    upsync_enabled: false,
+    source_provider: "unconfigured",
+    backup_provider: "unconfigured",
+    upsync_enabled: undefined,
     local_dir: "none",
-    strict_mirror: false,
+    strict_mirror: undefined,
     malware_policy: "purge",
     enable_malware_shield: false,
     desktop_shortcut: 0,
@@ -112,16 +112,19 @@ export function saveConfig(config: PortalConfig): void {
 
 export function isConfigComplete(config: PortalConfig): boolean {
     if (!config.local_dir || config.local_dir === "none") return false;
-    if (config.source_provider === "none") return false;
+    if (config.source_provider === "unconfigured") return false;
+    if (config.strict_mirror === undefined) return false;
+    if (config.upsync_enabled === undefined) return false;
 
     // If backup is intended, it must have a provider
-    if (config.upsync_enabled && config.backup_provider === "none") return false;
+    if (config.upsync_enabled && config.backup_provider === "unconfigured") return false;
 
     return true;
 }
 
 export function isConfigEmpty(config: PortalConfig): boolean {
-    const noRemote = config.source_provider === "none" && config.backup_provider === "none";
+    const noRemote = (config.source_provider === "none" || config.source_provider === "unconfigured") &&
+        (config.backup_provider === "none" || config.backup_provider === "unconfigured");
     const noLocal = !config.local_dir || config.local_dir === "" || config.local_dir === "none";
     return noRemote && noLocal && config.desktop_shortcut === 0;
 }
