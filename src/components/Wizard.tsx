@@ -25,10 +25,8 @@ interface WizardProps {
 
 type Step =
     | "shortcut"
-    | "source_choice" // NEW: CopyParty vs Cloud
+    | "source_choice" // Unified Source Selection
     | "url" | "user" | "pass" // CopyParty Path
-    | "copyparty_method" // NEW: WebDAV vs HTTP
-    | "source_cloud_select" // Cloud Source Path
     | "dir" | "mirror"
     | "upsync_ask" // NEW: Enable Backup?
     | "dest_cloud_select" // Backup Path
@@ -257,35 +255,36 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 // 2. Source Config
                 case "source_choice":
                     resetWizardRefs(); // CLEAN SLATE for ANY provider
-                    if (selectedIndex === 0) {
-                        pendingSourceProviderRef.current = "copyparty";
-                        setWizardContext("source");
+                    setWizardContext("source");
+                    if (currentSource === "copyparty") {
                         nextStep = "url";
+                    } else if (currentSource === "gdrive") {
+                        nextStep = "gdrive_intro";
+                    } else if (currentSource === "b2") {
+                        nextStep = "b2_intro";
+                    } else if (currentSource === "sftp") {
+                        nextStep = "sftp_intro";
+                    } else if (currentSource === "pcloud") {
+                        nextStep = "pcloud_intro";
+                    } else if (currentSource === "onedrive") {
+                        nextStep = "onedrive_intro";
+                    } else if (currentSource === "dropbox") {
+                        nextStep = "dropbox_intro";
+                    } else if (currentSource === "mega") {
+                        nextStep = "mega_intro";
+                    } else if (currentSource === "r2") {
+                        nextStep = "r2_intro";
                     } else {
-                        setWizardContext("source"); // LOCK CONTEXT
-                        nextStep = "source_cloud_select";
+                        nextStep = "dir"; // Fallback
                     }
                     break;
 
                 // CopyParty Branch
-                case "url": nextStep = "copyparty_method"; break;
-                case "copyparty_method": nextStep = "user"; break;
+                case "url": nextStep = "user"; break;
                 case "user": nextStep = "pass"; break;
                 case "pass": nextStep = "dir"; break;
 
                 // Cloud Source Branch
-                case "source_cloud_select":
-                    // Route to generic provider intro
-                    if (currentSource === "gdrive") nextStep = "gdrive_intro";
-                    else if (currentSource === "b2") nextStep = "b2_intro";
-                    else if (currentSource === "sftp") nextStep = "sftp_intro";
-                    else if (currentSource === "pcloud") nextStep = "pcloud_intro";
-                    else if (currentSource === "onedrive") nextStep = "onedrive_intro";
-                    else if (currentSource === "dropbox") nextStep = "dropbox_intro";
-                    else if (currentSource === "mega") nextStep = "mega_intro";
-                    else if (currentSource === "r2") nextStep = "r2_intro";
-                    else nextStep = "dir"; // None/Skip
-                    break;
 
                 // 3. Core
                 case "dir": nextStep = "mirror"; break;
@@ -376,14 +375,17 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         }
 
         if (step === "source_choice") return [
-            { val: "copyparty", type: "source_type" },
-            { val: "cloud", type: "source_type" }
+            { val: "copyparty", type: "source_select" },
+            { val: "gdrive", type: "source_select" },
+            { val: "b2", type: "source_select" },
+            { val: "pcloud", type: "source_select" },
+            { val: "sftp", type: "source_select" },
+            { val: "onedrive", type: "source_select" },
+            { val: "dropbox", type: "source_select" },
+            { val: "mega", type: "source_select" },
+            { val: "r2", type: "source_select" }
         ];
 
-        if (step === "copyparty_method") return [
-            { val: "webdav", type: "cp_method" },
-            { val: "http", type: "cp_method" }
-        ];
 
         if (step === "mirror") return [{ val: false, type: "mirror" }, { val: true, type: "mirror" }];
 
@@ -400,16 +402,6 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
             ];
         }
 
-        if (step === "source_cloud_select") return [
-            { val: "gdrive", type: "source_provider" },
-            { val: "b2", type: "source_provider" },
-            { val: "pcloud", type: "source_provider" },
-            { val: "sftp", type: "source_provider" },
-            { val: "onedrive", type: "source_provider" },
-            { val: "dropbox", type: "source_provider" },
-            { val: "mega", type: "source_provider" },
-            { val: "r2", type: "source_provider" }
-        ];
 
         if (step === "dest_cloud_select") return [
             { val: "gdrive", type: "backup_provider" },
@@ -447,7 +439,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         if (focusArea === "body") {
 
             // Universal Selectable Steps Logic
-            const selectableSteps: Step[] = ["shortcut", "source_choice", "mirror", "upsync_ask", "security", "source_cloud_select", "dest_cloud_select", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "deploy"];
+            const selectableSteps: Step[] = ["shortcut", "source_choice", "mirror", "upsync_ask", "security", "dest_cloud_select", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "deploy"];
             if (selectableSteps.includes(step)) {
 
 
@@ -512,22 +504,10 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         next(); // Safe (next step doesn't depend on this value immediately for branching, or is linear)
 
                         // === FIX: Handle Branching Steps Manually to avoid Stale State ===
-                    } else if (opt.type === "source_type") {
-                        const newVal = opt.val as "copyparty" | "cloud";
-                        // DEFERRED: pendingSourceProviderRef.current = newVal
-                        if (newVal === "copyparty") {
-                            pendingSourceProviderRef.current = "copyparty";
-                            setWizardContext("source");
-                            setStep("url");
-                        } else {
-                            setWizardContext("source");
-                            setStep("source_cloud_select");
-                        }
-
-                        // Manually advance history
-                        setHistory(prev => [...prev, step]);
-                        setSelectedIndex(0);
-                        stepStartTime.current = Date.now();
+                    } else if (opt.type === "source_select") {
+                        const newVal = opt.val as PortalProvider;
+                        pendingSourceProviderRef.current = newVal;
+                        next();
                     } else if (opt.type === "source_provider") {
                         const newVal = opt.val as PortalProvider;
                         pendingSourceProviderRef.current = newVal; // DEFERRED
@@ -552,9 +532,6 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             setStep("deploy");
                         }
 
-                    } else if (opt.type === "cp_method") {
-                        const newVal = opt.val as "webdav" | "http";
-                        updateConfig(prev => ({ ...prev, copyparty_method: newVal }));
                         next();
                     } else {
                         const fieldMap: Record<string, keyof PortalConfig> = {
@@ -742,34 +719,6 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 </box>
             )}
 
-            {step === "copyparty_method" && (
-                <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 4: Connection Method</text>
-                    <text fg={colors.fg}>🛡️ Select your preferred connection method:</text>
-                    <box flexDirection="column" gap={0} marginTop={1}>
-                        {[
-                            { name: "WebDAV (Recommended)", description: "Faster, native, no cookie grabbing", value: "webdav", key: "1", icon: "\ueac2" },
-                            { name: "HTTP (Legacy)", description: "Traditional scraping method", value: "http", key: "2", icon: "\ueac3" }
-                        ].map((opt, i) => (
-                            <box
-                                key={i}
-                                paddingLeft={2}
-                                border
-                                borderStyle="single"
-                                borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
-                                flexDirection="row"
-                                alignItems="center"
-                                gap={1}
-                            >
-                                <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
-                                <text fg={colors.primary}>{opt.icon}</text>
-                                <Hotkey keyLabel={opt.key} label={opt.name} color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary} />
-                                <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
-                            </box>
-                        ))}
-                    </box>
-                </box>
-            )}
 
             {step === "user" && (
                 <box flexDirection="column" gap={1}>
@@ -828,36 +777,51 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
             {step === "source_choice" && (
                 <box flexDirection="column" gap={1}>
                     <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 2: Source Intelligence</text>
-                    <text fg={colors.fg}>🔗 Where is your "Source of Truth"?</text>
+                    <text fg={colors.fg}>🔗 Select your "Source of Truth":</text>
                     <box flexDirection="column" gap={0} marginTop={1}>
-                        {[
-                            { name: "CopyParty (IYKYK)", value: "copyparty", key: "1", icon: "\ueac2" },
-                            { name: "Cloud Provider", value: "cloud", key: "2", icon: "\ueac2" }
-                        ].map((opt, i) => (
-                            <box
-                                key={i}
-                                paddingLeft={2}
-                                border
-                                borderStyle="single"
-                                borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
-                                flexDirection="row"
-                                alignItems="center"
-                                gap={1}
-                            >
-                                <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
-                                <text fg={colors.primary}>{opt.icon}</text>
-                                <Hotkey keyLabel={opt.key} label={opt.name} color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary} />
-                            </box>
-                        ))}
+                        {getOptions().map((opt, i) => {
+                            const providers: Record<string, { name: string, icon: string, desc?: string }> = {
+                                copyparty: { name: "CopyParty (IYKYK)", icon: "\ueac2" },
+                                gdrive: { name: "Google Drive", icon: "\ueac2" },
+                                b2: { name: "Backblaze Cloud", icon: "\ueac2" },
+                                pcloud: { name: "pCloud", icon: "\ueac2" },
+                                sftp: { name: "SFTP/SSH", icon: "\ueac2" },
+                                onedrive: { name: "OneDrive", icon: "\ueac2" },
+                                dropbox: { name: "Dropbox", icon: "\ueac2" },
+                                mega: { name: "Mega.nz", icon: "\ueac2" },
+                                r2: { name: "Cloudflare R2", icon: "\ueac2" }
+                            };
+                            const p = providers[opt.val as string];
+                            return (
+                                <box
+                                    key={i}
+                                    paddingLeft={2}
+                                    border
+                                    borderStyle="single"
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    flexDirection="row"
+                                    alignItems="center"
+                                    gap={1}
+                                >
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                    <text fg={colors.primary}>{p?.icon || "\ueac2"}</text>
+                                    <Hotkey
+                                        keyLabel={(i + 1).toString()}
+                                        label={p?.name || (opt.val as string)}
+                                        isFocused={selectedIndex === i && focusArea === "body"}
+                                    />
+                                </box>
+                            );
+                        })}
                     </box>
                 </box>
             )}
 
             {
-                (step === "source_cloud_select" || step === "dest_cloud_select") && (
+                (step === "dest_cloud_select") && (
                     <box flexDirection="column" gap={1}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>
-                            {step === "source_cloud_select" ? "Step 2b: Source Provider" : "Step 7b: Backup Provider"}
+                            Step 7b: Backup Provider
                         </text>
                         <text fg={colors.fg}>☁️  Select your cloud storage provider:</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
@@ -891,7 +855,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                             label={p?.name || opt.val}
                                             isFocused={selectedIndex === i && focusArea === "body"}
                                         />
-                                        {step === "dest_cloud_select" && p?.desc && (
+                                        {p?.desc && (
                                             <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {p.desc}</text>
                                         )}
                                     </box>
