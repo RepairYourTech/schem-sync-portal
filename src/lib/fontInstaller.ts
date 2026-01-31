@@ -47,6 +47,7 @@ export interface InstallOptions {
     font: NerdFontName;
     version: 3;
     onProgress?: (progress: { stage: string; percent: number }) => void;
+    signal?: AbortSignal;
 }
 
 export interface InstallResult {
@@ -61,7 +62,7 @@ export interface InstallResult {
  * Installs a Nerd Font based on the provided options.
  */
 export async function installNerdFont(options: InstallOptions): Promise<InstallResult> {
-    const { font, onProgress } = options;
+    const { font, onProgress, signal } = options;
     const tmpDir = join(Env.getPaths().configDir, 'font-install-tmp');
     const zipPath = join(tmpDir, `${font}.zip`);
 
@@ -85,17 +86,25 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
             _mkdirSync(tmpDir, { recursive: true });
         }
 
-        // 1. Download Phase
+        if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
+
         const url = `https://github.com/ryanoasis/nerd-fonts/releases/latest/download/${font}.zip`;
         onProgress?.({ stage: 'downloading', percent: 20 });
 
         const controller = new AbortController() as any;
         const timeoutId = setTimeout(() => controller.abort(), 30000);
 
+        if (signal) {
+            (signal as any).addEventListener('abort', () => controller.abort());
+        }
+
         let response;
         try {
             response = await _fetch(url, { signal: controller.signal as any });
         } catch (err: any) {
+            if ((signal as any)?.aborted || err.name === 'AbortError') {
+                return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
+            }
             Logger.error('SYSTEM', `Network error during font download: ${err.message}`);
             return { success: false, installedPath: '', installedFamily: font, error: 'Network error', requiresRestart: false };
         } finally {
@@ -114,6 +123,7 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
         }
 
         const arrayBuffer = await response.arrayBuffer();
+        if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
         _writeFileSync(zipPath, Buffer.from(arrayBuffer));
         onProgress?.({ stage: 'downloading', percent: 50 });
         Logger.info('SYSTEM', 'Downloaded font archive');
@@ -151,12 +161,14 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
         Logger.debug('SYSTEM', 'Extracted font files');
 
         // 3. Install Phase
+        if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
         onProgress?.({ stage: 'installing', percent: 80 });
         if (!_existsSync(targetDir)) {
             _mkdirSync(targetDir, { recursive: true });
         }
 
         for (const file of fontFiles) {
+            if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
             // Sanitize: ensure no path traversal (though readdirSync should be safe)
             const safeName = file.name.replace(/[\\/]/g, '_');
             _copyFileSync(join(tmpDir, file.name), join(targetDir, safeName));

@@ -16,6 +16,10 @@ import { checkFontGuard } from "./lib/fontGuard";
 import { Env } from "./lib/env";
 import { Logger } from "./lib/logger";
 import { Hotkey } from "./components/Hotkey";
+import { FontInstaller } from "./components/FontInstaller";
+import { ManualFontGuide } from "./components/ManualFontGuide";
+import { FontMissingBanner } from "./components/FontMissingBanner";
+import type { InstallResult } from "./lib/fontInstaller";
 
 // Perform hygiene on startup
 Logger.rotateLogs("system.log", 5 * 1024 * 1024); // 5MB limit
@@ -45,6 +49,9 @@ function AppContent() {
   const [footerFocus, setFooterFocus] = useState<number | null>(null);
   const { width, height } = useTerminalDimensions();
   const [showFontInstallPrompt, setShowFontInstallPrompt] = useState(false);
+  const [showFontInstaller, setShowFontInstaller] = useState(false);
+  const [showManualGuide, setShowManualGuide] = useState(false);
+  const [glyphHighlight, setGlyphHighlight] = useState(false);
 
   useEffect(() => {
     const runChecks = async () => {
@@ -128,6 +135,22 @@ function AppContent() {
   }, [view, isRunning, stop, renderer]);
 
   useKeyboard((key) => {
+    if (view === "doctor" && focusArea === "body") {
+      if (key.name === "r" && (!deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2)) {
+        setShowFontInstaller(true);
+      }
+      if (key.name === "u" && deps?.nerdFontDetailed.version === 2) {
+        setShowFontInstaller(true);
+      }
+      if (key.name === "m") {
+        setShowManualGuide(true);
+      }
+      if (key.name === "t") {
+        setGlyphHighlight(true);
+        setTimeout(() => setGlyphHighlight(false), 2000);
+      }
+    }
+
     const isComplete = isConfigComplete(config);
     const isEmpty = isConfigEmpty(config);
     const actions = getFooterActions();
@@ -292,6 +315,28 @@ function AppContent() {
           </box>
         )}
 
+        {showFontInstallPrompt && view === "dashboard" && (
+          <FontMissingBanner
+            onInstall={async () => {
+              setShowFontInstallPrompt(false);
+              setShowFontInstaller(true);
+            }}
+            onSkip={() => {
+              setShowFontInstallPrompt(false);
+              const newConfig = {
+                ...config,
+                nerd_font_auto_install_dismissed: true
+              };
+              setConfig(newConfig);
+              saveConfig(newConfig);
+            }}
+            onLearnMore={() => {
+              setShowFontInstallPrompt(false);
+              setShowManualGuide(true);
+            }}
+          />
+        )}
+
         {view === "sync" && (
           <SyncPortal
             config={config}
@@ -353,11 +398,35 @@ function AppContent() {
                 <text fg={deps.zig ? colors.success : colors.danger}>Zig Compiler: {deps.zig || "MISSING"}</text>
                 <text fg={deps.rclone ? colors.success : colors.danger}>Rclone Sync: {deps.rclone || "MISSING"}</text>
                 <text fg={deps.archive ? colors.success : colors.danger}>Archive Engines (7z/RAR): {deps.archive || "MISSING"}</text>
-                <text fg={colors.primary}>Font Health: {deps.nerdFont}</text>
-                <text fg={colors.primary}>Recommended Version: v{deps.recommendedVersion}</text>
-                <text fg={colors.primary}>Free Disk Space: {deps.diskSpace}</text>
 
-                <box flexDirection="column" marginTop={1} padding={1} border borderStyle="rounded" borderColor={colors.success} title="[ GLYPH TEST ]">
+                <box flexDirection="column" border borderStyle="single" borderColor={colors.border} padding={1} marginTop={1}>
+                  <text fg={colors.primary} attributes={TextAttributes.BOLD}>Font Health: {deps.nerdFontDetailed.isInstalled ? "INSTALLED" : "NOT DETECTED"}</text>
+                  <text fg={colors.primary}>Detection Method: {deps.nerdFontDetailed.method}</text>
+                  <text fg={colors.primary}>Confidence Level: {deps.nerdFontDetailed.confidence}%</text>
+                  <text fg={deps.nerdFontDetailed.version === 3 ? colors.success : (deps.nerdFontDetailed.version === 2 ? colors.setup : colors.danger)}>
+                    Version: v{deps.nerdFontDetailed.version || "Unknown"}
+                  </text>
+                  {deps.nerdFontDetailed.installedFonts.length > 0 && (
+                    <text fg={colors.dim} attributes={TextAttributes.DIM}>
+                      Installed: {deps.nerdFontDetailed.installedFonts.slice(0, 3).join(", ")}
+                    </text>
+                  )}
+                </box>
+
+                <box flexDirection="column" marginTop={1} padding={1} border borderStyle="single" borderColor={colors.border} title="[ FONT MANAGEMENT ]">
+                  <box flexDirection="row" gap={2} flexWrap="wrap">
+                    {(!deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2) && (
+                      <Hotkey keyLabel="r" label="Repair/Install" />
+                    )}
+                    {deps?.nerdFontDetailed.version === 2 && (
+                      <Hotkey keyLabel="u" label="Upgrade to v3" />
+                    )}
+                    <Hotkey keyLabel="t" label="Test Glyphs" />
+                    <Hotkey keyLabel="m" label="Manual Guide" />
+                  </box>
+                </box>
+
+                <box flexDirection="column" marginTop={1} padding={1} border borderStyle="rounded" borderColor={glyphHighlight ? colors.primary : colors.success} title="[ GLYPH TEST ]">
                   <box flexDirection="column" gap={0}>
                     <box flexDirection="row" gap={2}>
                       <text fg={activeFontVersion === 2 ? colors.success : colors.dim}>[ {'\uf61a'} ] Legacy Cat (v2){activeFontVersion === 2 ? " ★" : ""}</text>
@@ -377,6 +446,32 @@ function AppContent() {
               <text fg={colors.dim}>Running diagnostics...</text>
             )}
           </box>
+        )}
+
+        {showFontInstaller && (
+          <FontInstaller
+            onComplete={async (result: InstallResult) => {
+              setShowFontInstaller(false);
+              if (result.success) {
+                const newConfig = {
+                  ...config,
+                  nerd_font_version: 3 as const,
+                  nerd_font_installed_family: result.installedFamily,
+                  nerd_font_last_check: Date.now()
+                };
+                setConfig(newConfig);
+                saveConfig(newConfig);
+                // Refresh dependencies
+                const newDeps = await checkDependencies();
+                setDeps(newDeps);
+              }
+            }}
+            onCancel={() => setShowFontInstaller(false)}
+          />
+        )}
+
+        {showManualGuide && (
+          <ManualFontGuide onClose={() => setShowManualGuide(false)} />
         )}
       </box>
 
