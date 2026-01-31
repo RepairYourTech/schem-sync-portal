@@ -128,6 +128,10 @@ export function SyncPortal({ config, progress, isRunning, onStop: _onStop, onSta
             <box flexDirection="row" gap={2} justifyContent="center" marginTop={1}>
                 {!isRunning ? (
                     <box
+                        onMouseOver={() => {
+                            _onFocusChange("body");
+                        }}
+                        onMouseDown={() => configLoaded && _onStart()}
                         border={isBodyFocused && configLoaded}
                         borderStyle="single"
                         borderColor={(isBodyFocused && configLoaded) ? colors.success : colors.dim}
@@ -142,6 +146,10 @@ export function SyncPortal({ config, progress, isRunning, onStop: _onStop, onSta
                     </box>
                 ) : (
                     <box
+                        onMouseOver={() => {
+                            _onFocusChange("body");
+                        }}
+                        onMouseDown={() => _onStop()}
                         border={isBodyFocused}
                         borderStyle="single"
                         borderColor={isBodyFocused ? colors.danger : colors.dim}

@@ -196,6 +196,11 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
                     return (
                         <box
                             key={i}
+                            onMouseOver={() => {
+                                onFocusChange("body");
+                                setSelectedIndex(i);
+                            }}
+                            onMouseDown={() => opt.action()}
                             paddingLeft={2}
                             border
                             borderStyle="single"

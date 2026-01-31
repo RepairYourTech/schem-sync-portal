@@ -58,28 +58,37 @@ function AppContent() {
       const currentDeps = await checkDependencies();
       setDeps(currentDeps);
 
-      // Auto-detect Nerd Font version if not set
-      if (config.nerd_font_version === undefined) {
-        const detected = currentDeps.recommendedVersion;
-        const newConfig = { ...config, nerd_font_version: detected };
-        setConfig(newConfig);
-        saveConfig(newConfig);
-        Logger.debug("SYSTEM", `Auto-detected Nerd Font v${detected} environment. Saving preference.`);
-      }
+      // 1. Auto-detect Nerd Font version ONLY if missing
+      setConfig(prev => {
+        if (prev.nerd_font_version === undefined) {
+          const detected = currentDeps.recommendedVersion;
+          const next = { ...prev, nerd_font_version: detected };
+          saveConfig(next); // Side effect inside setter is slightly risky but ensures sync
+          Logger.debug("SYSTEM", `Auto-detected Nerd Font v${detected}. Saving.`);
+          return next;
+        }
+        return prev;
+      });
 
+      // 2. Font Guard
       const guardStatus = await checkFontGuard(config);
       if (guardStatus.requiresInstallation && !config.nerd_font_auto_install_dismissed) {
         setShowFontInstallPrompt(true);
       }
 
       if (guardStatus.isInstalled && guardStatus.installedFamily) {
-        const newConfig = {
-          ...config,
-          nerd_font_installed_family: guardStatus.installedFamily,
-          nerd_font_last_check: Date.now()
-        };
-        setConfig(newConfig);
-        saveConfig(newConfig);
+        setConfig(prev => {
+          if (prev.nerd_font_installed_family !== (guardStatus.installedFamily || undefined)) {
+            const next = {
+              ...prev,
+              nerd_font_installed_family: guardStatus.installedFamily || undefined,
+              nerd_font_last_check: Date.now()
+            };
+            saveConfig(next);
+            return next;
+          }
+          return prev;
+        });
       }
       Logger.debug('SYSTEM', `Font Guard status: ${guardStatus.message}`);
     };
@@ -90,9 +99,9 @@ function AppContent() {
   const activeFontVersion = config.nerd_font_version || 2;
 
   const handleStartSync = useCallback(() => {
-    if (config.source_provider !== "none" && !isRunning) {
+    if (config.source_provider !== "unconfigured" && config.source_provider !== "none" && !isRunning) {
       start(config);
-    } else if (config.source_provider === "none") {
+    } else {
       setView("wizard");
     }
   }, [config, isRunning, start]);
@@ -355,6 +364,19 @@ function AppContent() {
               config={config}
               isFocused={focusArea === "body"}
               selectedIndex={bodyIndex}
+              onSelectionChange={setBodyIndex}
+              onFocusChange={setFocusArea}
+              onAction={(key) => {
+                if (key === "s") {
+                  setView("wizard");
+                  setWizardMode("restart");
+                } else if (key === "c") {
+                  setView("wizard");
+                  setWizardMode("continue");
+                } else if (key === "p") {
+                  handleStartSync();
+                }
+              }}
             />
           </box>
         )}
@@ -646,6 +668,10 @@ function AppContent() {
               return (
                 <box
                   key={i}
+                  onMouseOver={() => {
+                    setFocusArea("footer");
+                    setFooterFocus(i);
+                  }}
                   border={isFocused}
                   borderStyle="single"
                   borderColor={isFocused ? (action.key === "escape" ? colors.danger : colors.success) : "transparent"}
@@ -682,6 +708,8 @@ function App() {
 }
 
 const renderer = await createCliRenderer({
-  exitOnCtrlC: true
+  exitOnCtrlC: true,
+  useMouse: true,
+  enableMouseMovement: true
 });
 createRoot(renderer).render(<App />);

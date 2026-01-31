@@ -144,7 +144,13 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                     {fonts.map((f, i) => {
                         const isSelected = selectedFont === f.name;
                         return (
-                            <box key={f.name} flexDirection="row" gap={2}>
+                            <box
+                                key={f.name}
+                                onMouseOver={() => setSelectedFont(f.name)}
+                                onMouseDown={() => handleInstall(f.name)}
+                                flexDirection="row"
+                                gap={2}
+                            >
                                 <text fg={isSelected ? colors.success : colors.dim}>{isSelected ? '●' : '○'}</text>
                                 <box flexDirection="column">
                                     <text fg={isSelected ? colors.success : colors.fg} attributes={isSelected ? TextAttributes.BOLD : 0}>

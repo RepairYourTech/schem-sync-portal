@@ -63,7 +63,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         // If config is complete AND we are in continue mode, we probably want to edit specific things.
         // However, if we're resuming a fresh install that was interrupted, we follow the normal flow.
         const isComplete = c.source_provider !== "unconfigured" &&
-            c.local_dir && c.local_dir !== "none" &&
+            c.local_dir && c.local_dir !== "" && c.local_dir !== "none" &&
             c.strict_mirror !== undefined &&
             c.upsync_enabled !== undefined;
 
@@ -77,7 +77,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         if (c.source_provider === "unconfigured") return "source_choice";
 
         // 3. Local Dir
-        if (!c.local_dir || c.local_dir === "none") return "dir";
+        if (!c.local_dir || c.local_dir === "" || c.local_dir === "none") return "dir";
 
         // 4. Mirror Policy
         if (c.strict_mirror === undefined) return "mirror";
@@ -297,17 +297,18 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
                 // 4. Upsync / Destination
                 case "upsync_ask":
-                    if (selectedIndex === 0) {
-                        resetWizardRefs(); // CLEAN SLATE
-                        setWizardContext("dest"); // LOCK CONTEXT
+                    if (selectedIndex === 1) { // YES
+                        resetWizardRefs();
+                        setWizardContext("dest");
                         nextStep = "dest_cloud_select";
                     }
-                    else {
-                        nextStep = "deploy"; // Download Only -> Done
+                    else { // NO
+                        nextStep = (mode === "continue" ? "edit_menu" : "deploy");
                     }
                     break;
 
                 case "dest_cloud_select":
+                    if (currentBackup === "unconfigured") return prevStep; // VALIDATION
                     if (currentBackup === "gdrive") nextStep = "gdrive_intro";
                     else if (currentBackup === "b2") nextStep = "b2_intro";
                     else if (currentBackup === "sftp") nextStep = "sftp_intro";
@@ -316,7 +317,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     else if (currentBackup === "dropbox") nextStep = "dropbox_intro";
                     else if (currentBackup === "mega") nextStep = "mega_intro";
                     else if (currentBackup === "r2") nextStep = "r2_intro";
-                    else nextStep = "security"; // None provided?? Should force.
+                    else nextStep = (mode === "continue" ? "edit_menu" : "security");
                     break;
 
                 // 5. Security (Only after Dest is set)
@@ -548,7 +549,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     }
 
                     if (opt.type === "dir_confirm") {
-                        if (config.local_dir && config.local_dir !== "none") {
+                        if (config.local_dir && config.local_dir !== "" && config.local_dir !== "none") {
                             next();
                         }
                         return;
@@ -580,7 +581,9 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             setWizardContext("dest");
                             setStep("dest_cloud_select");
                         } else {
-                            setStep("deploy");
+                            // If NO backup, we skip dest_cloud_select AND security (security is only for upsync)
+                            // return to edit menu if editing
+                            setStep(mode === "continue" ? "edit_menu" : "deploy");
                         }
                     } else {
                         const fieldMap: Record<string, keyof PortalConfig> = {
@@ -841,6 +844,10 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                 return (
                                     <box
                                         key={i}
+                                        onMouseOver={() => {
+                                            setSelectedIndex(i);
+                                            set_copyparty_config_index(3);
+                                        }}
                                         border
                                         borderStyle="single"
                                         borderColor={isSelected ? colors.success : (isFocused ? colors.primary : "transparent")}
@@ -857,6 +864,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     {/* ACTION */}
                     <box
                         marginTop={1}
+                        onMouseOver={() => set_copyparty_config_index(4)}
                         border
                         borderStyle="double"
                         borderColor={copyparty_config_index === 4 ? colors.success : colors.dim}
@@ -884,7 +892,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     <input
                         focused={focusArea === "body" && !isAuthLoading}
                         placeholder="/path/to/schematics"
-                        value={config.local_dir === "none" ? "" : (config.local_dir || "")}
+                        value={(config.local_dir === "" || config.local_dir === "none") ? "" : (config.local_dir || "")}
                         onChange={(val) => updateConfig(prev => ({ ...prev, local_dir: val }))}
                         onKeyDown={(e) => { if (e.name === "return") next(); }}
                     />
@@ -902,6 +910,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         ].map((opt, i) => (
                             <box
                                 key={i}
+                                onMouseOver={() => setSelectedIndex(i)}
                                 paddingLeft={2}
                                 border
                                 borderStyle="single"
@@ -944,6 +953,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             return (
                                 <box
                                     key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -989,6 +1000,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                 return (
                                     <box
                                         key={i}
+                                        onMouseOver={() => setSelectedIndex(i)}
+                                        onMouseDown={() => next()}
                                         paddingLeft={2}
                                         border
                                         borderStyle="single"
@@ -1029,6 +1042,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1061,6 +1076,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1094,6 +1111,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                 { name: "I HAVE CREDENTIALS", description: "I already have a Client ID and Secret", value: "direct", key: "2" }
                             ].map((opt, i) => (
                                 <box
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     key={i}
                                     paddingLeft={2}
                                     border
@@ -1130,6 +1149,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1166,6 +1187,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1202,6 +1225,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1237,6 +1262,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1272,6 +1299,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1307,6 +1336,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1343,6 +1374,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1381,12 +1414,14 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             paddingLeft={2}
                             border
                             borderStyle="single"
-                            borderColor={colors.success}
+                            borderColor={focusArea === "body" ? colors.success : colors.dim + "33"}
                             flexDirection="row"
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
-                            <text fg={colors.fg}> - I have created the project</text>
+                            <text fg={focusArea === "body" ? colors.primary : colors.dim}>▶ </text>
+                            <Hotkey keyLabel="1" label="NEXT" color={focusArea === "body" ? colors.success : colors.primary} />
+                            <text fg={focusArea === "body" ? colors.fg : colors.dim}> - I have created the project</text>
                         </box>
                     </box>
                 )
@@ -1406,6 +1441,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             border
                             borderStyle="single"
                             borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
                         >
                             <text fg={colors.primary}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
@@ -1430,6 +1467,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             border
                             borderStyle="single"
                             borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
                         >
                             <text fg={colors.primary}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
@@ -1454,6 +1493,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             border
                             borderStyle="single"
                             borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
                         >
                             <text fg={colors.primary}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
@@ -1503,7 +1544,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         <box marginTop={1} flexDirection="column" alignItems="center">
                             <text fg={colors.success} attributes={TextAttributes.BOLD}>{authStatus || "READY TO AUTHORIZE"}</text>
                             {!authStatus && (
-                                <box border padding={1} onMouseDown={() => handleGdriveAuth(clientIdRef.current, clientSecretRef.current)} borderColor={colors.success}>
+                                <box border padding={1} onMouseOver={() => _onFocusChange("body")} onMouseDown={() => handleGdriveAuth(clientIdRef.current, clientSecretRef.current)} borderColor={colors.success}>
                                     <text fg={colors.fg}> [ CLICK HERE OR HIT ENTER TO AUTHORIZE ] </text>
                                 </box>
                             )}
@@ -1664,7 +1705,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         <box marginTop={1} flexDirection="column" alignItems="center">
                             <text fg={colors.success} attributes={TextAttributes.BOLD}>{authStatus || "READY TO AUTHORIZE MICROSOFT"}</text>
                             {!authStatus && (
-                                <box border padding={1} onMouseDown={() => startGenericAuth("onedrive")} borderColor={colors.success}>
+                                <box border padding={1} onMouseOver={() => _onFocusChange("body")} onMouseDown={() => startGenericAuth("onedrive")} borderColor={colors.success}>
                                     <text fg={colors.fg}> [ CLICK HERE OR HIT ENTER TO AUTHORIZE ] </text>
                                 </box>
                             )}
@@ -1719,7 +1760,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         <box marginTop={1} flexDirection="column" alignItems="center">
                             <text fg={colors.success} attributes={TextAttributes.BOLD}>{authStatus || "READY TO AUTHORIZE DROPBOX"}</text>
                             {!authStatus && (
-                                <box border padding={1} onMouseDown={() => startGenericAuth("dropbox")} borderColor={colors.success}>
+                                <box border padding={1} onMouseOver={() => _onFocusChange("body")} onMouseDown={() => startGenericAuth("dropbox")} borderColor={colors.success}>
                                     <text fg={colors.fg}> [ CLICK HERE OR HIT ENTER TO AUTHORIZE ] </text>
                                 </box>
                             )}
@@ -1880,7 +1921,13 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                 { name: "SAVE & EXIT", description: "Apply all changes", value: true, key: "1" },
                                 { name: "DISCARD", description: "Exit without saving", value: false, key: "2" }
                             ].map((opt, i) => (
-                                <box key={i} paddingLeft={2} backgroundColor={selectedIndex === i && focusArea === "body" ? colors.primary + "33" : undefined}>
+                                <box
+                                    key={i}
+                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseDown={() => next()}
+                                    paddingLeft={2}
+                                    backgroundColor={selectedIndex === i && focusArea === "body" ? colors.primary + "33" : undefined}
+                                >
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
                                     <Hotkey
                                         keyLabel={opt.key}

@@ -6,14 +6,13 @@ export type PortalProvider = "copyparty" | "gdrive" | "b2" | "sftp" | "pcloud" |
 
 export interface PortalConfig {
     // 1. Connection & Providers (One SSoT) 🧠🛡️🦅
-    // Remotes are ALWAYS: Env.REMOTE_PORTAL_SOURCE, Env.REMOTE_PORTAL_BACKUP in rclone.conf
     source_provider: PortalProvider;
     backup_provider: PortalProvider;
     upsync_enabled: boolean | undefined;
 
     // 2. Preferences
     local_dir: string;
-    strict_mirror: boolean | undefined; // true = sync, false = copy
+    strict_mirror: boolean | undefined;
 
     // 3. Security & Policy
     enable_malware_shield: boolean;
@@ -29,7 +28,7 @@ export interface PortalConfig {
     desktop_shortcut: number; // 0=unset, 1=on, 2=skipped
     debug_mode: boolean;
     nerd_font_version?: 2 | 3;
-    cookie?: string; // Opt-in cookie for CopyParty or other HTTP remotes
+    cookie?: string;
     copyparty_method?: "webdav" | "http";
     webdav_user?: string;
     webdav_pass?: string;
@@ -38,21 +37,20 @@ export interface PortalConfig {
     nerd_font_auto_install?: boolean;
     nerd_font_auto_install_dismissed?: boolean;
     nerd_font_installed_family?: string;
-    nerd_font_last_check?: number; // Unix timestamp
+    nerd_font_last_check?: number;
 }
 
-// Project root is two levels up from src/lib/config.ts
 const PROJECT_ROOT = join(import.meta.dir, "..", "..");
 const CONFIG_PATH = join(PROJECT_ROOT, "config.json");
 
 /**
- * Pure Default Template
+ * Pure Default Template - Uses "unconfigured" to force interaction.
  */
 export const EMPTY_CONFIG: PortalConfig = {
     source_provider: "unconfigured",
     backup_provider: "unconfigured",
     upsync_enabled: undefined,
-    local_dir: "none",
+    local_dir: "",
     strict_mirror: undefined,
     malware_policy: "purge",
     enable_malware_shield: false,
@@ -68,8 +66,12 @@ export function loadConfig(): PortalConfig {
     try {
         if (existsSync(CONFIG_PATH)) {
             const data = readFileSync(CONFIG_PATH, "utf-8");
-            const parsed = JSON.parse(data);
-            // Merge with empty config to ensure all keys exist
+            let parsed = JSON.parse(data);
+
+            // MIGRATION: Convert legacy "none" defaults to "unconfigured" or ""
+            if (parsed.source_provider === "none") parsed.source_provider = "unconfigured";
+            if (parsed.local_dir === "none") parsed.local_dir = "";
+
             return { ...EMPTY_CONFIG, ...parsed };
         }
     } catch (err: unknown) {
@@ -80,7 +82,7 @@ export function loadConfig(): PortalConfig {
 
 export function saveConfig(config: PortalConfig): void {
     try {
-        // Clean save: only include fields defined in the type
+        // THOROUGH SAVE: Ensure ALL fields defined in the type are explicitly picked.
         const clean: PortalConfig = {
             source_provider: config.source_provider,
             backup_provider: config.backup_provider,
@@ -111,13 +113,13 @@ export function saveConfig(config: PortalConfig): void {
 }
 
 export function isConfigComplete(config: PortalConfig): boolean {
-    if (!config.local_dir || config.local_dir === "none") return false;
-    if (config.source_provider === "unconfigured") return false;
+    if (!config.local_dir || config.local_dir === "" || config.local_dir === "none") return false;
+    if (config.source_provider === "unconfigured" || config.source_provider === "none") return false;
     if (config.strict_mirror === undefined) return false;
     if (config.upsync_enabled === undefined) return false;
 
-    // If backup is intended, it must have a provider
-    if (config.upsync_enabled && config.backup_provider === "unconfigured") return false;
+    // If backup is intended, it must have a provider (unconfigured is NOT allowed if upsync is on)
+    if (config.upsync_enabled && (config.backup_provider === "unconfigured")) return false;
 
     return true;
 }
