@@ -1,6 +1,6 @@
 import { createCliRenderer, TextAttributes } from "@opentui/core";
 import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { spawn } from "child_process";
 import { Splash } from "./components/Splash";
 import { Dashboard } from "./components/Dashboard";
@@ -45,6 +45,7 @@ function AppContent() {
   const { progress, isRunning, start, stop } = useSync();
 
   const [focusArea, setFocusArea] = useState<FocusArea>("body");
+  const tabDirection = useRef<"forward" | "backward" | null>(null);
   const [bodyIndex, setBodyIndex] = useState(0);
   const [doctorIndex, setDoctorIndex] = useState(0);
   const [footerFocus, setFooterFocus] = useState<number | null>(null);
@@ -95,6 +96,11 @@ function AppContent() {
 
     runChecks();
   }, [view, config.nerd_font_auto_install_dismissed]);
+
+  // Clear tabDirection after use
+  useEffect(() => {
+    tabDirection.current = null;
+  }, [focusArea, view]);
 
   const activeFontVersion = config.nerd_font_version || 2;
 
@@ -209,13 +215,83 @@ function AppContent() {
     const actions = getFooterActions();
     const bodyActionsCount = isEmpty ? 1 : (!isComplete ? 2 : 1);
 
-    // Navigation (Tab cycles areas)
+    // Navigation (Tab cycles items)
     if (key.name === "tab") {
-      // simplified 2-way cycle: Body <-> Footer
-      setFocusArea(prev => prev === "body" ? "footer" : "body");
-      if (focusArea !== "footer") setFooterFocus(0);
-      else setFooterFocus(null);
-      return;
+      if (focusArea === "footer") {
+        const actions = getFooterActions();
+        if (key.shift) {
+          if (footerFocus === 0 || footerFocus === null) {
+            tabDirection.current = "backward";
+            setFocusArea("body");
+            setFooterFocus(null);
+            // BACKWARDS into body: go to LAST item
+            if (view === "dashboard") setBodyIndex(bodyActionsCount - 1);
+            if (view === "doctor") {
+              const showRepair = !deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2;
+              const showUpgrade = deps?.nerdFontDetailed.version === 2;
+              const count = 3 + (showRepair ? 1 : 0) + (showUpgrade ? 1 : 0);
+              setDoctorIndex(count - 1);
+            }
+          } else {
+            setFooterFocus(prev => prev! - 1);
+          }
+        } else {
+          if (footerFocus === actions.length - 1) {
+            tabDirection.current = "forward";
+            setFocusArea("body");
+            setFooterFocus(null);
+            // FORWARDS into body: go to FIRST item
+            if (view === "dashboard") setBodyIndex(0);
+            if (view === "doctor") setDoctorIndex(0);
+          } else {
+            setFooterFocus(prev => (prev === null ? 0 : prev + 1));
+          }
+        }
+        return;
+      }
+      if (focusArea === "body") {
+        if (view === "dashboard") {
+          if (key.shift) {
+            if (bodyIndex === 0) {
+              tabDirection.current = "backward";
+              setFocusArea("footer");
+            } else setBodyIndex(prev => prev - 1);
+          } else {
+            if (bodyIndex === bodyActionsCount - 1) {
+              tabDirection.current = "forward";
+              setFocusArea("footer");
+            } else setBodyIndex(prev => prev + 1);
+          }
+          return;
+        }
+
+        if (view === "doctor") {
+          const showRepair = !deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2;
+          const showUpgrade = deps?.nerdFontDetailed.version === 2;
+          const count = 3 + (showRepair ? 1 : 0) + (showUpgrade ? 1 : 0); // r, u, t, m, b
+
+          if (key.shift) {
+            if (doctorIndex === 0) {
+              tabDirection.current = "backward";
+              setFocusArea("footer");
+            } else setDoctorIndex(prev => prev - 1);
+          } else {
+            if (doctorIndex >= count - 1) {
+              tabDirection.current = "forward";
+              setFocusArea("footer");
+            } else setDoctorIndex(prev => prev + 1);
+          }
+          return;
+        }
+
+        if (view === "sync" || view === "fontinstaller" || view === "fontguide") {
+          // These views only have one body interaction or are static/guides
+          tabDirection.current = key.shift ? "backward" : "forward";
+          setFocusArea("footer");
+          setFooterFocus(0);
+          return;
+        }
+      }
     }
 
     // Directional Navigation
@@ -428,6 +504,7 @@ function AppContent() {
             onQuit={onQuitWizard}
             focusArea={focusArea}
             onFocusChange={setFocusArea}
+            tabTransition={tabDirection.current}
             backSignal={backSignal}
           />
         )}
@@ -441,6 +518,7 @@ function AppContent() {
             onBack={() => setView("dashboard")}
             focusArea={focusArea}
             onFocusChange={setFocusArea}
+            tabTransition={tabDirection.current}
             config={config}
             onUpdateConfig={(newConfig) => {
               saveConfig(newConfig);

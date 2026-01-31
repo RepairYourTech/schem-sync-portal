@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useKeyboard } from "@opentui/react";
 import { useTheme } from "../lib/theme";
 import { performUpdate, type UpdateStatus } from "../lib/updater";
@@ -16,11 +16,12 @@ interface OptionsProps {
     onBack: () => void;
     focusArea: "body" | "footer";
     onFocusChange: (area: "body" | "footer") => void;
+    tabTransition?: "forward" | "backward" | null;
     config: PortalConfig;
     onUpdateConfig: (config: PortalConfig) => void;
 }
 
-export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusArea, onFocusChange, config, onUpdateConfig }: OptionsProps) {
+export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusArea, onFocusChange, tabTransition, config, onUpdateConfig }: OptionsProps) {
     const { colors } = useTheme();
     const [subView, setSubView] = useState<"menu" | "about" | "logs">("menu");
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -58,6 +59,18 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
         setIsUpdating(false);
     }, []);
 
+    useEffect(() => {
+        if (focusArea === "body" && tabTransition) {
+            if (tabTransition === "forward") {
+                setSelectedIndex(0);
+                setLogSelectedIndex(0);
+            } else {
+                setSelectedIndex(options.length - 1);
+                setLogSelectedIndex(1); // Refresh (0) or Clear (1)? Let's say Clear.
+            }
+        }
+    }, [focusArea, tabTransition, subView]);
+
     const handleRefreshLogs = useCallback(() => {
         setLogs(Logger.getRecentLogs(25));
     }, []);
@@ -68,53 +81,72 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
     }, []);
 
     useKeyboard((e) => {
-        // Universal TAB cycling is handled by index.tsx
-        if (e.name === "tab") return;
+        if (focusArea === "body") {
+            if (e.name === "tab") {
+                if (subView === "menu") {
+                    if (e.shift) {
+                        if (selectedIndex === 0) onFocusChange("footer");
+                        else setSelectedIndex(prev => prev - 1);
+                    } else {
+                        if (selectedIndex === options.length - 1) onFocusChange("footer");
+                        else setSelectedIndex(prev => prev + 1);
+                    }
+                } else if (subView === "logs") {
+                    if (logSelectedIndex === 0 && !e.shift) setLogSelectedIndex(1);
+                    else if (logSelectedIndex === 1 && e.shift) setLogSelectedIndex(0);
+                    else onFocusChange("footer");
+                } else {
+                    // About view (1 interaction: Back)
+                    onFocusChange("footer");
+                }
+                return;
+            }
 
-        if (subView === "menu" && focusArea === "body") {
-            if (e.name === "1") setSelectedIndex(0);
-            else if (e.name === "2") setSelectedIndex(1);
-            else if (e.name === "3") setSelectedIndex(2);
-            else if (e.name === "4") setSelectedIndex(3);
-            else if (e.name === "5") setSelectedIndex(4);
-            else if (e.name === "6") setSelectedIndex(5);
-            else if (e.name === "b") onBack();
-            else if (e.name === "a") setSubView("about");
-            else if (e.name === "up") {
-                setSelectedIndex(prev => (prev > 0 ? prev - 1 : options.length - 1));
-            } else if (e.name === "down") {
-                setSelectedIndex(prev => (prev < options.length - 1 ? prev + 1 : 0));
-            } else if (e.name === "return") {
-                const selectedOpt = options[selectedIndex];
-                if (selectedOpt) selectedOpt.action();
-            } else if (e.name === "escape") {
-                // index.tsx handles the 2-step ESC logic usually, 
-                // but we'll let this be a shortcut to focusing the footer.
-                onFocusChange("footer");
-            }
-        } else if (subView === "logs" && focusArea === "body") {
-            if (e.name === "left") {
-                setLogSelectedIndex(0);
-            } else if (e.name === "right") {
-                setLogSelectedIndex(1);
-            } else if (e.name === "r") {
-                setLogSelectedIndex(0);
-            } else if (e.name === "c") {
-                setLogSelectedIndex(1);
-            } else if (e.name === "return") {
-                if (logSelectedIndex === 0) handleRefreshLogs();
-                else if (logSelectedIndex === 1) handleClearLogs();
-            } else if (e.name === "escape" || e.name === "backspace") {
-                setSubView("menu");
-            }
-        } else {
-            // About view
-            if (e.name === "escape" || e.name === "backspace" || (e.name === "b" && !isUpdating)) {
-                setSubView("menu");
-                setUpdateStatus(null);
-            }
-            if (e.name === "u" && !isUpdating) {
-                handleUpdate();
+            if (subView === "menu" && focusArea === "body") {
+                if (e.name === "1") setSelectedIndex(0);
+                else if (e.name === "2") setSelectedIndex(1);
+                else if (e.name === "3") setSelectedIndex(2);
+                else if (e.name === "4") setSelectedIndex(3);
+                else if (e.name === "5") setSelectedIndex(4);
+                else if (e.name === "6") setSelectedIndex(5);
+                else if (e.name === "b") onBack();
+                else if (e.name === "a") setSubView("about");
+                else if (e.name === "up") {
+                    setSelectedIndex(prev => (prev > 0 ? prev - 1 : options.length - 1));
+                } else if (e.name === "down") {
+                    setSelectedIndex(prev => (prev < options.length - 1 ? prev + 1 : 0));
+                } else if (e.name === "return") {
+                    const selectedOpt = options[selectedIndex];
+                    if (selectedOpt) selectedOpt.action();
+                } else if (e.name === "escape") {
+                    // index.tsx handles the 2-step ESC logic usually, 
+                    // but we'll let this be a shortcut to focusing the footer.
+                    onFocusChange("footer");
+                }
+            } else if (subView === "logs" && focusArea === "body") {
+                if (e.name === "left") {
+                    setLogSelectedIndex(0);
+                } else if (e.name === "right") {
+                    setLogSelectedIndex(1);
+                } else if (e.name === "r") {
+                    setLogSelectedIndex(0);
+                } else if (e.name === "c") {
+                    setLogSelectedIndex(1);
+                } else if (e.name === "return") {
+                    if (logSelectedIndex === 0) handleRefreshLogs();
+                    else if (logSelectedIndex === 1) handleClearLogs();
+                } else if (e.name === "escape" || e.name === "backspace") {
+                    setSubView("menu");
+                }
+            } else {
+                // About view
+                if (e.name === "escape" || e.name === "backspace" || (e.name === "b" && !isUpdating)) {
+                    setSubView("menu");
+                    setUpdateStatus(null);
+                }
+                if (e.name === "u" && !isUpdating) {
+                    handleUpdate();
+                }
             }
         }
     });

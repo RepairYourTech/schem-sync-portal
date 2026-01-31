@@ -11,15 +11,34 @@ import { useTheme } from "../lib/theme";
 import { Env } from "../lib/env";
 import { Logger } from "../lib/logger";
 
+
+interface WizardOption {
+    name?: string;
+    description?: string;
+    value?: string | number | boolean | PortalProvider;
+    val?: string | number | boolean | PortalProvider; // mixed usage in code
+    key?: string;
+    type?: string;
+    action?: () => void;
+}
+
+interface WizardKeyEvent {
+    name: string;
+    shift: boolean;
+    ctrl: boolean;
+    meta: boolean;
+}
+
 interface WizardProps {
     onComplete: (config: PortalConfig) => void;
     onUpdate?: (config: PortalConfig) => void;
     onCancel: () => void;
     onQuit: () => void;
     initialConfig: PortalConfig;
-    mode?: "continue" | "restart";
+    mode?: "continue" | "restart" | "edit";
     focusArea: "body" | "footer";
     onFocusChange: (area: "body" | "footer") => void;
+    tabTransition?: "forward" | "backward" | null;
     backSignal: number;
 }
 
@@ -44,10 +63,12 @@ type Step =
     | "dropbox_intro" | "dropbox_auth"
     | "mega_intro" | "mega_user" | "mega_pass"
     | "r2_intro" | "r2_id" | "r2_key" | "r2_endpoint"
+    | "cloud_setup_choice"
+    | "cloud_direct_entry"
     | "edit_menu"
     | "deploy";
 
-export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, backSignal }: WizardProps) {
+export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, tabTransition, backSignal }: WizardProps) {
     const { colors } = useTheme();
     const isBootstrapped = isSystemBootstrapped();
     const savedShortcutState = initialConfig.desktop_shortcut;
@@ -58,16 +79,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
     const [wizardContext, setWizardContext] = useState<"source" | "dest">("source");
 
     const findNextStep = (c: PortalConfig): Step => {
+        if (mode === "edit") return "edit_menu";
         if (mode === "restart") return "shortcut";
-
-        // If config is complete AND we are in continue mode, we probably want to edit specific things.
-        // However, if we're resuming a fresh install that was interrupted, we follow the normal flow.
-        const isComplete = c.source_provider !== "unconfigured" &&
-            c.local_dir && c.local_dir !== "" && c.local_dir !== "none" &&
-            c.strict_mirror !== undefined &&
-            c.upsync_enabled !== undefined;
-
-        if (mode === "continue" && isComplete) return "edit_menu";
 
         // 1. Shortcut detection
         const skipShort = isSystemBootstrapped() || c.desktop_shortcut === 2;
@@ -85,7 +98,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         // 5. Upsync / Backup
         if (c.upsync_enabled === undefined) return "upsync_ask";
 
-        if (c.upsync_enabled && c.backup_provider === "unconfigured") return "dest_cloud_select";
+        if (c.upsync_enabled && (c.backup_provider === "unconfigured")) return "dest_cloud_select";
 
         return "deploy";
     };
@@ -93,7 +106,9 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
     // ... (Skip logic same)
     const isShortcutMissing = savedShortcutState === 1 && !isBootstrapped;
 
-    const [step, setStep] = useState<Step>(findNextStep(initialConfig));
+    const initialStep = findNextStep(initialConfig);
+    const [step, setStep] = useState<Step>(initialStep);
+    const [isMenuMode, setIsMenuMode] = useState(initialStep === "edit_menu");
     const [config, setConfig] = useState<PortalConfig>({
         ...initialConfig,
         desktop_shortcut: isBootstrapped ? 1 : (initialConfig.desktop_shortcut ?? 0)
@@ -101,10 +116,12 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
     const configRef = useRef<PortalConfig>(config); // Synchronous mirror for zero-lag access
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [copyparty_config_index, set_copyparty_config_index] = useState(0); // 0:URL, 1:User, 2:Pass, 3:Method, 4:Connect
+    const [direct_entry_index, set_direct_entry_index] = useState(0);
     const [isAuthLoading, setIsAuthLoading] = useState(false);
     const [authStatus, setAuthStatus] = useState<string | null>(null);
     const pendingSourceProviderRef = useRef<PortalProvider>(initialConfig.source_provider);
     const pendingBackupProviderRef = useRef<PortalProvider>(initialConfig.backup_provider);
+    const [cloudExperience, setCloudExperience] = useState<"guided" | "direct">("guided");
 
     // [SEC] Local Credential Refs - Memory-only, never saved to config.json 🧠🛡️🦅
     const urlRef = useRef("");
@@ -262,81 +279,69 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 case "source_choice":
                     resetWizardRefs();
                     setWizardContext("source");
-                    if (currentSource === "unconfigured") return prevStep; // VALIDATION
+                    if (currentSource === "unconfigured") return prevStep;
                     if (currentSource === "copyparty") {
                         nextStep = "copyparty_config";
-                    } else if (currentSource === "gdrive") {
-                        nextStep = "gdrive_intro";
-                    } else if (currentSource === "b2") {
-                        nextStep = "b2_intro";
-                    } else if (currentSource === "sftp") {
-                        nextStep = "sftp_intro";
-                    } else if (currentSource === "pcloud") {
-                        nextStep = "pcloud_intro";
-                    } else if (currentSource === "onedrive") {
-                        nextStep = "onedrive_intro";
-                    } else if (currentSource === "dropbox") {
-                        nextStep = "dropbox_intro";
-                    } else if (currentSource === "mega") {
-                        nextStep = "mega_intro";
-                    } else if (currentSource === "r2") {
-                        nextStep = "r2_intro";
+                    } else if (currentSource === "none") {
+                        nextStep = (isMenuMode ? "edit_menu" : "dir");
                     } else {
-                        nextStep = (mode === "continue" ? "edit_menu" : "dir");
+                        nextStep = "cloud_setup_choice";
                     }
                     break;
 
-                // CopyParty Branch
-                case "copyparty_config": nextStep = (mode === "continue" ? "edit_menu" : "dir"); break;
+                case "cloud_setup_choice":
+                    if (cloudExperience === "direct") {
+                        nextStep = "cloud_direct_entry";
+                    } else {
+                        const provider = (wizardContext === "source" ? currentSource : currentBackup);
+                        if (provider === "gdrive") nextStep = "gdrive_intro";
+                        else if (provider === "b2") nextStep = "b2_intro";
+                        else if (provider === "sftp") nextStep = "sftp_intro";
+                        else if (provider === "pcloud") nextStep = "pcloud_intro";
+                        else if (provider === "onedrive") nextStep = "onedrive_intro";
+                        else if (provider === "dropbox") nextStep = "dropbox_intro";
+                        else if (provider === "mega") nextStep = "mega_intro";
+                        else if (provider === "r2") nextStep = "r2_intro";
+                        else nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security"));
+                    }
+                    break;
 
-                // Cloud Source Branch
+                case "cloud_direct_entry":
+                    nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security"));
+                    break;
+
+                case "copyparty_config": nextStep = (isMenuMode ? "edit_menu" : "dir"); break;
 
                 // 3. Core
-                case "dir": nextStep = (mode === "continue" ? "edit_menu" : "mirror"); break;
-                case "mirror": nextStep = (mode === "continue" ? "edit_menu" : "upsync_ask"); break;
+                case "dir": nextStep = (isMenuMode ? "edit_menu" : "mirror"); break;
+                case "mirror": nextStep = (isMenuMode ? "edit_menu" : "upsync_ask"); break;
 
                 // 4. Upsync / Destination
                 case "upsync_ask":
-                    if (selectedIndex === 1) { // YES
+                    if (selectedIndex === 1) {
                         resetWizardRefs();
                         setWizardContext("dest");
                         nextStep = "dest_cloud_select";
-                    }
-                    else { // NO
-                        nextStep = (mode === "continue" ? "edit_menu" : "deploy");
+                    } else {
+                        nextStep = (isMenuMode ? "edit_menu" : "deploy");
                     }
                     break;
 
                 case "dest_cloud_select":
-                    if (currentBackup === "unconfigured") return prevStep; // VALIDATION
-                    if (currentBackup === "gdrive") nextStep = "gdrive_intro";
-                    else if (currentBackup === "b2") nextStep = "b2_intro";
-                    else if (currentBackup === "sftp") nextStep = "sftp_intro";
-                    else if (currentBackup === "pcloud") nextStep = "pcloud_intro";
-                    else if (currentBackup === "onedrive") nextStep = "onedrive_intro";
-                    else if (currentBackup === "dropbox") nextStep = "dropbox_intro";
-                    else if (currentBackup === "mega") nextStep = "mega_intro";
-                    else if (currentBackup === "r2") nextStep = "r2_intro";
-                    else nextStep = (mode === "continue" ? "edit_menu" : "security");
+                    if (currentBackup === "unconfigured") return prevStep;
+                    nextStep = "cloud_setup_choice";
                     break;
 
-                // 5. Security (Only after Dest is set)
-                case "security": nextStep = (mode === "continue" ? "edit_menu" : "deploy"); break;
+                case "security": nextStep = (isMenuMode ? "edit_menu" : "deploy"); break;
 
-                // PROVIDER FLOWS (Generic)
-                // When finishing a provider flow, we need to know WHERE to go next.
-                // We check 'wizardContext'.
-                // If Source -> Go to 'dir'
-                // If Dest -> Go to 'security'
-
-                case "gdrive_auth": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "b2_key": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "sftp_pass": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "pcloud_pass": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "onedrive_auth": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "dropbox_auth": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "mega_pass": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "r2_endpoint": nextStep = (mode === "continue" ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "gdrive_auth": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "b2_key": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "sftp_pass": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "pcloud_pass": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "onedrive_auth": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "dropbox_auth": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "mega_pass": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "r2_endpoint": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
 
                 // Intermediates
                 case "gdrive_intro": nextStep = "gdrive_id"; break;
@@ -436,6 +441,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
             { val: "r2", type: "backup_provider" }
         ];
 
+        if (step === "cloud_setup_choice") return [
+            { val: "guided", type: "exp_choice" },
+            { val: "direct", type: "exp_choice" }
+        ];
+
         if (step === "gdrive_intro") return [{ val: "guided", type: "gdrive_path" }, { val: "direct", type: "gdrive_path" }];
         if (step === "b2_intro") return [{ val: "guided", type: "intro_path" }, { val: "direct", type: "intro_path" }];
         if (step === "sftp_intro") return [{ val: "guided", type: "intro_path" }, { val: "direct", type: "intro_path" }];
@@ -453,151 +463,18 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         return [];
     }, [step, isShortcutMissing]);
 
-    useKeyboard((e) => {
-        // === Universal Navigation Area Logic (Area Switch) ===
-        // TAB is handled by index.tsx global listener to coordinate between areas
-        if (e.name === "tab") return;
-
-        if (focusArea === "body") {
-            // === Consolidated CopyParty Setup (Step 3) ===
-            if (step === "copyparty_config") {
-                if (e.name === "down") {
-                    set_copyparty_config_index(prev => Math.min(4, prev + 1));
-                } else if (e.name === "up") {
-                    set_copyparty_config_index(prev => Math.max(0, prev - 1));
-                }
-
-                // Method Selection (Sub-index 3)
-                if (copyparty_config_index === 3) {
-                    if (e.name === "left") {
-                        setSelectedIndex(0);
-                        updateConfig(prev => ({ ...prev, copyparty_method: "webdav" }));
-                    }
-                    if (e.name === "right") {
-                        setSelectedIndex(1);
-                        updateConfig(prev => ({ ...prev, copyparty_method: "http" }));
-                    }
-                }
-
-                if (e.name === "return") {
-                    if (copyparty_config_index === 4) {
-                        handleAuth();
-                    } else {
-                        set_copyparty_config_index(prev => Math.min(4, prev + 1));
-                    }
-                }
-                return;
-            }
-
-            // Universal Selectable Steps Logic
-            const selectableSteps: Step[] = ["shortcut", "source_choice", "mirror", "upsync_ask", "security", "dest_cloud_select", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "deploy"];
-            if (selectableSteps.includes(step)) {
-                const options = getOptions();
-
-                // Arrow Navigation
-                if (e.name === "down") {
-                    setSelectedIndex(prev => (prev + 1) % options.length);
-                } else if (e.name === "up") {
-                    setSelectedIndex(prev => (prev - 1 + options.length) % options.length);
-                }
-
-                // Numeric Selection
-                if (e.name >= "1" && e.name <= "9") {
-                    const idx = parseInt(e.name) - 1;
-                    if (idx < options.length) setSelectedIndex(idx);
-                }
-
-                // Confirmation
-                if (e.name === "return") {
-                    const opt = options[selectedIndex];
-                    if (!opt) return;
-
-                    if (opt.type === "deploy") {
-                        if (opt.val) onComplete(config);
-                        else onCancel();
-                        return;
-                    }
-
-                    if (opt.type === "gdrive_path") {
-                        if (opt.val === "guided") setStep("gdrive_guide_1");
-                        else next();
-                        return;
-                    }
-
-                    if (opt.type === "intro_path") {
-                        next();
-                        return;
-                    }
-
-                    if (opt.type === "guide_next") {
-                        next();
-                        return;
-                    }
-
-                    if (opt.type === "desktop_shortcut") {
-                        if (opt.val === 1) {
-                            bootstrapSystem(join(process.cwd(), "src/index.tsx"));
-                        }
-                        updateConfig(prev => ({ ...prev, desktop_shortcut: opt.val as number }));
-                        next();
-                        return;
-                    }
-
-                    if (opt.type === "jump") {
-                        setStep(opt.val as Step);
-                        return;
-                    }
-
-                    if (opt.type === "dir_confirm") {
-                        if (config.local_dir && config.local_dir !== "" && config.local_dir !== "none") {
-                            next();
-                        }
-                        return;
-                    }
-
-                    if (opt.type === "sec_policy") {
-                        updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                    } else if (opt.type === "sec_toggle") {
-                        updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                        next();
-                    } else if (opt.type === "source_select") {
-                        const newVal = opt.val as PortalProvider;
-                        pendingSourceProviderRef.current = newVal;
-                        next();
-                    } else if (opt.type === "source_provider") {
-                        const newVal = opt.val as PortalProvider;
-                        pendingSourceProviderRef.current = newVal;
-                        next();
-                    } else if (opt.type === "backup_provider") {
-                        const newVal = opt.val as PortalProvider;
-                        pendingBackupProviderRef.current = newVal;
-                        next();
-                    } else if (opt.type === "sync_mode") {
-                        const newVal = opt.val === "sync_backup";
-                        updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                        setHistory(prev => [...prev, step]);
-                        setSelectedIndex(0);
-                        if (newVal) {
-                            setWizardContext("dest");
-                            setStep("dest_cloud_select");
-                        } else {
-                            // If NO backup, we skip dest_cloud_select AND security (security is only for upsync)
-                            // return to edit menu if editing
-                            setStep(mode === "continue" ? "edit_menu" : "deploy");
-                        }
-                    } else {
-                        const fieldMap: Record<string, keyof PortalConfig> = {
-                            shortcut: "desktop_shortcut",
-                            mirror: "strict_mirror"
-                        };
-                        const field = fieldMap[opt.type as string];
-                        if (field) updateConfig(prev => ({ ...prev, [field]: opt.val }));
-                        next();
-                    }
-                }
+    useEffect(() => {
+        if (focusArea === "body" && tabTransition) {
+            if (tabTransition === "forward") {
+                setSelectedIndex(0);
+                set_copyparty_config_index(0);
+            } else {
+                const opts = getOptions();
+                setSelectedIndex(Math.max(0, opts.length - 1));
+                set_copyparty_config_index(4); // Last field in copyparty
             }
         }
-    });
+    }, [focusArea, tabTransition, step]);
 
     const handleAuth = useCallback(async () => {
         setIsAuthLoading(true);
@@ -654,20 +531,16 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         setAuthStatus("🔄 Launching Google Handshake...");
 
         try {
-            // We use the imported authorizeRemote helper for "drive"
             const token = await authorizeRemote("drive");
-
             if (token) {
                 setAuthStatus("✅ Google Connected!");
                 oauthTokenRef.current = token;
-
-                // Sync to Rclone
                 const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
                 updateGdriveRemote(remoteName, clientId, clientSecret, token);
-                // COMMIT
                 const field = wizardContext === "source" ? "source_provider" : "backup_provider";
                 const pending = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
                 updateConfig(prev => ({ ...prev, [field]: pending }));
+                next();
             }
         } catch (err: unknown) {
             const error = err as Error;
@@ -675,29 +548,23 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         } finally {
             setIsAuthLoading(false);
         }
-    }, [wizardContext]);
+    }, [wizardContext, next, updateConfig]);
 
     const startGenericAuth = useCallback(async (provider: string) => {
         setIsAuthLoading(true);
         setAuthStatus(`🚀 Launching ${provider.toUpperCase()} Authorization...`);
 
         try {
-            // We use the imported authorizeRemote helper
             const token = await authorizeRemote(provider);
-
             if (token) {
                 setAuthStatus(`✅ ${provider.toUpperCase()} Connected!`);
                 oauthTokenRef.current = token;
-
-                // Update Rclone Config Immediately so it's ready
                 const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                updateGenericRemote(remoteName, provider, { token: token });
-                // COMMIT
+                updateGenericRemote(remoteName, provider, { token });
                 const field = wizardContext === "source" ? "source_provider" : "backup_provider";
                 const pending = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
                 updateConfig(prev => ({ ...prev, [field]: pending }));
-            } else {
-                setAuthStatus("❌ Authorization Failed or User Cancelled.");
+                next();
             }
         } catch (err: unknown) {
             const error = err as Error;
@@ -705,7 +572,177 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         } finally {
             setIsAuthLoading(false);
         }
-    }, [wizardContext]);
+    }, [wizardContext, next, updateConfig]);
+
+    const confirmSelection = useCallback((opt: WizardOption) => {
+        if (!opt) return;
+
+        if (opt.type === "deploy") {
+            if (opt.val) onComplete(config);
+            else onCancel();
+            return;
+        }
+
+        if (opt.type === "exp_choice") {
+            setCloudExperience(opt.val as "guided" | "direct");
+            next();
+            return;
+        }
+
+        if (opt.type === "gdrive_path") {
+            if (opt.val === "guided") setStep("gdrive_guide_1");
+            else next();
+            return;
+        }
+
+        if (opt.type === "intro_path") {
+            next();
+            return;
+        }
+
+        if (opt.type === "guide_next") {
+            next();
+            return;
+        }
+
+        if (opt.type === "desktop_shortcut") {
+            if (opt.val === 1) {
+                bootstrapSystem(join(process.cwd(), "src/index.tsx"));
+            }
+            updateConfig(prev => ({ ...prev, desktop_shortcut: opt.val as number }));
+            next();
+            return;
+        }
+
+        if (opt.type === "jump") {
+            setIsMenuMode(true);
+            setStep(opt.val as Step);
+            return;
+        }
+
+        if (opt.type === "dir_confirm") {
+            if (config.local_dir && config.local_dir !== "" && config.local_dir !== "none") {
+                next();
+            }
+            return;
+        }
+
+        if (opt.type === "sec_policy") {
+            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
+            next();
+        } else if (opt.type === "sec_toggle") {
+            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
+            next();
+        } else if (opt.type === "source_select" || opt.type === "source_provider") {
+            pendingSourceProviderRef.current = opt.val as PortalProvider;
+            next();
+        } else if (opt.type === "backup_provider") {
+            pendingBackupProviderRef.current = opt.val as PortalProvider;
+            next();
+        } else if (opt.type === "sync_mode") {
+            const newVal = opt.val === "sync_backup";
+            updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
+            setSelectedIndex(0);
+            if (newVal) {
+                setWizardContext("dest");
+                setStep("dest_cloud_select");
+            } else {
+                setStep((isMenuMode || mode === "edit") ? "edit_menu" : "deploy");
+            }
+        } else {
+            const fieldMap: Record<string, keyof PortalConfig> = {
+                shortcut: "desktop_shortcut",
+                mirror: "strict_mirror"
+            };
+            const field = fieldMap[opt.type as string];
+            if (field) updateConfig(prev => ({ ...prev, [field]: opt.val }));
+            next();
+        }
+    }, [config, mode, isMenuMode, next, updateConfig, onComplete, onCancel]);
+
+    const keyboardHandlerRef = useRef<(e: WizardKeyEvent) => void>(undefined);
+    keyboardHandlerRef.current = (e: WizardKeyEvent) => {
+        if (focusArea === "body") {
+            if (e.name === "tab") {
+                if (step === "copyparty_config") {
+                    if (e.shift) {
+                        if (copyparty_config_index === 0) _onFocusChange("footer");
+                        else set_copyparty_config_index(prev => prev - 1);
+                    } else {
+                        if (copyparty_config_index === 4) _onFocusChange("footer");
+                        else set_copyparty_config_index(prev => prev + 1);
+                    }
+                } else {
+                    const options = getOptions();
+                    if (options.length > 0) {
+                        if (e.shift) {
+                            if (selectedIndex === 0) _onFocusChange("footer");
+                            else setSelectedIndex(prev => prev - 1);
+                        } else {
+                            if (selectedIndex === options.length - 1) _onFocusChange("footer");
+                            else setSelectedIndex(prev => prev + 1);
+                        }
+                    } else {
+                        _onFocusChange("footer");
+                    }
+                }
+                return;
+            }
+
+            if (step === "copyparty_config") {
+                if (e.name === "down") {
+                    set_copyparty_config_index(prev => Math.min(4, prev + 1));
+                    return;
+                } else if (e.name === "up") {
+                    set_copyparty_config_index(prev => Math.max(0, prev - 1));
+                    return;
+                }
+                if (copyparty_config_index === 3) {
+                    if (e.name === "left") { setSelectedIndex(0); updateConfig(prev => ({ ...prev, copyparty_method: "webdav" })); return; }
+                    if (e.name === "right") { setSelectedIndex(1); updateConfig(prev => ({ ...prev, copyparty_method: "http" })); return; }
+                }
+            }
+
+            if (step === "cloud_direct_entry") {
+                const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
+                let maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
+                if (e.name === "down") set_direct_entry_index(prev => Math.min(maxIdx, prev + 1));
+                else if (e.name === "up") set_direct_entry_index(prev => Math.max(0, prev - 1));
+
+                if (e.name === "return" && direct_entry_index === maxIdx) {
+                    if (!isAuthLoading) {
+                        if (provider === "gdrive" || provider === "onedrive" || provider === "dropbox") handleAuth();
+                        else next();
+                    }
+                    return;
+                }
+            }
+
+            if (e.name === "return") {
+                if (step === "copyparty_config") {
+                    if (copyparty_config_index === 4) handleAuth();
+                    else set_copyparty_config_index(prev => Math.min(4, prev + 1));
+                    return;
+                }
+            }
+        }
+
+        const selectableSteps: Step[] = ["shortcut", "source_choice", "mirror", "upsync_ask", "security", "dest_cloud_select", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "deploy", "cloud_setup_choice"];
+        if (selectableSteps.includes(step)) {
+            const options = getOptions();
+            if (e.name === "down") setSelectedIndex(prev => (prev + 1) % options.length);
+            else if (e.name === "up") setSelectedIndex(prev => (prev - 1 + options.length) % options.length);
+            else if (e.name >= "1" && e.name <= "9") {
+                const idx = parseInt(e.name) - 1;
+                if (idx < options.length) setSelectedIndex(idx);
+            } else if (e.name === "return") {
+                confirmSelection(options[selectedIndex]!);
+            }
+        }
+    };
+
+    useKeyboard((e) => keyboardHandlerRef.current?.(e));
+
 
     return (
         <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ SYSTEM CONFIGURATION WIZARD ]" gap={1}>
@@ -731,14 +768,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                     _onFocusChange("body");
                                     setSelectedIndex(i);
                                 }}
-                                onMouseDown={() => {
-                                    const steps: Step[] = ["shortcut", "source_choice", "dir", "mirror", "upsync_ask", "security", "deploy"];
-                                    const nextStep = steps[i];
-                                    if (nextStep) {
-                                        setStep(nextStep);
-                                        setSelectedIndex(0);
-                                    }
-                                }}
+                                onMouseDown={() => confirmSelection({ type: "jump", val: opt.value })}
                                 paddingLeft={2}
                                 border
                                 borderStyle="single"
@@ -778,19 +808,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                     _onFocusChange("body");
                                     setSelectedIndex(i);
                                 }}
-                                onMouseDown={() => {
-                                    // Handle shortcut clicks manually to match useKeyboard
-                                    const isM = isShortcutMissing;
-                                    const val = isM ? [1, 2, 0][i] : [1, 0][i];
-                                    if (val === 1) {
-                                        // Bootstrap
-                                        bootstrapSystem(join(process.cwd(), "src/index.tsx"));
-                                        updateConfig(prev => ({ ...prev, desktop_shortcut: 1 }));
-                                    } else if (val === 2) {
-                                        updateConfig(prev => ({ ...prev, desktop_shortcut: 1 }));
-                                    }
-                                    next();
-                                }}
+                                onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                 paddingLeft={2}
                                 border
                                 borderStyle="single"
@@ -943,7 +961,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         ].map((opt, i) => (
                             <box
                                 key={i}
-                                onMouseOver={() => setSelectedIndex(i)}
+                                onMouseOver={() => {
+                                    _onFocusChange("body");
+                                    setSelectedIndex(i);
+                                }}
+                                onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                 paddingLeft={2}
                                 border
                                 borderStyle="single"
@@ -961,6 +983,113 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                 <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
                             </box>
                         ))}
+                    </box>
+                </box>
+            )}
+
+            {step === "cloud_direct_entry" && (
+                <box flexDirection="column" gap={1}>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Direct Configuration</text>
+                    <text fg={colors.fg}>Enter all credentials for {(wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current).toUpperCase()}:</text>
+
+                    <box flexDirection="column" gap={0} marginTop={1}>
+                        {(() => {
+                            const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
+                            const fields: { label: string, ref: React.MutableRefObject<string>, icon: string }[] = [];
+
+                            if (provider === "gdrive") {
+                                fields.push({ label: "Client ID", ref: userRef, icon: "🆔" });
+                                fields.push({ label: "Client Secret", ref: passRef, icon: "🔑" });
+                            } else if (provider === "b2") {
+                                fields.push({ label: "Key ID", ref: userRef, icon: "🆔" });
+                                fields.push({ label: "Application Key", ref: passRef, icon: "🔑" });
+                            } else if (provider === "sftp") {
+                                fields.push({ label: "Host", ref: urlRef, icon: "🌐" });
+                                fields.push({ label: "User", ref: userRef, icon: "👤" });
+                                fields.push({ label: "Pass", ref: passRef, icon: "🔑" });
+                            } else if (provider === "r2") {
+                                fields.push({ label: "Access Key ID", ref: userRef, icon: "🆔" });
+                                fields.push({ label: "Secret Key", ref: passRef, icon: "🔑" });
+                                fields.push({ label: "Endpoint", ref: urlRef, icon: "🌐" });
+                            } else if (provider === "pcloud" || provider === "mega" || provider === "onedrive" || provider === "dropbox") {
+                                fields.push({ label: "Username/ID", ref: userRef, icon: "👤" });
+                                fields.push({ label: "Password/Secret", ref: passRef, icon: "🔑" });
+                            }
+
+                            return (
+                                <>
+                                    {fields.map((f, i) => (
+                                        <box key={i} flexDirection="row" gap={1}
+                                            border borderStyle="single"
+                                            borderColor={direct_entry_index === i ? colors.primary : colors.dim + "33"}
+                                            padding={1}
+                                        >
+                                            <text fg={colors.dim}>{f.icon}</text>
+                                            <text width={15} fg={colors.fg}>{f.label}:</text>
+                                            <input
+                                                value={f.ref.current}
+                                                onChange={(val) => { f.ref.current = val; onUpdate?.(configRef.current); }}
+                                                focused={direct_entry_index === i && focusArea === "body"}
+                                                width={40}
+                                            />
+                                        </box>
+                                    ))}
+                                    <box
+                                        marginTop={1} padding={1} border borderStyle="double"
+                                        borderColor={direct_entry_index === fields.length ? colors.success : colors.dim + "33"}
+                                        onMouseDown={() => {
+                                            if (provider === "gdrive" || provider === "onedrive" || provider === "dropbox") handleAuth();
+                                            else next();
+                                        }}
+                                    >
+                                        <box flexDirection="row" gap={1}>
+                                            <text fg={direct_entry_index === fields.length ? colors.primary : colors.dim}>{direct_entry_index === fields.length ? "▶ " : "  "}</text>
+                                            <Hotkey keyLabel="ENTER" label="CONNECT & SAVE" isFocused={direct_entry_index === fields.length && focusArea === "body"} />
+                                        </box>
+                                    </box>
+                                </>
+                            );
+                        })()}
+                    </box>
+                </box>
+            )}
+
+            {step === "cloud_setup_choice" && (
+                <box flexDirection="column" gap={1}>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Setup Experience</text>
+                    <text fg={colors.fg}>Choose how you want to configure your cloud provider:</text>
+                    <box flexDirection="column" gap={0} marginTop={1}>
+                        {getOptions().map((opt, i) => {
+                            const exp = opt.val === "guided"
+                                ? { name: "Guided Walkthrough", desc: "Step-by-step assistant for beginners." }
+                                : { name: "Direct Entry", desc: "One screen for all settings. (Fast)" };
+                            return (
+                                <box
+                                    key={i}
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
+                                    }}
+                                    onMouseDown={() => confirmSelection(opt)}
+                                    paddingLeft={2}
+                                    border
+                                    borderStyle="single"
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    flexDirection="column"
+                                    padding={1}
+                                >
+                                    <box flexDirection="row" gap={1}>
+                                        <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                        <Hotkey
+                                            keyLabel={(i + 1).toString()}
+                                            label={exp.name}
+                                            isFocused={selectedIndex === i && focusArea === "body"}
+                                        />
+                                    </box>
+                                    <text fg={colors.dim} marginLeft={4}>{exp.desc}</text>
+                                </box>
+                            );
+                        })}
                     </box>
                 </box>
             )}
@@ -986,15 +1115,13 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             return (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
+                                    }}
                                     onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = 0;
-                                        const opt = options[idx];
-                                        if (opt && opt.type === "source_select") {
-                                            pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        }
+                                        pendingSourceProviderRef.current = opt.val as PortalProvider;
+                                        next();
                                     }}
                                     paddingLeft={2}
                                     border
@@ -1041,16 +1168,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                 return (
                                     <box
                                         key={i}
-                                        onMouseOver={() => setSelectedIndex(i)}
-                                        onMouseDown={() => {
-                                            const options = getOptions();
-                                            const idx = 0;
-                                            const opt = options[idx];
-                                            if (opt && opt.type === "backup_provider") {
-                                                pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                                next();
-                                            }
+                                        onMouseOver={() => {
+                                            _onFocusChange("body");
+                                            setSelectedIndex(i);
                                         }}
+                                        onMouseDown={() => confirmSelection(opt)}
                                         paddingLeft={2}
                                         border
                                         borderStyle="single"
@@ -1091,24 +1213,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
-                                    onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = 0;
-                                        const opt = options[idx];
-                                        if (opt && opt.type === "sync_mode") {
-                                            const newVal = opt.val === "sync_backup";
-                                            updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                            setHistory(prev => [...prev, "upsync_ask"]);
-                                            setSelectedIndex(0);
-                                            if (newVal) {
-                                                setWizardContext("dest");
-                                                setStep("dest_cloud_select");
-                                            } else {
-                                                setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                            }
-                                        }
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
                                     }}
+                                    onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1141,14 +1250,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
-                                    onMouseDown={() => {
-                                        const options = getOptions();
-                                        const opt = options[0];
-                                        if (opt && opt.type === "guide_next") {
-                                            next();
-                                        }
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
                                     }}
+                                    onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1182,16 +1288,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                 { name: "I HAVE CREDENTIALS", description: "I already have a Client ID and Secret", value: "direct", key: "2" }
                             ].map((opt, i) => (
                                 <box
-                                    onMouseOver={() => setSelectedIndex(i)}
-                                    onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = 0;
-                                        const opt = options[idx];
-                                        if (opt && opt.type === "gdrive_path") {
-                                            if (opt.val === "guided") setStep("gdrive_guide_1");
-                                            else next();
-                                        }
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
                                     }}
+                                    onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                     key={i}
                                     paddingLeft={2}
                                     border
@@ -1228,14 +1329,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
-                                    onMouseDown={() => {
-                                        const options = getOptions();
-                                        const opt = options[0];
-                                        if (opt && opt.type === "guide_next") {
-                                            next();
-                                        }
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
                                     }}
+                                    onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1272,14 +1370,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
-                                    onMouseDown={() => {
-                                        const options = getOptions();
-                                        const opt = options[0];
-                                        if (opt && opt.type === "guide_next") {
-                                            next();
-                                        }
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
                                     }}
+                                    onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1316,14 +1411,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
-                                    onMouseDown={() => {
-                                        const options = getOptions();
-                                        const opt = options[0];
-                                        if (opt && opt.type === "guide_next") {
-                                            next();
-                                        }
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
                                     }}
+                                    onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1359,47 +1451,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
-                                    onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = i;
-                                        const opt = options[idx];
-                                        if (!opt) {
-                                            next();
-                                            return;
-                                        }
-                                        if (opt.type === "source_select") {
-                                            pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "backup_provider") {
-                                            pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "sync_mode") {
-                                            const newVal = opt.val === "sync_backup";
-                                            updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                            setHistory(prev => [...prev, "upsync_ask"]);
-                                            setSelectedIndex(0);
-                                            if (newVal) {
-                                                setWizardContext("dest");
-                                                setStep("dest_cloud_select");
-                                            } else {
-                                                setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                            }
-                                        } else if (opt.type === "sec_policy") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                        } else if (opt.type === "sec_toggle") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                            next();
-                                        } else if (opt.type === "gdrive_path") {
-                                            if (opt.val === "guided") setStep("gdrive_guide_1");
-                                            else next();
-                                        } else if (opt.type === "deploy") {
-                                            if (opt.val) onComplete(config);
-                                            else onCancel();
-                                        } else {
-                                            next();
-                                        }
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
                                     }}
+                                    onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1435,47 +1491,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
-                                    onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = i;
-                                        const opt = options[idx];
-                                        if (!opt) {
-                                            next();
-                                            return;
-                                        }
-                                        if (opt.type === "source_select") {
-                                            pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "backup_provider") {
-                                            pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "sync_mode") {
-                                            const newVal = opt.val === "sync_backup";
-                                            updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                            setHistory(prev => [...prev, "upsync_ask"]);
-                                            setSelectedIndex(0);
-                                            if (newVal) {
-                                                setWizardContext("dest");
-                                                setStep("dest_cloud_select");
-                                            } else {
-                                                setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                            }
-                                        } else if (opt.type === "sec_policy") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                        } else if (opt.type === "sec_toggle") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                            next();
-                                        } else if (opt.type === "gdrive_path") {
-                                            if (opt.val === "guided") setStep("gdrive_guide_1");
-                                            else next();
-                                        } else if (opt.type === "deploy") {
-                                            if (opt.val) onComplete(config);
-                                            else onCancel();
-                                        } else {
-                                            next();
-                                        }
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
                                     }}
+                                    onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1511,47 +1531,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
-                                    onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = i;
-                                        const opt = options[idx];
-                                        if (!opt) {
-                                            next();
-                                            return;
-                                        }
-                                        if (opt.type === "source_select") {
-                                            pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "backup_provider") {
-                                            pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "sync_mode") {
-                                            const newVal = opt.val === "sync_backup";
-                                            updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                            setHistory(prev => [...prev, "upsync_ask"]);
-                                            setSelectedIndex(0);
-                                            if (newVal) {
-                                                setWizardContext("dest");
-                                                setStep("dest_cloud_select");
-                                            } else {
-                                                setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                            }
-                                        } else if (opt.type === "sec_policy") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                        } else if (opt.type === "sec_toggle") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                            next();
-                                        } else if (opt.type === "gdrive_path") {
-                                            if (opt.val === "guided") setStep("gdrive_guide_1");
-                                            else next();
-                                        } else if (opt.type === "deploy") {
-                                            if (opt.val) onComplete(config);
-                                            else onCancel();
-                                        } else {
-                                            next();
-                                        }
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
                                     }}
+                                    onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1588,47 +1572,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
-                                    onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = i;
-                                        const opt = options[idx];
-                                        if (!opt) {
-                                            next();
-                                            return;
-                                        }
-                                        if (opt.type === "source_select") {
-                                            pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "backup_provider") {
-                                            pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "sync_mode") {
-                                            const newVal = opt.val === "sync_backup";
-                                            updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                            setHistory(prev => [...prev, "upsync_ask"]);
-                                            setSelectedIndex(0);
-                                            if (newVal) {
-                                                setWizardContext("dest");
-                                                setStep("dest_cloud_select");
-                                            } else {
-                                                setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                            }
-                                        } else if (opt.type === "sec_policy") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                        } else if (opt.type === "sec_toggle") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                            next();
-                                        } else if (opt.type === "gdrive_path") {
-                                            if (opt.val === "guided") setStep("gdrive_guide_1");
-                                            else next();
-                                        } else if (opt.type === "deploy") {
-                                            if (opt.val) onComplete(config);
-                                            else onCancel();
-                                        } else {
-                                            next();
-                                        }
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
                                     }}
+                                    onMouseDown={() => confirmSelection(getOptions()[i]!)}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1670,46 +1618,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             borderColor={focusArea === "body" ? colors.success : colors.dim + "33"}
                             flexDirection="row"
                             onMouseOver={() => _onFocusChange("body")}
-                            onMouseDown={() => {
-                                const options = getOptions();
-                                const idx = 0;
-                                const opt = options[idx];
-                                if (!opt) {
-                                    next();
-                                    return;
-                                }
-                                if (opt.type === "source_select") {
-                                    pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                    next();
-                                } else if (opt.type === "backup_provider") {
-                                    pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                    next();
-                                } else if (opt.type === "sync_mode") {
-                                    const newVal = opt.val === "sync_backup";
-                                    updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                    setHistory(prev => [...prev, "upsync_ask"]);
-                                    setSelectedIndex(0);
-                                    if (newVal) {
-                                        setWizardContext("dest");
-                                        setStep("dest_cloud_select");
-                                    } else {
-                                        setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                    }
-                                } else if (opt.type === "sec_policy") {
-                                    updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                } else if (opt.type === "sec_toggle") {
-                                    updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                    next();
-                                } else if (opt.type === "gdrive_path") {
-                                    if (opt.val === "guided") setStep("gdrive_guide_1");
-                                    else next();
-                                } else if (opt.type === "deploy") {
-                                    if (opt.val) onComplete(config);
-                                    else onCancel();
-                                } else {
-                                    next();
-                                }
-                            }}
+                            onMouseDown={() => confirmSelection(getOptions()[0]!)}
                         >
                             <text fg={focusArea === "body" ? colors.primary : colors.dim}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={focusArea === "body" ? colors.success : colors.primary} />
@@ -1734,46 +1643,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             borderStyle="single"
                             borderColor={colors.success}
                             onMouseOver={() => _onFocusChange("body")}
-                            onMouseDown={() => {
-                                const options = getOptions();
-                                const idx = 0;
-                                const opt = options[idx];
-                                if (!opt) {
-                                    next();
-                                    return;
-                                }
-                                if (opt.type === "source_select") {
-                                    pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                    next();
-                                } else if (opt.type === "backup_provider") {
-                                    pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                    next();
-                                } else if (opt.type === "sync_mode") {
-                                    const newVal = opt.val === "sync_backup";
-                                    updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                    setHistory(prev => [...prev, "upsync_ask"]);
-                                    setSelectedIndex(0);
-                                    if (newVal) {
-                                        setWizardContext("dest");
-                                        setStep("dest_cloud_select");
-                                    } else {
-                                        setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                    }
-                                } else if (opt.type === "sec_policy") {
-                                    updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                } else if (opt.type === "sec_toggle") {
-                                    updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                    next();
-                                } else if (opt.type === "gdrive_path") {
-                                    if (opt.val === "guided") setStep("gdrive_guide_1");
-                                    else next();
-                                } else if (opt.type === "deploy") {
-                                    if (opt.val) onComplete(config);
-                                    else onCancel();
-                                } else {
-                                    next();
-                                }
-                            }}
+                            onMouseDown={() => confirmSelection(getOptions()[0]!)}
                         >
                             <text fg={colors.primary}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
@@ -1799,46 +1669,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             borderStyle="single"
                             borderColor={colors.success}
                             onMouseOver={() => _onFocusChange("body")}
-                            onMouseDown={() => {
-                                const options = getOptions();
-                                const idx = 0;
-                                const opt = options[idx];
-                                if (!opt) {
-                                    next();
-                                    return;
-                                }
-                                if (opt.type === "source_select") {
-                                    pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                    next();
-                                } else if (opt.type === "backup_provider") {
-                                    pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                    next();
-                                } else if (opt.type === "sync_mode") {
-                                    const newVal = opt.val === "sync_backup";
-                                    updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                    setHistory(prev => [...prev, "upsync_ask"]);
-                                    setSelectedIndex(0);
-                                    if (newVal) {
-                                        setWizardContext("dest");
-                                        setStep("dest_cloud_select");
-                                    } else {
-                                        setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                    }
-                                } else if (opt.type === "sec_policy") {
-                                    updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                } else if (opt.type === "sec_toggle") {
-                                    updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                    next();
-                                } else if (opt.type === "gdrive_path") {
-                                    if (opt.val === "guided") setStep("gdrive_guide_1");
-                                    else next();
-                                } else if (opt.type === "deploy") {
-                                    if (opt.val) onComplete(config);
-                                    else onCancel();
-                                } else {
-                                    next();
-                                }
-                            }}
+                            onMouseDown={() => confirmSelection(getOptions()[0]!)}
                         >
                             <text fg={colors.primary}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
@@ -1864,46 +1695,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             borderStyle="single"
                             borderColor={colors.success}
                             onMouseOver={() => _onFocusChange("body")}
-                            onMouseDown={() => {
-                                const options = getOptions();
-                                const idx = 0;
-                                const opt = options[idx];
-                                if (!opt) {
-                                    next();
-                                    return;
-                                }
-                                if (opt.type === "source_select") {
-                                    pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                    next();
-                                } else if (opt.type === "backup_provider") {
-                                    pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                    next();
-                                } else if (opt.type === "sync_mode") {
-                                    const newVal = opt.val === "sync_backup";
-                                    updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                    setHistory(prev => [...prev, "upsync_ask"]);
-                                    setSelectedIndex(0);
-                                    if (newVal) {
-                                        setWizardContext("dest");
-                                        setStep("dest_cloud_select");
-                                    } else {
-                                        setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                    }
-                                } else if (opt.type === "sec_policy") {
-                                    updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                } else if (opt.type === "sec_toggle") {
-                                    updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                    next();
-                                } else if (opt.type === "gdrive_path") {
-                                    if (opt.val === "guided") setStep("gdrive_guide_1");
-                                    else next();
-                                } else if (opt.type === "deploy") {
-                                    if (opt.val) onComplete(config);
-                                    else onCancel();
-                                } else {
-                                    next();
-                                }
-                            }}
+                            onMouseDown={() => confirmSelection(getOptions()[0]!)}
                         >
                             <text fg={colors.primary}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
@@ -2331,7 +2123,10 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             ].map((opt, i) => (
                                 <box
                                     key={i}
-                                    onMouseOver={() => setSelectedIndex(i)}
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
+                                    }}
                                     onMouseDown={() => {
                                         if (opt.value) onComplete(config);
                                         else onCancel();
