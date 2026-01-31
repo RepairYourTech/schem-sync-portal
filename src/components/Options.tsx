@@ -24,6 +24,7 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
     const { colors } = useTheme();
     const [subView, setSubView] = useState<"menu" | "about" | "logs">("menu");
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [logSelectedIndex, setLogSelectedIndex] = useState(0);
     const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
@@ -57,6 +58,10 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
         setIsUpdating(false);
     }, []);
 
+    const handleRefreshLogs = useCallback(() => {
+        setLogs(Logger.getRecentLogs(25));
+    }, []);
+
     const handleClearLogs = useCallback(() => {
         Logger.clearLogs();
         setLogs(["Logs cleared."]);
@@ -88,8 +93,17 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
                 onFocusChange("footer");
             }
         } else if (subView === "logs" && focusArea === "body") {
-            if (e.name === "c") {
-                handleClearLogs();
+            if (e.name === "left") {
+                setLogSelectedIndex(0);
+            } else if (e.name === "right") {
+                setLogSelectedIndex(1);
+            } else if (e.name === "r") {
+                setLogSelectedIndex(0);
+            } else if (e.name === "c") {
+                setLogSelectedIndex(1);
+            } else if (e.name === "return") {
+                if (logSelectedIndex === 0) handleRefreshLogs();
+                else if (logSelectedIndex === 1) handleClearLogs();
             } else if (e.name === "escape" || e.name === "backspace") {
                 setSubView("menu");
             }
@@ -106,7 +120,6 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
     });
 
     if (subView === "logs") {
-        const isFocusedOnClear = focusArea === "body";
         return (
             <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ SYSTEM LOGS ]" gap={1}>
                 <box flexDirection="column" gap={0} marginBottom={1} height={12}>
@@ -115,8 +128,11 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
                 </box>
 
                 <box border borderStyle="single" borderColor={colors.border} padding={1} marginTop="auto" flexDirection="row" gap={2}>
-                    <box border={isFocusedOnClear} borderStyle="single" borderColor={isFocusedOnClear ? colors.success : "transparent"} paddingLeft={1} paddingRight={1}>
-                        <Hotkey keyLabel="c" label="Clear Logs" isFocused={isFocusedOnClear} />
+                    <box border={logSelectedIndex === 0 && focusArea === "body"} borderStyle="single" borderColor={logSelectedIndex === 0 && focusArea === "body" ? colors.success : "transparent"} paddingLeft={1} paddingRight={1}>
+                        <Hotkey keyLabel="r" label="Refresh" isFocused={logSelectedIndex === 0 && focusArea === "body"} />
+                    </box>
+                    <box border={logSelectedIndex === 1 && focusArea === "body"} borderStyle="single" borderColor={logSelectedIndex === 1 && focusArea === "body" ? colors.success : "transparent"} paddingLeft={1} paddingRight={1}>
+                        <Hotkey keyLabel="c" label="Clear Logs" isFocused={logSelectedIndex === 1 && focusArea === "body"} />
                     </box>
                 </box>
             </box>

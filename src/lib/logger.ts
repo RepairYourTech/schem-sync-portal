@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, statSync, renameSync, unlinkSync, readFileSync, readdirSync } from "fs";
+import { appendFileSync, existsSync, statSync, renameSync, unlinkSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { Env } from "./env";
 
@@ -104,14 +104,22 @@ export class Logger {
 
     static clearLogs(): void {
         try {
+            const logPath = Env.getLogPath("system.log");
+            if (existsSync(logPath)) {
+                writeFileSync(logPath, "");
+            }
+
             const { logsDir } = Env.getPaths();
             if (!existsSync(logsDir)) return;
 
             const files = readdirSync(logsDir);
             for (const file of files) {
+                if (file === "system.log") continue;
                 try { unlinkSync(join(logsDir, file)); } catch { }
             }
-        } catch { }
+        } catch (e) {
+            console.error("Failed to clear logs:", e);
+        }
     }
 
     /**
