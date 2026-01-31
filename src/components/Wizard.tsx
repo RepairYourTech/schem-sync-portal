@@ -727,6 +727,15 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         ].map((opt, i) => (
                             <box
                                 key={i}
+                                onMouseOver={() => {
+                                    _onFocusChange("body");
+                                    setSelectedIndex(i);
+                                }}
+                                onMouseDown={() => {
+                                    const steps = ["shortcut", "source_choice", "dir", "mirror", "upsync_ask", "security", "deploy"];
+                                    setStep(steps[i] as any);
+                                    setSelectedIndex(0);
+                                }}
                                 paddingLeft={2}
                                 border
                                 borderStyle="single"
@@ -762,6 +771,23 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         ]).map((opt, i) => (
                             <box
                                 key={i}
+                                onMouseOver={() => {
+                                    _onFocusChange("body");
+                                    setSelectedIndex(i);
+                                }}
+                                onMouseDown={() => {
+                                    // Handle shortcut clicks manually to match useKeyboard
+                                    const isM = isShortcutMissing;
+                                    const val = isM ? [1, 2, 0][i] : [1, 0][i];
+                                    if (val === 1) {
+                                        // Bootstrap
+                                        bootstrapSystem(join(process.cwd(), "src/index.tsx"));
+                                        updateConfig(prev => ({ ...prev, desktop_shortcut: 1 }));
+                                    } else if (val === 2) {
+                                        updateConfig(prev => ({ ...prev, desktop_shortcut: 1 }));
+                                    }
+                                    next();
+                                }}
                                 paddingLeft={2}
                                 border
                                 borderStyle="single"
@@ -848,6 +874,9 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                             setSelectedIndex(i);
                                             set_copyparty_config_index(3);
                                         }}
+                                        onMouseDown={() => {
+                                            updateConfig(prev => ({ ...prev, copyparty_method: m.val as any }));
+                                        }}
                                         border
                                         borderStyle="single"
                                         borderColor={isSelected ? colors.success : (isFocused ? colors.primary : "transparent")}
@@ -865,6 +894,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     <box
                         marginTop={1}
                         onMouseOver={() => set_copyparty_config_index(4)}
+                        onMouseDown={() => !isAuthLoading && handleAuth()}
                         border
                         borderStyle="double"
                         borderColor={copyparty_config_index === 4 ? colors.success : colors.dim}

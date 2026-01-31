@@ -544,6 +544,14 @@ function AppContent() {
                       elements.push(
                         <box
                           key="m"
+                          onMouseOver={() => {
+                            setFocusArea("body");
+                            setDoctorIndex(0); // Manual is always 0
+                          }}
+                          onMouseDown={() => {
+                            const url = "https://pldaniels.com/flexbv5/manual.html";
+                            spawn(process.platform === "win32" ? "start" : (process.platform === "darwin" ? "open" : "xdg-open"), [url], { detached: true, stdio: "ignore" });
+                          }}
                           border={mFocused}
                           borderStyle="single"
                           borderColor={mFocused ? colors.success : "transparent"}
@@ -560,6 +568,11 @@ function AppContent() {
                       elements.push(
                         <box
                           key="b"
+                          onMouseOver={() => {
+                            setFocusArea("body");
+                            setDoctorIndex(1); // Back is 1
+                          }}
+                          onMouseDown={handleBack}
                           border={bFocused}
                           borderStyle="single"
                           borderColor={bFocused ? colors.success : "transparent"}
@@ -672,6 +685,7 @@ function AppContent() {
                     setFocusArea("footer");
                     setFooterFocus(i);
                   }}
+                  onMouseDown={() => action.action()}
                   border={isFocused}
                   borderStyle="single"
                   borderColor={isFocused ? (action.key === "escape" ? colors.danger : colors.success) : "transparent"}

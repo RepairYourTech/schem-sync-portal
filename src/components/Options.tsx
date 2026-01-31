@@ -128,10 +128,32 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
                 </box>
 
                 <box border borderStyle="single" borderColor={colors.border} padding={1} marginTop="auto" flexDirection="row" gap={2}>
-                    <box border={logSelectedIndex === 0 && focusArea === "body"} borderStyle="single" borderColor={logSelectedIndex === 0 && focusArea === "body" ? colors.success : "transparent"} paddingLeft={1} paddingRight={1}>
+                    <box
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setLogSelectedIndex(0);
+                        }}
+                        onMouseDown={handleRefreshLogs}
+                        border={logSelectedIndex === 0 && focusArea === "body"}
+                        borderStyle="single"
+                        borderColor={logSelectedIndex === 0 && focusArea === "body" ? colors.success : "transparent"}
+                        paddingLeft={1}
+                        paddingRight={1}
+                    >
                         <Hotkey keyLabel="r" label="Refresh" isFocused={logSelectedIndex === 0 && focusArea === "body"} />
                     </box>
-                    <box border={logSelectedIndex === 1 && focusArea === "body"} borderStyle="single" borderColor={logSelectedIndex === 1 && focusArea === "body" ? colors.success : "transparent"} paddingLeft={1} paddingRight={1}>
+                    <box
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setLogSelectedIndex(1);
+                        }}
+                        onMouseDown={handleClearLogs}
+                        border={logSelectedIndex === 1 && focusArea === "body"}
+                        borderStyle="single"
+                        borderColor={logSelectedIndex === 1 && focusArea === "body" ? colors.success : "transparent"}
+                        paddingLeft={1}
+                        paddingRight={1}
+                    >
                         <Hotkey keyLabel="c" label="Clear Logs" isFocused={logSelectedIndex === 1 && focusArea === "body"} />
                     </box>
                 </box>
@@ -163,6 +185,8 @@ export function Options({ onDoctor, onSetup, onReset, onForensic, onBack, focusA
                     <text fg={colors.fg}>Update application code (Non-Destructive):</text>
                     <box flexDirection="row" gap={2}>
                         <box
+                            onMouseOver={() => onFocusChange("body")}
+                            onMouseDown={() => !isUpdating && handleUpdate()}
                             border={isUpdateActionFocused}
                             borderStyle="single"
                             borderColor={isUpdateActionFocused ? colors.success : "transparent"}

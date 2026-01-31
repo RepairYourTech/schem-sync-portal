@@ -162,8 +162,28 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                         );
                     })}
                     <box flexDirection="row" marginTop={1} gap={2}>
-                        <Hotkey keyLabel="enter" label="Install" />
-                        <Hotkey keyLabel="esc" label="Cancel" />
+                        <box
+                            onMouseOver={() => setSelectedFont(selectedFont)}
+                            onMouseDown={() => handleInstall(selectedFont)}
+                            border
+                            borderStyle="single"
+                            borderColor={colors.success}
+                            paddingLeft={1}
+                            paddingRight={1}
+                        >
+                            <Hotkey keyLabel="enter" label="Install" isFocused />
+                        </box>
+                        <box
+                            onMouseOver={() => { }}
+                            onMouseDown={() => onCancel()}
+                            border
+                            borderStyle="single"
+                            borderColor={colors.danger}
+                            paddingLeft={1}
+                            paddingRight={1}
+                        >
+                            <Hotkey keyLabel="esc" label="Cancel" />
+                        </box>
                     </box>
                 </box>
             )}
@@ -183,8 +203,16 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                     {result?.requiresRestart && (
                         <text fg={colors.setup} marginTop={1} attributes={TextAttributes.BOLD}>TERMINAL RESTART REQUIRED.</text>
                     )}
-                    <box marginTop={1}>
-                        <Hotkey keyLabel="enter" label="Complete" />
+                    <box
+                        marginTop={1}
+                        onMouseDown={() => result && onComplete(result)}
+                        border
+                        borderStyle="single"
+                        borderColor={colors.success}
+                        paddingLeft={1}
+                        paddingRight={1}
+                    >
+                        <Hotkey keyLabel="enter" label="Complete" isFocused />
                     </box>
                 </box>
             )}
@@ -194,8 +222,29 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                     <text fg={colors.danger} attributes={TextAttributes.BOLD}>INSTALLATION FAILED</text>
                     <text fg={colors.danger} marginTop={1}>{error}</text>
                     <box flexDirection="row" marginTop={1} gap={2}>
-                        <Hotkey keyLabel="enter" label="Retry" />
-                        <Hotkey keyLabel="esc" label="Cancel" />
+                        <box
+                            onMouseDown={() => {
+                                setInstallState('selecting');
+                                setError(null);
+                            }}
+                            border
+                            borderStyle="single"
+                            borderColor={colors.success}
+                            paddingLeft={1}
+                            paddingRight={1}
+                        >
+                            <Hotkey keyLabel="enter" label="Retry" isFocused />
+                        </box>
+                        <box
+                            onMouseDown={() => onCancel()}
+                            border
+                            borderStyle="single"
+                            borderColor={colors.danger}
+                            paddingLeft={1}
+                            paddingRight={1}
+                        >
+                            <Hotkey keyLabel="esc" label="Cancel" />
+                        </box>
                     </box>
                 </box>
             )}
