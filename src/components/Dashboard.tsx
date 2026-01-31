@@ -1,3 +1,4 @@
+import React from "react";
 import { type PortalConfig, isConfigComplete, isConfigEmpty } from "../lib/config";
 import { useTheme } from "../lib/theme";
 import { TextAttributes } from "@opentui/core";

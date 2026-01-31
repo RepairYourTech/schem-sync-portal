@@ -4,6 +4,7 @@ import { useTerminalDimensions } from "@opentui/react";
 import type { SyncProgress } from "../lib/sync";
 import type { PortalConfig } from "../lib/config";
 import { DownsyncPanel, LocalShieldPanel, UpsyncPanel, type ThemeColors } from "./SyncPortalParts";
+import { Hotkey } from "./Hotkey";
 
 interface SyncPortalProps {
     config: PortalConfig;
@@ -23,7 +24,7 @@ interface SyncPortalProps {
     onUpdateConfig: (newConfig: PortalConfig) => void;
 }
 
-export function SyncPortal({
+export const SyncPortal = React.memo(({
     config,
     progress,
     isRunning,
@@ -39,7 +40,7 @@ export function SyncPortal({
     subFocusIndex,
     onSubFocusIndexChange,
     onUpdateConfig
-}: SyncPortalProps) {
+}: SyncPortalProps) => {
     const { width } = useTerminalDimensions();
     const colors: ThemeColors = {
         primary: "#3b82f6",
@@ -141,7 +142,7 @@ export function SyncPortal({
             >
                 <box flexDirection="column" gap={0}>
                     <text fg={colors.fg} attributes={TextAttributes.BOLD}>SYNC PORTAL</text>
-                    <text fg={statusColor}>{statusText}</text>
+                    <text fg={statusColor}><text>{statusText}</text></text>
                 </box>
 
                 <box flexDirection="row" gap={2} alignItems="center">
@@ -154,9 +155,7 @@ export function SyncPortal({
                             borderStyle="single"
                             borderColor={isGlobalFocused ? colors.fg : (configLoaded ? colors.success : colors.dim)}
                         >
-                            <text fg={isGlobalFocused ? colors.fg : (configLoaded ? colors.success : colors.dim)} attributes={TextAttributes.BOLD}>
-                                {isGlobalFocused ? "▶ START SYNC" : "S[T]ART SYNC"}
-                            </text>
+                            <Hotkey keyLabel="t" label={isGlobalFocused ? "▶ START SYNC" : "S[T]ART SYNC"} isFocused={isGlobalFocused} bold color={isGlobalFocused ? colors.fg : (configLoaded ? colors.success : colors.dim)} />
                         </box>
                     ) : (
                         <box
@@ -167,9 +166,7 @@ export function SyncPortal({
                             borderStyle="single"
                             borderColor={isGlobalFocused ? colors.fg : colors.danger}
                         >
-                            <text fg={isGlobalFocused ? colors.fg : colors.danger} attributes={TextAttributes.BOLD}>
-                                {isGlobalFocused ? "■ STOP SYNC" : "S[T]OP SYNC"}
-                            </text>
+                            <Hotkey keyLabel="t" label={isGlobalFocused ? "■ STOP SYNC" : "S[T]OP SYNC"} isFocused={isGlobalFocused} bold color={isGlobalFocused ? colors.fg : colors.danger} />
                         </box>
                     )}
                 </box>
@@ -316,4 +313,5 @@ export function SyncPortal({
             )}
         </box>
     );
-}
+});
+SyncPortal.displayName = "SyncPortal";

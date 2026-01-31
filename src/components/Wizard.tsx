@@ -68,7 +68,7 @@ type Step =
     | "edit_menu"
     | "deploy";
 
-export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, tabTransition, backSignal }: WizardProps) {
+export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, tabTransition, backSignal }: WizardProps) => {
     const { colors } = useTheme();
     const isBootstrapped = isSystemBootstrapped();
     const savedShortcutState = initialConfig.desktop_shortcut;
@@ -2167,4 +2167,5 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
             }
         </box>
     );
-}
+});
+Wizard.displayName = "Wizard";

@@ -50,17 +50,24 @@ Before taking ANY action on a task, you MUST follow this exact sequence:
 
 ## WORKFLOW PRINCIPLES
 
-**ALWAYS:**
-- **Investigate First**: Thoroughly analyze the codebase and requirements before proposing or implementing changes. No "quick fixes".
-- **Root Cause Debugging**: When solving bugs, find the underlying cause. Never apply "code on top" to mask symptoms.
-- **End-to-End Audit**: Never stop at the first issue found. Perform a comprehensive audit to uncover all related issues, ensuring a maintainable approach for future additions.
-- **Skill Centricity**: Leverage existing skills for all tasks. If a capability is missing, find a relevant skill or create a new one.
-- **Zero Lint Policy**: Adhere to a strict zero-error and zero-warning policy for all linting and type checks.
-- Check what's available before deciding how to proceed
-- Use the most appropriate tool/skill/MCP for each sub-task
-- Consider parallelization opportunities via subagents
-- Document complex decisions and reasoning
-- Verify your output matches requirements
+| Principle | ALWAYS | Skills | Tools | MCP |
+|-----------|---|---|---|---|
+| **Investigate First** | Analyze codebase/reqs before changes | `audit-context-building`, `brainstorming` | `grep_search`, `find_by_name` | `context7` |
+| **Root Cause Debugging** | Find underlying cause of bugs | `systematic-debugging` | `read_terminal` | `arch-mcp` |
+| **End-to-End Audit** | Audit all related issues | `audit-context-building` | `grep_search`, `view_code_item` | `arch-mcp` |
+| **Skill Centricity** | Leverage/create skills for tasks | `find-skills` | `list_dir` (.agent/skills) | `search_web` |
+| **Zero Lint Policy** | No errors or warnings | N/A | `run_command` (bun lint) | N/A |
+
+### MANDATORY EXECUTION SEQUENCE (Embedded Guidance)
+
+1. **READ Rules**: `view_file` on `workflow.md`.
+2. **ASSESS Skills**: `list_dir` on `.agent/skills/` -> Load relevant `SKILL.md`.
+3. **CHECK MCP**: `list_resources` and `list_tools` on all servers.
+4. **SUBAGENTS**: Use `dispatching-parallel-agents` if 2+ independent tasks.
+5. **HOOKS**: Compliance check.
+6. **PLAN**: Draft `implementation_plan.md` using `writing-plans`.
+7. **EXECUTE**: Use `multi_replace_file_content` for non-contiguous edits.
+8. **VERIFY**: `bun run lint` and `bun test` are MANDATORY.
 
 **NEVER:**
 - Jump straight to coding without assessing available resources

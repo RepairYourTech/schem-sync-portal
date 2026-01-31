@@ -10,6 +10,6 @@
 
 ### Linting
 - **CRITICAL**: Maintain a zero-error and zero-warning state.
-- `bun run lint`: Run the full linting suite (includes TUI-specific checks).
-- `bun run lint:fix`: Attempt to automatically fix linting issues.
-- `eslint src --fix`: Run ESLint fixer directly.
+- **Workflow**: `bun run lint` -> `bun run lint:fix` -> manually fix remaining.
+- **Tools**: `run_command`, `multi_replace_file_content`.
+- **Skills**: `remove-ai-comments` (to clean up noise before linting).
