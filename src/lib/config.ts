@@ -30,6 +30,9 @@ export interface PortalConfig {
     debug_mode: boolean;
     nerd_font_version?: 2 | 3;
     cookie?: string; // Opt-in cookie for CopyParty or other HTTP remotes
+    copyparty_method?: "webdav" | "http";
+    webdav_user?: string;
+    webdav_pass?: string;
 
     // Font Presence tracking
     nerd_font_auto_install?: boolean;
@@ -91,6 +94,9 @@ export function saveConfig(config: PortalConfig): void {
             debug_mode: config.debug_mode,
             nerd_font_version: config.nerd_font_version,
             cookie: config.cookie,
+            copyparty_method: config.copyparty_method,
+            webdav_user: config.webdav_user,
+            webdav_pass: config.webdav_pass,
             nerd_font_auto_install: config.nerd_font_auto_install,
             nerd_font_auto_install_dismissed: config.nerd_font_auto_install_dismissed,
             nerd_font_installed_family: config.nerd_font_installed_family,

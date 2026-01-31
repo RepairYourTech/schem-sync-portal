@@ -3,7 +3,7 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import type { PortalConfig, PortalProvider } from "../lib/config.ts";
 import { getCopypartyCookie } from "../lib/auth.ts";
 import { Hotkey } from "./Hotkey";
-import { updateGdriveRemote, updateGenericRemote, authorizeRemote, createHttpRemote } from "../lib/rclone.ts";
+import { updateGdriveRemote, updateGenericRemote, authorizeRemote } from "../lib/rclone.ts";
 import { TextAttributes } from "@opentui/core";
 import { bootstrapSystem, isSystemBootstrapped } from "../lib/deploy.ts";
 import { join } from "path";
@@ -27,6 +27,7 @@ type Step =
     | "shortcut"
     | "source_choice" // NEW: CopyParty vs Cloud
     | "url" | "user" | "pass" // CopyParty Path
+    | "copyparty_method" // NEW: WebDAV vs HTTP
     | "source_cloud_select" // Cloud Source Path
     | "dir" | "mirror"
     | "upsync_ask" // NEW: Enable Backup?
@@ -267,7 +268,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     break;
 
                 // CopyParty Branch
-                case "url": nextStep = "user"; break;
+                case "url": nextStep = "copyparty_method"; break;
+                case "copyparty_method": nextStep = "user"; break;
                 case "user": nextStep = "pass"; break;
                 case "pass": nextStep = "dir"; break;
 
@@ -376,6 +378,11 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         if (step === "source_choice") return [
             { val: "copyparty", type: "source_type" },
             { val: "cloud", type: "source_type" }
+        ];
+
+        if (step === "copyparty_method") return [
+            { val: "webdav", type: "cp_method" },
+            { val: "http", type: "cp_method" }
         ];
 
         if (step === "mirror") return [{ val: false, type: "mirror" }, { val: true, type: "mirror" }];
@@ -545,6 +552,10 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             setStep("deploy");
                         }
 
+                    } else if (opt.type === "cp_method") {
+                        const newVal = opt.val as "webdav" | "http";
+                        updateConfig(prev => ({ ...prev, copyparty_method: newVal }));
+                        next();
                     } else {
                         const fieldMap: Record<string, keyof PortalConfig> = {
                             shortcut: "desktop_shortcut",
@@ -566,35 +577,50 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
     const handleAuth = useCallback(async () => {
         setIsAuthLoading(true);
-        setAuthStatus("🔄 Authenticating with CopyParty...");
+        setAuthStatus(configRef.current.copyparty_method === "webdav" ? "🔄 Verifying WebDAV Access..." : "🔄 Authenticating with CopyParty (HTTP)...");
 
         const url = urlRef.current.trim();
         const user = userRef.current.trim();
         const pass = passRef.current.trim();
+        const method = configRef.current.copyparty_method || "webdav";
 
-        Logger.debug("AUTH", `[WIZARD] handleAuth starting. URL: ${url} | User: ${user} | PassLen: ${pass.length}`);
+        Logger.debug("AUTH", `[WIZARD] handleAuth starting. Method: ${method} | URL: ${url} | User: ${user} | PassLen: ${pass.length}`);
 
         try {
-            if (!url || !pass) {
-                Logger.warn("AUTH", `[WIZARD] handleAuth failed validation: URL or Pass missing (URL="${url}", PassLen=${pass.length}).`);
-                setAuthStatus("⚠️ URL and Password are required.");
+            if (!url) {
+                setAuthStatus("⚠️ URL is required.");
                 setIsAuthLoading(false);
                 return;
             }
 
-            const cookie = await getCopypartyCookie(url, user, pass);
-
-            if (cookie) {
-                Logger.info("AUTH", `[WIZARD] handleAuth success! Cookie obtained.`);
-                setAuthStatus("✅ Access Granted!");
-                // Rclone Config Update
-                createHttpRemote(Env.REMOTE_PORTAL_SOURCE, url, cookie);
-                // COMMIT
-                updateConfig(prev => ({ ...prev, source_provider: "copyparty" }));
+            if (method === "webdav") {
+                // For WebDAV, we can do a simple propfind check if we wanted, but rclone config create is non-destructive
+                // We'll just COMMIT and let the sync test it, or do a quick check.
+                // Slime said "lets you skip the process of getting the cookie"
+                setAuthStatus("✅ WebDAV Configured!");
+                const { createWebDavRemote } = await import("../lib/rclone");
+                createWebDavRemote(Env.REMOTE_PORTAL_SOURCE, url, user, pass);
+                updateConfig(prev => ({ ...prev, source_provider: "copyparty", webdav_user: user, webdav_pass: pass }));
                 next();
             } else {
-                Logger.error("AUTH", `[WIZARD] handleAuth failed: No cookie returned.`);
-                setAuthStatus("❌ Authentication failed. Check credentials.");
+                // Legacy HTTP
+                if (!pass) {
+                    setAuthStatus("⚠️ Password required for HTTP Legacy.");
+                    setIsAuthLoading(false);
+                    return;
+                }
+                const cookie = await getCopypartyCookie(url, user, pass);
+                if (cookie) {
+                    Logger.info("AUTH", `[WIZARD] handleAuth success! Cookie obtained.`);
+                    setAuthStatus("✅ Access Granted!");
+                    const { createHttpRemote } = await import("../lib/rclone");
+                    createHttpRemote(Env.REMOTE_PORTAL_SOURCE, url, cookie);
+                    updateConfig(prev => ({ ...prev, source_provider: "copyparty", cookie }));
+                    next();
+                } else {
+                    Logger.error("AUTH", `[WIZARD] handleAuth failed: No cookie returned.`);
+                    setAuthStatus("❌ Authentication failed. Check credentials.");
+                }
             }
         } catch (err: unknown) {
             const error = err as Error;
@@ -603,7 +629,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         } finally {
             setIsAuthLoading(false);
         }
-    }, [next]);
+    }, [next, updateConfig]);
 
     const handleGdriveAuth = useCallback(async (clientId: string, clientSecret: string) => {
         setIsAuthLoading(true);
@@ -713,6 +739,35 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         onChange={(val) => updateInput("url", val, urlRef)}
                         onKeyDown={(e) => { if (e.name === "return") next(); }}
                     />
+                </box>
+            )}
+
+            {step === "copyparty_method" && (
+                <box flexDirection="column" gap={1}>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 4: Connection Method</text>
+                    <text fg={colors.fg}>🛡️ Select your preferred connection method:</text>
+                    <box flexDirection="column" gap={0} marginTop={1}>
+                        {[
+                            { name: "WebDAV (Recommended)", description: "Faster, native, no cookie grabbing", value: "webdav", key: "1", icon: "\ueac2" },
+                            { name: "HTTP (Legacy)", description: "Traditional scraping method", value: "http", key: "2", icon: "\ueac3" }
+                        ].map((opt, i) => (
+                            <box
+                                key={i}
+                                paddingLeft={2}
+                                border
+                                borderStyle="single"
+                                borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                flexDirection="row"
+                                alignItems="center"
+                                gap={1}
+                            >
+                                <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                <text fg={colors.primary}>{opt.icon}</text>
+                                <Hotkey keyLabel={opt.key} label={opt.name} color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary} />
+                                <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                            </box>
+                        ))}
+                    </box>
                 </box>
             )}
 

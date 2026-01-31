@@ -5,6 +5,7 @@ import type { PortalConfig } from "./config";
 import { runCleanupSweep } from "./cleanup.ts";
 import { Env } from "./env";
 import { Logger } from "./logger";
+import { readFileSync, writeFileSync, readdirSync } from "fs";
 
 export interface SyncProgress {
     phase: "pull" | "clean" | "cloud" | "done" | "error";
@@ -86,23 +87,64 @@ export async function runSync(
         }
 
         const pullCmd = config.strict_mirror ? "sync" : "copy";
-        const hasManifest = existsSync(localManifest);
-
-        const pullArgs = [
-            pullCmd, sourceRemote, config.local_dir,
-            ...sourceFlags,
-            "--exclude-from", excludeFile,
-            "--exclude", "_risk_tools/**",
-            "--size-only", "--fast-list", "--transfers", "4", "--checkers", "16",
-            ...RETRY_FLAGS
-        ];
-
-        if (hasManifest) {
-            Logger.info("SYNC", "Using manifest.txt for optimized Pull.");
-            pullArgs.push("--files-from", localManifest);
-        }
+        let hasManifest = existsSync(localManifest);
+        let pullArgs: string[] = [];
 
         onProgress({ phase: "pull", description: `Downloading from ${sourceRemote}...`, percentage: 0 });
+        const missingFile = join(config.local_dir || ".", "missing.txt");
+
+        if (hasManifest) {
+            Logger.info("SYNC", "Synthesizing missing.txt from manifest...");
+            try {
+                const manifestContent = readFileSync(localManifest, "utf8");
+                const remoteFiles = manifestContent.split("\n")
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0 && !line.startsWith("#"));
+
+                // Get local files list
+                const localFiles = new Set<string>();
+                const scan = (dir: string, base: string) => {
+                    const entries = readdirSync(dir, { withFileTypes: true });
+                    for (const entry of entries) {
+                        const relPath = join(base, entry.name);
+                        if (entry.isDirectory()) {
+                            scan(join(dir, entry.name), relPath);
+                        } else {
+                            localFiles.add(relPath);
+                        }
+                    }
+                };
+                if (existsSync(config.local_dir)) scan(config.local_dir, "");
+
+                const missing = remoteFiles.filter(f => !localFiles.has(f));
+                writeFileSync(missingFile, missing.join("\n"));
+
+                Logger.info("SYNC", `Manifest parsed: ${remoteFiles.length} remote, ${localFiles.size} local, ${missing.length} missing.`);
+
+                pullArgs = [
+                    "copy", sourceRemote, config.local_dir,
+                    ...sourceFlags,
+                    "--files-from", missingFile,
+                    "--size-only", "--fast-list", "--transfers", "8", "--checkers", "16",
+                    ...RETRY_FLAGS
+                ];
+            } catch (err) {
+                Logger.error("SYNC", "Failed to generate missing.txt, falling back to full sync", err as Error);
+                hasManifest = false;
+            }
+        }
+
+        if (!hasManifest) {
+            pullArgs = [
+                pullCmd, sourceRemote, config.local_dir,
+                ...sourceFlags,
+                "--exclude-from", excludeFile,
+                "--exclude", "_risk_tools/**",
+                "--size-only", "--fast-list", "--transfers", "4", "--checkers", "16",
+                ...RETRY_FLAGS
+            ];
+        }
+
         await executeRclone(pullArgs, (stats) => onProgress({
             phase: "pull",
             description: "Downloading...",

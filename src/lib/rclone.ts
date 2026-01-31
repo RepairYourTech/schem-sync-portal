@@ -110,7 +110,23 @@ export function updateGenericRemote(name: string, type: string, extraOptions: Re
 }
 
 /**
- * Creates a standard HTTP remote (used for CopyParty).
+ * Creates a standard WebDAV remote (used for CopyParty).
+ */
+export function createWebDavRemote(name: string, url: string, user?: string, pass?: string) {
+    const opts: Record<string, string> = {
+        url: url,
+        vendor: "owncloud",
+        pacer_min_sleep: "0.01ms"
+    };
+
+    if (user) opts.user = user;
+    if (pass) opts.pass = pass;
+
+    createRcloneRemote(name, "webdav", opts);
+}
+
+/**
+ * Creates a standard HTTP remote (used for CopyParty Legacy).
  */
 export function createHttpRemote(name: string, url: string, cookie?: string) {
     const opts: Record<string, string> = {
@@ -119,7 +135,8 @@ export function createHttpRemote(name: string, url: string, cookie?: string) {
     };
 
     if (cookie) {
-        opts.headers = `Cookie,${cookie}`;
+        // Rclone HTTP backend handles headers as "Key: Value" or "Key,Value"
+        opts.headers = cookie.startsWith("Cookie,") ? cookie : `Cookie,${cookie}`;
     }
 
     createRcloneRemote(name, "http", opts);
