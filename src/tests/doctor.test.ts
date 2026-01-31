@@ -104,6 +104,23 @@ describe("System Diagnostics (Doctor)", () => {
         expect(result.installedFonts).toContain("MaterialCat");
     });
 
+    test("should detect v3 fonts via fc-list", async () => {
+        Object.defineProperty(Env, "isWin", { get: () => false, configurable: true });
+        __setSpawnSync((args: string[]) => {
+            if (args.join(' ').includes(':charset=eeed')) {
+                return { success: true, stdout: Buffer.from("/path/to/font: AwesomeCat:style=Regular\n") };
+            }
+            return { success: false, stdout: Buffer.from("") };
+        });
+
+        const result = await detectNerdFonts();
+        expect(result.isInstalled).toBe(true);
+        expect(result.version).toBe(3);
+        expect(result.method).toBe('fc-list');
+        expect(result.installedFonts).toContain("AwesomeCat");
+        expect(result.confidence).toBe('high');
+    });
+
     test("should detect fonts via filesystem (Linux)", async () => {
         Object.defineProperty(Env, "isWin", { get: () => false, configurable: true });
         Object.defineProperty(Env, "isMac", { get: () => false, configurable: true });
@@ -126,6 +143,55 @@ describe("System Diagnostics (Doctor)", () => {
         expect(result.isInstalled).toBe(true);
         expect(result.method).toBe('filesystem');
         expect(result.installedFonts).toContain("FiraCodeNerdFont-Regular.ttf");
+    });
+
+    test("should detect fonts via filesystem (Windows)", async () => {
+        Object.defineProperty(Env, "isWin", { get: () => true, configurable: true });
+        process.env.LOCALAPPDATA = "C:\\Users\\User\\AppData\\Local";
+
+        // Mock failing fc-list (though on Windows it wouldn't even run)
+        __setSpawnSync(() => ({ success: false, stdout: Buffer.from("") }));
+
+        const { __setReaddirSync } = await import("../lib/doctor");
+        // @ts-expect-error: mocking internal readdirSync
+        __setReaddirSync((dir: string) => {
+            const normalizedDir = dir.toLowerCase().replace(/\\/g, '/');
+            if (normalizedDir.includes('microsoft/windows/fonts')) {
+                return [
+                    { name: 'JetBrainsMonoNerdFont-Regular.ttf', isFile: () => true, isDirectory: () => false }
+                ] as unknown as Dirent[];
+            }
+            return [];
+        });
+
+        const result = await detectNerdFonts();
+        expect(result.isInstalled).toBe(true);
+        expect(result.method).toBe('filesystem');
+        expect(result.installedFonts).toContain("JetBrainsMonoNerdFont-Regular.ttf");
+    });
+
+    test("should detect fonts via filesystem (macOS)", async () => {
+        Object.defineProperty(Env, "isWin", { get: () => false, configurable: true });
+        Object.defineProperty(Env, "isMac", { get: () => true, configurable: true });
+
+        __setSpawnSync(() => ({ success: false, stdout: Buffer.from("") }));
+
+        const { __setReaddirSync } = await import("../lib/doctor");
+        // @ts-expect-error: mocking internal readdirSync
+        __setReaddirSync((dir: string) => {
+            const normalizedDir = dir.toLowerCase().replace(/\\/g, '/');
+            if (normalizedDir.includes('library/fonts')) {
+                return [
+                    { name: 'HackNerdFont-Regular.ttf', isFile: () => true, isDirectory: () => false }
+                ] as unknown as Dirent[];
+            }
+            return [];
+        });
+
+        const result = await detectNerdFonts();
+        expect(result.isInstalled).toBe(true);
+        expect(result.method).toBe('filesystem');
+        expect(result.installedFonts).toContain("HackNerdFont-Regular.ttf");
     });
 
     test("should fallback to heuristics when detection fails", async () => {

@@ -1,6 +1,8 @@
 import { Logger } from "./logger";
 import { detectNerdFonts } from "./doctor";
-import type { PortalConfig } from "./config";
+import { loadConfig, saveConfig, type PortalConfig } from "./config";
+import { installNerdFont, type InstallResult } from "./fontInstaller";
+import { refreshFontCache } from "./fontCache";
 
 export interface FontGuardStatus {
     isInstalled: boolean;
@@ -10,6 +12,7 @@ export interface FontGuardStatus {
     canAutoInstall: boolean;
     message: string;
     installedFamily: string | null;
+    installFont?: (font: string) => Promise<InstallResult>;
 }
 
 /**
@@ -44,7 +47,27 @@ export async function checkFontGuard(config: PortalConfig): Promise<FontGuardSta
         requiresUpgrade: false,
         canAutoInstall: true, // Ready for Phase 2
         message: '',
-        installedFamily: installedFamily || null
+        installedFamily: installedFamily || null,
+        installFont: async (font: string) => {
+            const result = await installNerdFont({
+                font: font as any,
+                version: 3,
+                onProgress: (p) => Logger.debug('SYSTEM', `Install progress: ${p.stage} ${p.percent}%`)
+            });
+
+            if (result.success) {
+                await refreshFontCache();
+
+                // Update and save config
+                const currentConfig = loadConfig();
+                currentConfig.nerd_font_version = 3;
+                currentConfig.nerd_font_installed_family = result.installedFamily;
+                currentConfig.nerd_font_last_check = Date.now();
+                saveConfig(currentConfig);
+            }
+
+            return result;
+        }
     };
 
     if (!detection.isInstalled) {

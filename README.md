@@ -62,4 +62,4 @@ If you need to nuke the Portal's configuration without touching your other syste
 3.  Select **Portal Only** reset.
 
 ---
-*Built for the Birdman Workspace. 🦅*
+*Built for the Repair community, keep Right to Repair alive and thriving. 🦅*
