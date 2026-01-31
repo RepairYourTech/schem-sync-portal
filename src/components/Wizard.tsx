@@ -814,7 +814,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 3: CopyParty Source Configuration</text>
 
                     {/* URL */}
-                    <box flexDirection="column" gap={0}>
+                    <box flexDirection="column" gap={0} onMouseDown={() => { _onFocusChange("body"); set_copyparty_config_index(0); }}>
                         <text fg={copyparty_config_index === 0 ? colors.primary : colors.fg}>🌐 URL/IP:</text>
                         <input
                             focused={focusArea === "body" && copyparty_config_index === 0}
@@ -829,7 +829,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     </box>
 
                     {/* USER */}
-                    <box flexDirection="column" gap={0}>
+                    <box flexDirection="column" gap={0} onMouseDown={() => { _onFocusChange("body"); set_copyparty_config_index(1); }}>
                         <text fg={copyparty_config_index === 1 ? colors.primary : colors.fg}>👤 Username:</text>
                         <input
                             focused={focusArea === "body" && copyparty_config_index === 1}
@@ -845,7 +845,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     </box>
 
                     {/* PASS */}
-                    <box flexDirection="column" gap={0}>
+                    <box flexDirection="column" gap={0} onMouseDown={() => { _onFocusChange("body"); set_copyparty_config_index(2); }}>
                         <text fg={copyparty_config_index === 2 ? colors.primary : colors.fg}>🔑 Password:</text>
                         <input
                             focused={focusArea === "body" && copyparty_config_index === 2}
@@ -919,7 +919,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
             )}
 
             {step === "dir" && (
-                <box flexDirection="column" gap={1}>
+                <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                     <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 4: Storage Path</text>
                     <text fg={colors.fg}>📂 Local Sync Directory:</text>
                     <input
@@ -1044,8 +1044,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                         onMouseOver={() => setSelectedIndex(i)}
                                         onMouseDown={() => {
                                             const options = getOptions();
-                                        const idx = 0;
-                                        const opt = options[idx];
+                                            const idx = 0;
+                                            const opt = options[idx];
                                             if (opt && opt.type === "backup_provider") {
                                                 pendingBackupProviderRef.current = opt.val as PortalProvider;
                                                 next();
@@ -1143,12 +1143,12 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                     key={i}
                                     onMouseOver={() => setSelectedIndex(i)}
                                     onMouseDown={() => {
-                                const options = getOptions();
-                                const opt = options[0];
-                                if (opt && opt.type === "guide_next") {
-                                    next();
-                                }
-                            }}
+                                        const options = getOptions();
+                                        const opt = options[0];
+                                        if (opt && opt.type === "guide_next") {
+                                            next();
+                                        }
+                                    }}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1230,12 +1230,12 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                     key={i}
                                     onMouseOver={() => setSelectedIndex(i)}
                                     onMouseDown={() => {
-                                const options = getOptions();
-                                const opt = options[0];
-                                if (opt && opt.type === "guide_next") {
-                                    next();
-                                }
-                            }}
+                                        const options = getOptions();
+                                        const opt = options[0];
+                                        if (opt && opt.type === "guide_next") {
+                                            next();
+                                        }
+                                    }}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1274,12 +1274,12 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                     key={i}
                                     onMouseOver={() => setSelectedIndex(i)}
                                     onMouseDown={() => {
-                                const options = getOptions();
-                                const opt = options[0];
-                                if (opt && opt.type === "guide_next") {
-                                    next();
-                                }
-                            }}
+                                        const options = getOptions();
+                                        const opt = options[0];
+                                        if (opt && opt.type === "guide_next") {
+                                            next();
+                                        }
+                                    }}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1318,12 +1318,12 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                     key={i}
                                     onMouseOver={() => setSelectedIndex(i)}
                                     onMouseDown={() => {
-                                const options = getOptions();
-                                const opt = options[0];
-                                if (opt && opt.type === "guide_next") {
-                                    next();
-                                }
-                            }}
+                                        const options = getOptions();
+                                        const opt = options[0];
+                                        if (opt && opt.type === "guide_next") {
+                                            next();
+                                        }
+                                    }}
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
@@ -1671,45 +1671,45 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             flexDirection="row"
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = 0;
-                                        const opt = options[idx];
-                                        if (!opt) {
-                                            next();
-                                            return;
-                                        }
-                                        if (opt.type === "source_select") {
-                                            pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "backup_provider") {
-                                            pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "sync_mode") {
-                                            const newVal = opt.val === "sync_backup";
-                                            updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                            setHistory(prev => [...prev, "upsync_ask"]);
-                                            setSelectedIndex(0);
-                                            if (newVal) {
-                                                setWizardContext("dest");
-                                                setStep("dest_cloud_select");
-                                            } else {
-                                                setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                            }
-                                        } else if (opt.type === "sec_policy") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                        } else if (opt.type === "sec_toggle") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                            next();
-                                        } else if (opt.type === "gdrive_path") {
-                                            if (opt.val === "guided") setStep("gdrive_guide_1");
-                                            else next();
-                                        } else if (opt.type === "deploy") {
-                                            if (opt.val) onComplete(config);
-                                            else onCancel();
-                                        } else {
-                                            next();
-                                        }
-                                    }}
+                                const options = getOptions();
+                                const idx = 0;
+                                const opt = options[idx];
+                                if (!opt) {
+                                    next();
+                                    return;
+                                }
+                                if (opt.type === "source_select") {
+                                    pendingSourceProviderRef.current = opt.val as PortalProvider;
+                                    next();
+                                } else if (opt.type === "backup_provider") {
+                                    pendingBackupProviderRef.current = opt.val as PortalProvider;
+                                    next();
+                                } else if (opt.type === "sync_mode") {
+                                    const newVal = opt.val === "sync_backup";
+                                    updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
+                                    setHistory(prev => [...prev, "upsync_ask"]);
+                                    setSelectedIndex(0);
+                                    if (newVal) {
+                                        setWizardContext("dest");
+                                        setStep("dest_cloud_select");
+                                    } else {
+                                        setStep(mode === "continue" ? "edit_menu" : "deploy");
+                                    }
+                                } else if (opt.type === "sec_policy") {
+                                    updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
+                                } else if (opt.type === "sec_toggle") {
+                                    updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
+                                    next();
+                                } else if (opt.type === "gdrive_path") {
+                                    if (opt.val === "guided") setStep("gdrive_guide_1");
+                                    else next();
+                                } else if (opt.type === "deploy") {
+                                    if (opt.val) onComplete(config);
+                                    else onCancel();
+                                } else {
+                                    next();
+                                }
+                            }}
                         >
                             <text fg={focusArea === "body" ? colors.primary : colors.dim}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={focusArea === "body" ? colors.success : colors.primary} />
@@ -1735,45 +1735,45 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             borderColor={colors.success}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = 0;
-                                        const opt = options[idx];
-                                        if (!opt) {
-                                            next();
-                                            return;
-                                        }
-                                        if (opt.type === "source_select") {
-                                            pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "backup_provider") {
-                                            pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "sync_mode") {
-                                            const newVal = opt.val === "sync_backup";
-                                            updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                            setHistory(prev => [...prev, "upsync_ask"]);
-                                            setSelectedIndex(0);
-                                            if (newVal) {
-                                                setWizardContext("dest");
-                                                setStep("dest_cloud_select");
-                                            } else {
-                                                setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                            }
-                                        } else if (opt.type === "sec_policy") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                        } else if (opt.type === "sec_toggle") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                            next();
-                                        } else if (opt.type === "gdrive_path") {
-                                            if (opt.val === "guided") setStep("gdrive_guide_1");
-                                            else next();
-                                        } else if (opt.type === "deploy") {
-                                            if (opt.val) onComplete(config);
-                                            else onCancel();
-                                        } else {
-                                            next();
-                                        }
-                                    }}
+                                const options = getOptions();
+                                const idx = 0;
+                                const opt = options[idx];
+                                if (!opt) {
+                                    next();
+                                    return;
+                                }
+                                if (opt.type === "source_select") {
+                                    pendingSourceProviderRef.current = opt.val as PortalProvider;
+                                    next();
+                                } else if (opt.type === "backup_provider") {
+                                    pendingBackupProviderRef.current = opt.val as PortalProvider;
+                                    next();
+                                } else if (opt.type === "sync_mode") {
+                                    const newVal = opt.val === "sync_backup";
+                                    updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
+                                    setHistory(prev => [...prev, "upsync_ask"]);
+                                    setSelectedIndex(0);
+                                    if (newVal) {
+                                        setWizardContext("dest");
+                                        setStep("dest_cloud_select");
+                                    } else {
+                                        setStep(mode === "continue" ? "edit_menu" : "deploy");
+                                    }
+                                } else if (opt.type === "sec_policy") {
+                                    updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
+                                } else if (opt.type === "sec_toggle") {
+                                    updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
+                                    next();
+                                } else if (opt.type === "gdrive_path") {
+                                    if (opt.val === "guided") setStep("gdrive_guide_1");
+                                    else next();
+                                } else if (opt.type === "deploy") {
+                                    if (opt.val) onComplete(config);
+                                    else onCancel();
+                                } else {
+                                    next();
+                                }
+                            }}
                         >
                             <text fg={colors.primary}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
@@ -1800,45 +1800,45 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             borderColor={colors.success}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = 0;
-                                        const opt = options[idx];
-                                        if (!opt) {
-                                            next();
-                                            return;
-                                        }
-                                        if (opt.type === "source_select") {
-                                            pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "backup_provider") {
-                                            pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "sync_mode") {
-                                            const newVal = opt.val === "sync_backup";
-                                            updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                            setHistory(prev => [...prev, "upsync_ask"]);
-                                            setSelectedIndex(0);
-                                            if (newVal) {
-                                                setWizardContext("dest");
-                                                setStep("dest_cloud_select");
-                                            } else {
-                                                setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                            }
-                                        } else if (opt.type === "sec_policy") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                        } else if (opt.type === "sec_toggle") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                            next();
-                                        } else if (opt.type === "gdrive_path") {
-                                            if (opt.val === "guided") setStep("gdrive_guide_1");
-                                            else next();
-                                        } else if (opt.type === "deploy") {
-                                            if (opt.val) onComplete(config);
-                                            else onCancel();
-                                        } else {
-                                            next();
-                                        }
-                                    }}
+                                const options = getOptions();
+                                const idx = 0;
+                                const opt = options[idx];
+                                if (!opt) {
+                                    next();
+                                    return;
+                                }
+                                if (opt.type === "source_select") {
+                                    pendingSourceProviderRef.current = opt.val as PortalProvider;
+                                    next();
+                                } else if (opt.type === "backup_provider") {
+                                    pendingBackupProviderRef.current = opt.val as PortalProvider;
+                                    next();
+                                } else if (opt.type === "sync_mode") {
+                                    const newVal = opt.val === "sync_backup";
+                                    updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
+                                    setHistory(prev => [...prev, "upsync_ask"]);
+                                    setSelectedIndex(0);
+                                    if (newVal) {
+                                        setWizardContext("dest");
+                                        setStep("dest_cloud_select");
+                                    } else {
+                                        setStep(mode === "continue" ? "edit_menu" : "deploy");
+                                    }
+                                } else if (opt.type === "sec_policy") {
+                                    updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
+                                } else if (opt.type === "sec_toggle") {
+                                    updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
+                                    next();
+                                } else if (opt.type === "gdrive_path") {
+                                    if (opt.val === "guided") setStep("gdrive_guide_1");
+                                    else next();
+                                } else if (opt.type === "deploy") {
+                                    if (opt.val) onComplete(config);
+                                    else onCancel();
+                                } else {
+                                    next();
+                                }
+                            }}
                         >
                             <text fg={colors.primary}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
@@ -1865,45 +1865,45 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             borderColor={colors.success}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => {
-                                        const options = getOptions();
-                                        const idx = 0;
-                                        const opt = options[idx];
-                                        if (!opt) {
-                                            next();
-                                            return;
-                                        }
-                                        if (opt.type === "source_select") {
-                                            pendingSourceProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "backup_provider") {
-                                            pendingBackupProviderRef.current = opt.val as PortalProvider;
-                                            next();
-                                        } else if (opt.type === "sync_mode") {
-                                            const newVal = opt.val === "sync_backup";
-                                            updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-                                            setHistory(prev => [...prev, "upsync_ask"]);
-                                            setSelectedIndex(0);
-                                            if (newVal) {
-                                                setWizardContext("dest");
-                                                setStep("dest_cloud_select");
-                                            } else {
-                                                setStep(mode === "continue" ? "edit_menu" : "deploy");
-                                            }
-                                        } else if (opt.type === "sec_policy") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
-                                        } else if (opt.type === "sec_toggle") {
-                                            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                                            next();
-                                        } else if (opt.type === "gdrive_path") {
-                                            if (opt.val === "guided") setStep("gdrive_guide_1");
-                                            else next();
-                                        } else if (opt.type === "deploy") {
-                                            if (opt.val) onComplete(config);
-                                            else onCancel();
-                                        } else {
-                                            next();
-                                        }
-                                    }}
+                                const options = getOptions();
+                                const idx = 0;
+                                const opt = options[idx];
+                                if (!opt) {
+                                    next();
+                                    return;
+                                }
+                                if (opt.type === "source_select") {
+                                    pendingSourceProviderRef.current = opt.val as PortalProvider;
+                                    next();
+                                } else if (opt.type === "backup_provider") {
+                                    pendingBackupProviderRef.current = opt.val as PortalProvider;
+                                    next();
+                                } else if (opt.type === "sync_mode") {
+                                    const newVal = opt.val === "sync_backup";
+                                    updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
+                                    setHistory(prev => [...prev, "upsync_ask"]);
+                                    setSelectedIndex(0);
+                                    if (newVal) {
+                                        setWizardContext("dest");
+                                        setStep("dest_cloud_select");
+                                    } else {
+                                        setStep(mode === "continue" ? "edit_menu" : "deploy");
+                                    }
+                                } else if (opt.type === "sec_policy") {
+                                    updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
+                                } else if (opt.type === "sec_toggle") {
+                                    updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
+                                    next();
+                                } else if (opt.type === "gdrive_path") {
+                                    if (opt.val === "guided") setStep("gdrive_guide_1");
+                                    else next();
+                                } else if (opt.type === "deploy") {
+                                    if (opt.val) onComplete(config);
+                                    else onCancel();
+                                } else {
+                                    next();
+                                }
+                            }}
                         >
                             <text fg={colors.primary}>▶ </text>
                             <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
@@ -1915,7 +1915,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "gdrive_id" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Google Drive: Client ID</text>
                         <text fg={colors.fg}>🔑 Enter your GCP Client ID:</text>
                         <input
@@ -1931,7 +1931,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "gdrive_secret" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Google Drive: Client Secret</text>
                         <text fg={colors.fg}>🔒 Enter your GCP Client Secret:</text>
                         <input
@@ -1967,7 +1967,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "b2_id" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Backblaze B2: Key ID</text>
                         <text fg={colors.fg}>🔑 Enter your B2 keyID:</text>
                         <input
@@ -1983,7 +1983,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "b2_key" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Backblaze B2: Application Key</text>
                         <text fg={colors.fg}>🔒 Enter your B2 applicationKey:</text>
                         <input
@@ -2008,7 +2008,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "sftp_host" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>SFTP: Server Address</text>
                         <text fg={colors.fg}>🌐 Enter SFTP Host (e.g., example.com):</text>
                         <input
@@ -2024,7 +2024,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "sftp_user" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>SFTP: Username</text>
                         <text fg={colors.fg}>👤 Enter SSH/SFTP User:</text>
                         <input
@@ -2040,7 +2040,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "sftp_pass" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>SFTP: Security</text>
                         <text fg={colors.fg}>🔑 Enter SSH/SFTP Password (or leave empty for key):</text>
                         <input
@@ -2065,7 +2065,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "pcloud_user" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>pCloud: Identity</text>
                         <text fg={colors.fg}>👤 Enter pCloud Email:</text>
                         <input
@@ -2081,7 +2081,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "pcloud_pass" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>pCloud: Security</text>
                         <text fg={colors.fg}>🔑 Enter pCloud Password:</text>
                         <input
@@ -2092,7 +2092,6 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                             onKeyDown={(e) => {
                                 if (e.name === "return") {
                                     const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                                    // pCloud rclone type is 'pcloud'
                                     updateGenericRemote(remoteName, "pcloud", { username: pcloudUserRef.current, password: pcloudPassRef.current });
                                     // COMMIT
                                     const field = wizardContext === "source" ? "source_provider" : "backup_provider";
@@ -2132,7 +2131,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                 </box>
                             ) : (
                                 authStatus?.includes("📡") && (
-                                    <box marginTop={1} flexDirection="column">
+                                    <box marginTop={1} flexDirection="column" onMouseDown={() => _onFocusChange("body")}>
                                         <text fg={colors.dim}>Paste the Token JSON here:</text>
                                         <input
                                             focused={focusArea === "body"}
@@ -2187,7 +2186,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                 </box>
                             ) : (
                                 authStatus?.includes("📡") && (
-                                    <box marginTop={1} flexDirection="column">
+                                    <box marginTop={1} flexDirection="column" onMouseDown={() => _onFocusChange("body")}>
                                         <text fg={colors.dim}>Paste the Token JSON here:</text>
                                         <input
                                             focused={focusArea === "body"}
@@ -2217,7 +2216,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "mega_user" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Mega.nz Configuration: Identity</text>
                         <text fg={colors.fg}>👤 Enter Mega.nz Email:</text>
                         <input
@@ -2233,7 +2232,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "mega_pass" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Mega.nz Configuration: Security</text>
                         <text fg={colors.fg}>🔑 Enter Mega.nz Password:</text>
                         <input
@@ -2258,7 +2257,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "r2_id" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Cloudflare R2: Access Key</text>
                         <text fg={colors.fg}>🔑 Enter R2 Access Key ID:</text>
                         <input
@@ -2274,7 +2273,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "r2_key" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Cloudflare R2: Secret Key</text>
                         <text fg={colors.fg}>🔒 Enter R2 Secret Access Key:</text>
                         <input
@@ -2290,7 +2289,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
 
             {
                 step === "r2_endpoint" && (
-                    <box flexDirection="column" gap={1}>
+                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Cloudflare R2: Endpoint</text>
                         <text fg={colors.fg}>🌐 Enter R2 S3 Endpoint URL:</text>
                         <input
@@ -2334,23 +2333,17 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                                     key={i}
                                     onMouseOver={() => setSelectedIndex(i)}
                                     onMouseDown={() => {
-                                    const options = getOptions();
-                                    const idx = i;
-                                        const opt = options[idx];
-                                    if (opt && opt.type === "deploy") {
-                                        if (opt.val) onComplete(config);
+                                        if (opt.value) onComplete(config);
                                         else onCancel();
-                                    }
-                                }}
-                                    paddingLeft={2}
-                                    backgroundColor={selectedIndex === i && focusArea === "body" ? colors.primary + "33" : undefined}
+                                    }}
+                                    flexDirection="row"
+                                    paddingLeft={selectedIndex === i && focusArea === "body" ? 1 : 0}
                                 >
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
-
-                                        color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary}
+                                        isFocused={selectedIndex === i && focusArea === "body"}
                                     />
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
                                 </box>
@@ -2359,7 +2352,6 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     </box>
                 )
             }
-
             {
                 config.debug_mode && (
                     <box marginTop={1} border borderStyle="single" borderColor={colors.border} padding={1} flexDirection="row">
@@ -2368,6 +2360,6 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     </box>
                 )
             }
-        </box >
+        </box>
     );
 }
