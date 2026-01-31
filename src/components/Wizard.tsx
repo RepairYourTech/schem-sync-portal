@@ -26,7 +26,7 @@ interface WizardProps {
 type Step =
     | "shortcut"
     | "source_choice" // Unified Source Selection
-    | "url" | "user" | "pass" // CopyParty Path
+    | "copyparty_config" // Consolidated URL/User/Pass/Method
     | "dir" | "mirror"
     | "upsync_ask" // NEW: Enable Backup?
     | "dest_cloud_select" // Backup Path
@@ -95,6 +95,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
     });
     const configRef = useRef<PortalConfig>(config); // Synchronous mirror for zero-lag access
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [copyparty_config_index, set_copyparty_config_index] = useState(0); // 0:URL, 1:User, 2:Pass, 3:Method, 4:Connect
     const [isAuthLoading, setIsAuthLoading] = useState(false);
     const [authStatus, setAuthStatus] = useState<string | null>(null);
     const pendingSourceProviderRef = useRef<PortalProvider>(initialConfig.source_provider);
@@ -257,7 +258,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     resetWizardRefs(); // CLEAN SLATE for ANY provider
                     setWizardContext("source");
                     if (currentSource === "copyparty") {
-                        nextStep = "url";
+                        nextStep = "copyparty_config";
                     } else if (currentSource === "gdrive") {
                         nextStep = "gdrive_intro";
                     } else if (currentSource === "b2") {
@@ -280,9 +281,7 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     break;
 
                 // CopyParty Branch
-                case "url": nextStep = "user"; break;
-                case "user": nextStep = "pass"; break;
-                case "pass": nextStep = "dir"; break;
+                case "copyparty_config": nextStep = "dir"; break;
 
                 // Cloud Source Branch
 
@@ -437,12 +436,39 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
         if (e.name === "tab") return;
 
         if (focusArea === "body") {
+            // === Consolidated CopyParty Setup (Step 3) ===
+            if (step === "copyparty_config") {
+                if (e.name === "down") {
+                    set_copyparty_config_index(prev => Math.min(4, prev + 1));
+                } else if (e.name === "up") {
+                    set_copyparty_config_index(prev => Math.max(0, prev - 1));
+                }
+
+                // Method Selection (Sub-index 3)
+                if (copyparty_config_index === 3) {
+                    if (e.name === "left") {
+                        setSelectedIndex(0);
+                        updateConfig(prev => ({ ...prev, copyparty_method: "webdav" }));
+                    }
+                    if (e.name === "right") {
+                        setSelectedIndex(1);
+                        updateConfig(prev => ({ ...prev, copyparty_method: "http" }));
+                    }
+                }
+
+                if (e.name === "return") {
+                    if (copyparty_config_index === 4) {
+                        handleAuth();
+                    } else {
+                        set_copyparty_config_index(prev => Math.min(4, prev + 1));
+                    }
+                }
+                return;
+            }
 
             // Universal Selectable Steps Logic
             const selectableSteps: Step[] = ["shortcut", "source_choice", "mirror", "upsync_ask", "security", "dest_cloud_select", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "deploy"];
             if (selectableSteps.includes(step)) {
-
-
                 const options = getOptions();
 
                 // Arrow Navigation
@@ -452,18 +478,13 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     setSelectedIndex(prev => (prev - 1 + options.length) % options.length);
                 }
 
-                // Numeric Selection (Select Only)
-                if (e.name === "1") setSelectedIndex(0);
-                else if (e.name === "2") setSelectedIndex(1);
-                else if (e.name === "3") setSelectedIndex(2);
-                else if (e.name === "4") setSelectedIndex(3);
-                else if (e.name === "5") setSelectedIndex(4);
-                else if (e.name === "6") setSelectedIndex(5);
-                else if (e.name === "7") setSelectedIndex(6);
-                else if (e.name === "8") setSelectedIndex(7);
-                else if (e.name === "9" && options.length > 8) setSelectedIndex(8);
+                // Numeric Selection
+                if (e.name >= "1" && e.name <= "9") {
+                    const idx = parseInt(e.name) - 1;
+                    if (idx < options.length) setSelectedIndex(idx);
+                }
 
-                // Confirmation (Execute)
+                // Confirmation
                 if (e.name === "return") {
                     const opt = options[selectedIndex];
                     if (!opt) return;
@@ -475,11 +496,8 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                     }
 
                     if (opt.type === "gdrive_path") {
-                        if (opt.val === "guided") {
-                            setStep("gdrive_guide_1");
-                        } else {
-                            next();
-                        }
+                        if (opt.val === "guided") setStep("gdrive_guide_1");
+                        else next();
                         return;
                     }
 
@@ -501,67 +519,54 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                         updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
                     } else if (opt.type === "sec_toggle") {
                         updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
-                        next(); // Safe (next step doesn't depend on this value immediately for branching, or is linear)
-
-                        // === FIX: Handle Branching Steps Manually to avoid Stale State ===
+                        next();
                     } else if (opt.type === "source_select") {
                         const newVal = opt.val as PortalProvider;
                         pendingSourceProviderRef.current = newVal;
                         next();
                     } else if (opt.type === "source_provider") {
                         const newVal = opt.val as PortalProvider;
-                        pendingSourceProviderRef.current = newVal; // DEFERRED
+                        pendingSourceProviderRef.current = newVal;
                         next();
                     } else if (opt.type === "backup_provider") {
                         const newVal = opt.val as PortalProvider;
-                        pendingBackupProviderRef.current = newVal; // DEFERRED
+                        pendingBackupProviderRef.current = newVal;
                         next();
                     } else if (opt.type === "sync_mode") {
                         const newVal = opt.val === "sync_backup";
                         updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-
-                        // Manually advance history/step
                         setHistory(prev => [...prev, step]);
                         setSelectedIndex(0);
-                        stepStartTime.current = Date.now();
-
                         if (newVal) {
                             setWizardContext("dest");
                             setStep("dest_cloud_select");
                         } else {
                             setStep("deploy");
                         }
-
-                        next();
                     } else {
                         const fieldMap: Record<string, keyof PortalConfig> = {
                             shortcut: "desktop_shortcut",
-                            mirror: "strict_mirror",
-                            bootstrap: "desktop_shortcut",
-                            skip: "desktop_shortcut"
+                            mirror: "strict_mirror"
                         };
-
-                        const field = fieldMap[opt.type];
-                        if (field) {
-                            updateConfig(prev => ({ ...prev, [field]: opt.val }));
-                        }
+                        const field = fieldMap[opt.type as string];
+                        if (field) updateConfig(prev => ({ ...prev, [field]: opt.val }));
                         next();
                     }
                 }
             }
         }
-    });
+    }, [step, focusArea, selectedIndex, copyparty_config_index, config, getOptions, next, onComplete, onCancel]);
 
     const handleAuth = useCallback(async () => {
         setIsAuthLoading(true);
-        setAuthStatus(configRef.current.copyparty_method === "webdav" ? "🔄 Verifying WebDAV Access..." : "🔄 Authenticating with CopyParty (HTTP)...");
+        const method = configRef.current.copyparty_method || "webdav";
+        setAuthStatus(method === "webdav" ? "🔄 Verifying WebDAV Access..." : "🔄 Authenticating with CopyParty (HTTP)...");
 
         const url = urlRef.current.trim();
         const user = userRef.current.trim();
         const pass = passRef.current.trim();
-        const method = configRef.current.copyparty_method || "webdav";
 
-        Logger.debug("AUTH", `[WIZARD] handleAuth starting. Method: ${method} | URL: ${url} | User: ${user} | PassLen: ${pass.length}`);
+        Logger.debug("AUTH", `[WIZARD] handleAuth starting. Method: ${method} | URL: ${url} | User: ${user}`);
 
         try {
             if (!url) {
@@ -571,16 +576,12 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
             }
 
             if (method === "webdav") {
-                // For WebDAV, we can do a simple propfind check if we wanted, but rclone config create is non-destructive
-                // We'll just COMMIT and let the sync test it, or do a quick check.
-                // Slime said "lets you skip the process of getting the cookie"
                 setAuthStatus("✅ WebDAV Configured!");
                 const { createWebDavRemote } = await import("../lib/rclone");
-                createWebDavRemote(Env.REMOTE_PORTAL_SOURCE, url, user, pass);
-                updateConfig(prev => ({ ...prev, source_provider: "copyparty", webdav_user: user, webdav_pass: pass }));
+                await createWebDavRemote(Env.REMOTE_PORTAL_SOURCE, url, user, pass);
+                updateConfig(prev => ({ ...prev, source_provider: "copyparty", copyparty_method: "webdav", webdav_user: user, webdav_pass: pass }));
                 next();
             } else {
-                // Legacy HTTP
                 if (!pass) {
                     setAuthStatus("⚠️ Password required for HTTP Legacy.");
                     setIsAuthLoading(false);
@@ -588,14 +589,12 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 }
                 const cookie = await getCopypartyCookie(url, user, pass);
                 if (cookie) {
-                    Logger.info("AUTH", `[WIZARD] handleAuth success! Cookie obtained.`);
                     setAuthStatus("✅ Access Granted!");
                     const { createHttpRemote } = await import("../lib/rclone");
-                    createHttpRemote(Env.REMOTE_PORTAL_SOURCE, url, cookie);
-                    updateConfig(prev => ({ ...prev, source_provider: "copyparty", cookie }));
+                    await createHttpRemote(Env.REMOTE_PORTAL_SOURCE, url, cookie);
+                    updateConfig(prev => ({ ...prev, source_provider: "copyparty", copyparty_method: "http", cookie }));
                     next();
                 } else {
-                    Logger.error("AUTH", `[WIZARD] handleAuth failed: No cookie returned.`);
                     setAuthStatus("❌ Authentication failed. Check credentials.");
                 }
             }
@@ -705,53 +704,98 @@ export function Wizard({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initia
                 </box>
             )}
 
-            {step === "url" && (
+            {step === "copyparty_config" && (
                 <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 3: CopyParty Location</text>
-                    <text fg={colors.fg}>🌐 CopyParty URL/IP:</text>
-                    <input
-                        focused={focusArea === "body"}
-                        placeholder="http://192.168.1.5:3911"
-                        value={wizardInputs.url}
-                        onChange={(val) => updateInput("url", val, urlRef)}
-                        onKeyDown={(e) => { if (e.name === "return") next(); }}
-                    />
-                </box>
-            )}
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 3: CopyParty Source Configuration</text>
 
+                    {/* URL */}
+                    <box flexDirection="column" gap={0}>
+                        <text fg={copyparty_config_index === 0 ? colors.primary : colors.fg}>🌐 URL/IP:</text>
+                        <input
+                            focused={focusArea === "body" && copyparty_config_index === 0}
+                            placeholder="http://192.168.1.5:3911"
+                            value={wizardInputs.url}
+                            onChange={(val) => updateInput("url", val, urlRef)}
+                            onKeyDown={(e) => {
+                                if (e.name === "return") set_copyparty_config_index(1);
+                                if (e.name === "down") set_copyparty_config_index(1);
+                            }}
+                        />
+                    </box>
 
-            {step === "user" && (
-                <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 4: Identity</text>
-                    <text fg={colors.fg}>👤 Username:</text>
-                    <input
-                        focused={focusArea === "body"}
-                        placeholder="Username"
-                        value={wizardInputs.user}
-                        onChange={(val) => updateInput("user", val, userRef)}
-                        onKeyDown={(e) => { if (e.name === "return") next(); }}
-                    />
-                </box>
-            )}
+                    {/* USER */}
+                    <box flexDirection="column" gap={0}>
+                        <text fg={copyparty_config_index === 1 ? colors.primary : colors.fg}>👤 Username:</text>
+                        <input
+                            focused={focusArea === "body" && copyparty_config_index === 1}
+                            placeholder="Username"
+                            value={wizardInputs.user}
+                            onChange={(val) => updateInput("user", val, userRef)}
+                            onKeyDown={(e) => {
+                                if (e.name === "return") set_copyparty_config_index(2);
+                                if (e.name === "down") set_copyparty_config_index(2);
+                                if (e.name === "up") set_copyparty_config_index(0);
+                            }}
+                        />
+                    </box>
 
-            {step === "pass" && (
-                <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={isAuthLoading ? colors.dim : colors.fg}>Step 4: Authentication</text>
-                    <text fg={isAuthLoading ? colors.dim : colors.fg}>🔑 Password:</text>
-                    <input
-                        focused={focusArea === "body" && !isAuthLoading}
-                        placeholder={isAuthLoading ? "Authenticating..." : "Password"}
-                        value={wizardInputs.pass}
-                        onChange={(val) => {
-                            if (isAuthLoading) return;
-                            updateInput("pass", val, passRef);
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.name === "return" && !isAuthLoading) {
-                                handleAuth();
-                            }
-                        }}
-                    />
+                    {/* PASS */}
+                    <box flexDirection="column" gap={0}>
+                        <text fg={copyparty_config_index === 2 ? colors.primary : colors.fg}>🔑 Password:</text>
+                        <input
+                            focused={focusArea === "body" && copyparty_config_index === 2}
+                            placeholder="Password"
+                            value={wizardInputs.pass}
+                            onChange={(val) => updateInput("pass", val, passRef)}
+                            onKeyDown={(e) => {
+                                if (e.name === "return") set_copyparty_config_index(3);
+                                if (e.name === "down") set_copyparty_config_index(3);
+                                if (e.name === "up") set_copyparty_config_index(1);
+                            }}
+                        />
+                    </box>
+
+                    {/* METHOD */}
+                    <box flexDirection="column" gap={1} marginTop={1}>
+                        <text fg={copyparty_config_index === 3 ? colors.primary : colors.fg}>🛡️ Connection Method:</text>
+                        <box flexDirection="row" gap={2}>
+                            {[
+                                { name: "WebDAV", val: "webdav" },
+                                { name: "HTTP", val: "http" }
+                            ].map((m, i) => {
+                                const isSelected = (config.copyparty_method || "webdav") === m.val;
+                                const isFocused = copyparty_config_index === 3 && selectedIndex === i;
+                                return (
+                                    <box
+                                        key={i}
+                                        border
+                                        borderStyle="single"
+                                        borderColor={isSelected ? colors.success : (isFocused ? colors.primary : "transparent")}
+                                        paddingLeft={1}
+                                        paddingRight={1}
+                                    >
+                                        <text fg={isSelected ? colors.success : colors.fg}>{m.name}</text>
+                                    </box>
+                                );
+                            })}
+                        </box>
+                    </box>
+
+                    {/* ACTION */}
+                    <box
+                        marginTop={1}
+                        border
+                        borderStyle="double"
+                        borderColor={copyparty_config_index === 4 ? colors.success : colors.dim}
+                        paddingLeft={2}
+                        paddingRight={2}
+                        alignItems="center"
+                    >
+                        <text fg={copyparty_config_index === 4 ? colors.success : colors.dim}>
+                            {isAuthLoading ? "🔄 CONNECTING..." : "[ VERIFY & CONNECT ]"}
+                        </text>
+                    </box>
+
                     {authStatus ? (
                         <box marginTop={1}>
                             <text fg={authStatus.includes("✅") ? colors.success : colors.danger}>{authStatus}</text>
