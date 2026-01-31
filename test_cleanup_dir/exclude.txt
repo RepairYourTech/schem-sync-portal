@@ -19,3 +19,5 @@ malware.zip
 malware_isolate.zip
 malware.zip
 malware_isolate.zip
+malware.zip
+malware_isolate.zip

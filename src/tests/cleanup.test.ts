@@ -11,9 +11,9 @@ describe("Malware Shield (Cleanup)", () => {
     const testDir = join(process.cwd(), "test_cleanup_dir");
     const excludeFile = join(testDir, "exclude.txt");
 
-    let runCleanupSweep: (localDir: string, excludeFile: string, policy: "purge" | "isolate") => Promise<void>;
-    let __setArchiveEngine: (engine: { type: string; bin: string }) => void;
-    let __setSpawnSync: (fn: (args: string[]) => { stdout: Buffer; success: boolean; exitCode?: number }) => void;
+    let runCleanupSweep: typeof import("../lib/cleanup").runCleanupSweep;
+    let __setArchiveEngine: typeof import("../lib/cleanup").__setArchiveEngine;
+    let __setSpawnSync: typeof import("../lib/cleanup").__setSpawnSync;
 
     beforeAll(async () => {
         const cleanup = await import("../lib/cleanup");
@@ -21,7 +21,8 @@ describe("Malware Shield (Cleanup)", () => {
         __setArchiveEngine = (cleanup as unknown as { __setArchiveEngine: typeof __setArchiveEngine }).__setArchiveEngine;
         __setSpawnSync = (cleanup as unknown as { __setSpawnSync: typeof __setSpawnSync }).__setSpawnSync;
 
-        __setSpawnSync((args: string[]) => {
+        __setSpawnSync((options: any) => {
+            const args = Array.isArray(options) ? options : (options as { cmd: string[] }).cmd;
             const cmd = args.join(" ");
             console.log(`[MOCK _spawnSync] ${cmd}`);
             if (cmd.includes(" l ") || cmd.includes(" v ")) {
@@ -32,7 +33,14 @@ describe("Malware Shield (Cleanup)", () => {
                     return { stdout: Buffer.from("flash_utility.exe\nbios.bin\nmanual.pdf"), success: true };
                 }
             }
-            return { stdout: Buffer.from(""), success: true, exitCode: 0 };
+            return {
+                stdout: Buffer.from(""),
+                stderr: Buffer.from(""),
+                success: true,
+                exitCode: 0,
+                pid: 1234,
+                resourceUsage: {} as any
+            } as any;
         });
 
         if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });

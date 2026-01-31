@@ -3,8 +3,7 @@
     // Environment setup & latest features
     "lib": [
       "ESNext",
-      "DOM",
-      "DOM.Iterable"
+      "WebWorker"
     ],
     "target": "ESNext",
     "module": "Preserve",
@@ -12,6 +11,10 @@
     "jsx": "react-jsx",
     "jsxImportSource": "@opentui/react",
     "allowJs": true,
+    "types": [
+      "bun",
+      "node"
+    ],
     // Bundler mode
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
