@@ -114,7 +114,11 @@ export async function runCleanupSweep(
 
     try {
         // Use glob to find all archive files
-        const archives = await glob("**/*.{zip,7z,rar}", { cwd: targetDir, absolute: true });
+        const archives = await glob("**/*.{zip,7z,rar}", {
+            cwd: targetDir,
+            absolute: true,
+            ignore: ["**/node_modules/**", "**/.git/**"]
+        });
 
         const stats: CleanupStats = {
             totalArchives: archives.length,

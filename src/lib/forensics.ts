@@ -1,7 +1,7 @@
-import { glob } from "glob";
-import { runCleanupSweep } from "./cleanup.ts";
+import { runCleanupSweep, ShieldManager } from "./cleanup.ts";
 import { spawn } from "bun";
 import { Logger } from "./logger";
+import { resolve } from "path";
 
 export interface ForensicProgress {
     currentFile: string;
@@ -18,28 +18,33 @@ export async function runForensicSweep(
 ): Promise<void> {
     Logger.info("SYNC", "Starting Forensic Sweep...");
     try {
+        if (!targetDir || targetDir === "" || targetDir === "none") {
+            throw new Error("Target directory not set.");
+        }
+
+        const projectRoot = resolve(process.cwd());
+        const targetAbs = resolve(targetDir);
+        if (targetAbs === projectRoot) {
+            throw new Error("Cannot run Forensic Sweep on the project root. Please select a specific schematics folder.");
+        }
+
         onProgress({ currentFile: "Scanning for archives...", filesProcessed: 0, totalFiles: 0, status: "scanning" });
 
-        const archives = await glob("**/*.{zip,7z,rar}", { cwd: targetDir, absolute: true });
-        const total = archives.length;
-
-        // Step 1: Local Surgery
-        for (let i = 0; i < total; i++) {
-            const archive = archives[i];
-            if (!archive) continue;
+        // Step 1: Local Surgery (The Heavy Lifting)
+        await runCleanupSweep(targetDir, excludeFile, "isolate", (stats) => {
             onProgress({
-                currentFile: `Local: ${archive.split("/").pop() || ""}`,
-                filesProcessed: i + 1,
-                totalFiles: total,
+                currentFile: stats.currentArchive || "Processing...",
+                filesProcessed: stats.scannedArchives,
+                totalFiles: stats.totalArchives,
                 status: "cleaning"
             });
-
-            await runCleanupSweep(targetDir, excludeFile, "isolate");
-        }
+        });
 
         // Step 2: Surgical Cloud Scrub (Due Diligence)
         if (gdriveRemote) {
-            const flaggedFiles = [
+            // Merge hardcoded knowns with dynamic offenders from ShieldManager
+            const dynamicOffenders = ShieldManager.getOffenders().map(o => o.split("/").pop()).filter(Boolean) as string[];
+            const flaggedFiles = Array.from(new Set([
                 "GV-R939XG1 GAMING-8GD-1.0-1.01 Boardview.zip",
                 "GV-R938WF2-4GD-1.0 Boardview.zip",
                 "IOT73 V3.0 TG-B75.zip",
@@ -48,8 +53,9 @@ export async function runForensicSweep(
                 "GV-RX480G1 GAMING-4GD-1.1 Boardview.zip",
                 "BIOS_K54C usb 3.0_factory-Chinafix.zip",
                 "BIOS_K54LY usb 3.0_factory-Chinafix.zip",
-                "DANL9MB18F0 (tvw).rar"
-            ];
+                "DANL9MB18F0 (tvw).rar",
+                ...dynamicOffenders
+            ]));
 
             for (let i = 0; i < flaggedFiles.length; i++) {
                 const file = flaggedFiles[i];
@@ -71,7 +77,7 @@ export async function runForensicSweep(
             }
         }
 
-        onProgress({ currentFile: "Forensic Sweep Complete.", filesProcessed: total, totalFiles: total, status: "done" });
+        onProgress({ currentFile: "Forensic Sweep Complete.", filesProcessed: 100, totalFiles: 100, status: "done" });
         Logger.info("SYNC", "Forensic Sweep Complete.");
 
     } catch (err: unknown) {
