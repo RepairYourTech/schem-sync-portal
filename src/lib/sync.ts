@@ -587,7 +587,8 @@ export async function runSync(
 
         // --- CLOUD PHASE ---
         if (showCloud) {
-            const destRemote = `${Env.REMOTE_PORTAL_BACKUP}:/`;
+            const destPath = config.backup_dir || (config.backup_provider === "gdrive" ? "SchematicsBackup" : "");
+            const destRemote = `${Env.REMOTE_PORTAL_BACKUP}:${destPath}`;
             const localManifest = join(config.local_dir, "manifest.txt");
             const cloudArgs = [
                 "sync", config.local_dir, destRemote,

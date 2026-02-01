@@ -48,7 +48,8 @@ type Step =
     | "copyparty_config" // Consolidated URL/User/Pass/Method
     | "dir" | "mirror"
     | "upsync_ask" // NEW: Enable Backup?
-    | "dest_cloud_select" // Backup Path
+    | "dest_cloud_select" // Backup Choice
+    | "backup_dir" // Backup Path
     | "security" // Malware Shield (Only if Upsync is on)
 
     // Cloud Provider Specifics (Shared for Source/Dest - we'll reuse UI but need context)
@@ -95,6 +96,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         if (c.upsync_enabled === undefined) return "upsync_ask";
 
         if (c.upsync_enabled && (c.backup_provider === "unconfigured")) return "dest_cloud_select";
+        if (c.upsync_enabled && !c.backup_dir) return "backup_dir";
 
         return "deploy";
     };
@@ -291,9 +293,11 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         else if (provider === "dropbox") nextStep = "dropbox_intro";
                         else if (provider === "mega") nextStep = "mega_intro";
                         else if (provider === "r2") nextStep = "r2_intro";
-                        else nextStep = (isMenuMode ? "edit_menu" : "security");
+                        else nextStep = (isMenuMode ? "edit_menu" : "backup_dir");
                     }
                     break;
+
+                case "backup_dir": nextStep = (isMenuMode ? "edit_menu" : "security"); break;
 
                 case "security": nextStep = (isMenuMode ? "edit_menu" : "deploy"); break;
 
@@ -313,7 +317,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 case "mega_intro": nextStep = pendingCloudPathRef.current === "guided" ? "mega_guide_1" : "cloud_direct_entry"; break;
                 case "r2_intro": nextStep = pendingCloudPathRef.current === "guided" ? "r2_guide_1" : "cloud_direct_entry"; break;
 
-                case "cloud_direct_entry": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
+                case "cloud_direct_entry": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "backup_dir")); break;
 
                 // Guide Transitions
                 case "b2_guide_1": nextStep = "b2_guide_2"; break;
@@ -374,7 +378,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
 
         if (step === "mirror") return [{ value: false, type: "mirror" }, { value: true, type: "mirror" }];
 
-        if (step === "dir") return [
+        if (step === "dir" || step === "backup_dir") return [
             { value: "confirm", type: "dir_confirm" }
         ];
 
@@ -603,6 +607,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             next();
         } else if (opt.type === "backup_provider") {
             pendingBackupProviderRef.current = opt.value as PortalProvider;
+            setWizardContext("dest");
             next();
         } else if (opt.type === "sync_mode") {
             const newVal = opt.value === "sync_backup";
@@ -1062,6 +1067,23 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         onChange={(val) => updateConfig(prev => ({ ...prev, local_dir: val }))}
                         onKeyDown={(e) => { if (e.name === "return") next(); }}
                     />
+                </box>
+            )}
+
+            {step === "backup_dir" && (
+                <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Backup Path</text>
+                    <text fg={colors.fg}>📂 Remote Backup Folder:</text>
+                    <input
+                        focused={focusArea === "body" && !isAuthLoading}
+                        placeholder={config.backup_provider === "gdrive" ? "SchematicsBackup" : "Folder name"}
+                        value={config.backup_dir || ""}
+                        onChange={(val) => updateConfig(prev => ({ ...prev, backup_dir: val }))}
+                        onKeyDown={(e) => { if (e.name === "return") next(); }}
+                    />
+                    <box marginTop={1} padding={1} border borderStyle="single" borderColor={colors.dim}>
+                        <text fg={colors.primary}>TIP: Leave blank to use {config.backup_provider === "gdrive" ? "SchematicsBackup (Recommended)" : "the root folder"}.</text>
+                    </box>
                 </box>
             )}
 

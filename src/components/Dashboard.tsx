@@ -61,10 +61,10 @@ export const Dashboard = React.memo(({ config, isFocused, selectedIndex, onSelec
                         <box flexDirection="row">
                             <text fg="#3a7af5">{'\ueac3'} Backup Destination</text>
                         </box>
-                        <text fg={!!(config.upsync_enabled && config.backup_provider !== 'none' && config.backup_provider !== 'unconfigured') ? colors.success : colors.primary}>
-                            {String((config.upsync_enabled && config.backup_provider !== 'none' && config.backup_provider !== 'unconfigured')
-                                ? `${config.backup_provider.toUpperCase()}${config.enable_malware_shield ? " (+🛡️)" : ""}`
-                                : "NOT CONFIGURED")}
+                        <text fg={!!(config.backup_provider !== 'none' && config.backup_provider !== 'unconfigured') ? colors.success : colors.primary}>
+                            {String((config.backup_provider === 'none' || config.backup_provider === 'unconfigured')
+                                ? "NOT CONFIGURED"
+                                : `${config.backup_provider.toUpperCase()}${config.enable_malware_shield ? " (+🛡️)" : ""}${config.upsync_enabled ? "" : " (OFF)"}`)}
                         </text>
                     </box>
 

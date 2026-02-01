@@ -8,6 +8,7 @@ export interface PortalConfig {
     // 1. Connection & Providers (One SSoT) 🧠🛡️🦅
     source_provider: PortalProvider;
     backup_provider: PortalProvider;
+    backup_dir: string;
     upsync_enabled: boolean | undefined;
 
     // 2. Preferences
@@ -60,6 +61,7 @@ const CONFIG_PATH = join(PROJECT_ROOT, "config.json");
 export const EMPTY_CONFIG: PortalConfig = {
     source_provider: "unconfigured",
     backup_provider: "unconfigured",
+    backup_dir: "",
     upsync_enabled: undefined,
     local_dir: "",
     strict_mirror: undefined,
@@ -107,6 +109,7 @@ export function saveConfig(config: PortalConfig): void {
         const clean: PortalConfig = {
             source_provider: config.source_provider,
             backup_provider: config.backup_provider,
+            backup_dir: config.backup_dir || "",
             upsync_enabled: config.upsync_enabled,
             local_dir: config.local_dir,
             strict_mirror: config.strict_mirror,
@@ -145,6 +148,7 @@ export function isConfigComplete(config: PortalConfig): boolean {
 
     // If backup is intended, it must have a provider (unconfigured is NOT allowed if upsync is on)
     if (config.upsync_enabled && (config.backup_provider === "unconfigured")) return false;
+    if (config.upsync_enabled && !config.backup_dir) return false;
 
     return true;
 }
