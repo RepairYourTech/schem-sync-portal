@@ -1,6 +1,6 @@
 import { spawnSync } from "bun";
 import { join, relative, dirname } from "path";
-import { existsSync, appendFileSync, unlinkSync, mkdirSync } from "fs";
+import { existsSync, unlinkSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { glob } from "glob";
 import { Env } from "./env";
 import { Logger } from "./logger";
@@ -17,17 +17,25 @@ interface ArchiveEngine {
     bin: string;
 }
 
-const KEEP_EXTS = [
+export const KEEP_EXTS = [
     ".tvw", ".brd", ".fz", ".cad", ".asc", ".pdf", ".bvr", ".pcb",
     ".sqlite3", ".obdata", ".obdlocal", ".obdlog", ".obdq",
     ".bin", ".rom", ".cap", ".fd", ".wph", ".hex", ".txt"
 ];
 
-const SAFE_PATTERNS = ["flash", "afud", "insyde", "h2o", "utility", "update", "phlash", "ami", "phoenix", "dell", "hp", "lenovo", "bios"];
-const GARBAGE_PATTERNS = [
+export const SAFE_PATTERNS = ["flash", "afud", "insyde", "h2o", "utility", "update", "phlash", "ami", "phoenix", "dell", "hp", "lenovo", "bios"];
+export const GARBAGE_PATTERNS = [
     "crack", "patch", "keygen", "loader", "bypass", "activator", "lpk.dll",
     "loader.exe", "Chinafix", "TVW specific software", "medicine", "fixed",
-    "crack.exe", "patch.exe", "keygen.exe"
+    "crack.exe", "patch.exe", "keygen.exe", "viewer", "viewer.exe", "Software",
+    "Open boardview", "boardview", "DOS4GW"
+];
+
+const INITIAL_KNOWNS = [
+    "Schematic and boardview/AMD/07 580/GV-R580AORUS-8GD-1.0-1.01 Boardview.zip",
+    "Schematic and boardview/AMD/07 580/GV-R580GAMING-8GD-1.0-1.01 Boardview.zip",
+    "Schematic and boardview/AMD/07 580/GV-RX580GAMING-4GD-1.0-1.01 Boardview.zip",
+    "Schematic and boardview/AMD/07 580/GV-RX580GAMING-8GD-1.0-1.01 Boardview.zip"
 ];
 
 function getArchiveEngine(): ArchiveEngine | null {
@@ -179,10 +187,6 @@ async function cleanArchive(
 ): Promise<CleanArchiveResult> {
     const relPath = relative(baseDir, archivePath);
 
-    if (relPath.toLowerCase().includes("bios")) {
-        return { flagged: false, extractedCount: 0 };
-    }
-
     // 1. Peek inside
     let internalListing = "";
     try {
@@ -212,9 +216,12 @@ async function cleanArchive(
 
     if (onProgress) onProgress(stats);
 
-    if (hasGarbage && !hasSafeTools) {
+    // If it has garbage, we clean it regardless of whether it has safe tools
+    if (hasGarbage) {
         const dirPath = dirname(archivePath);
         let extractedCount = 0;
+
+        Logger.info("SYNC", `Cleaning flagged archive: ${relPath}`);
 
         // 2. Extract safe extensions
         for (const ext of KEEP_EXTS) {
@@ -222,8 +229,13 @@ async function cleanArchive(
                 ? [ENGINE.bin, "e", archivePath, `*${ext}`, `-o${dirPath}`, "-r", "-y"]
                 : [ENGINE!.bin, "e", "-r", "-y", archivePath, `*${ext}`, dirPath];
 
-            _spawnSync(extractCmd);
-            extractedCount++;
+            const result = _spawnSync(extractCmd);
+            if (result.success) {
+                // Heuristic to check if something was actually extracted
+                // 7z/unrar output can be parsed if we need exact counts, 
+                // but for now we increment if the command ran.
+                extractedCount++;
+            }
         }
 
         stats.extractedFiles += extractedCount;
@@ -247,16 +259,9 @@ async function cleanArchive(
             }
         }
 
-        // 4. Add to exclusion
-        try {
-            const excludeDir = dirname(excludeFile);
-            if (!existsSync(excludeDir)) mkdirSync(excludeDir, { recursive: true });
-
-            appendFileSync(excludeFile, `${relPath}\n`);
-            Logger.info("SYNC", `Purged/Isolated malicious archive: ${relPath}`);
-        } catch (e) {
-            Logger.error("SYNC", "Failed to update exclusion file", e);
-        }
+        // 4. Register as Offender
+        ShieldManager.addOffender(relPath);
+        Logger.info("SYNC", `Shield: Neutralized & Blacklisted: ${relPath}`);
 
         // 5. Remove original
         try {
@@ -272,3 +277,88 @@ async function cleanArchive(
 
     return { flagged: false, extractedCount: 0 };
 }
+
+/**
+ * Manages the persistent list of identified malicious assets.
+ */
+export const ShieldManager = {
+    /**
+     * Get the current set of offenders (relative paths).
+     */
+    getOffenders(): string[] {
+        const path = Env.getOffenderListPath();
+        if (!existsSync(path)) return [...INITIAL_KNOWNS];
+        try {
+            const data = readFileSync(path, "utf-8");
+            const parsed = JSON.parse(data);
+            if (Array.isArray(parsed)) {
+                // Merge with initial knowns to ensure they are always present
+                const combined = new Set([...INITIAL_KNOWNS, ...parsed]);
+                return Array.from(combined);
+            }
+        } catch (e) {
+            Logger.error("SHIELD", "Failed to load offender list", e);
+        }
+        return [...INITIAL_KNOWNS];
+    },
+
+    /**
+     * Add a path to the offender list persistently.
+     */
+    addOffender(relPath: string) {
+        const offenders = this.getOffenders();
+        if (!offenders.includes(relPath)) {
+            offenders.push(relPath);
+            this.saveOffenders(offenders);
+            this.syncWithRclone();
+        }
+    },
+
+    /**
+     * Save the list to disk.
+     */
+    saveOffenders(offenders: string[]) {
+        const path = Env.getOffenderListPath();
+        try {
+            const dir = dirname(path);
+            if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+            writeFileSync(path, JSON.stringify(offenders, null, 2));
+        } catch (e) {
+            Logger.error("SHIELD", "Failed to save offender list", e);
+        }
+    },
+
+    /**
+     * Clear custom offenders and revert to defaults.
+     */
+    resetShield() {
+        this.saveOffenders([]); // Empty array will be merged with INITIAL_KNOWNS in getOffenders()
+        this.syncWithRclone();
+        Logger.info("SHIELD", "Intelligence reset to defaults.");
+    },
+
+    /**
+     * Synchronize the offender list with rclone's exclusion file.
+     */
+    syncWithRclone() {
+        const excludeFile = Env.getExcludeFilePath();
+        const offenders = this.getOffenders();
+        try {
+            const dir = dirname(excludeFile);
+            if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+            // Deduplicate with existing entries if any
+            let currentEntries = new Set<string>();
+            if (existsSync(excludeFile)) {
+                const lines = readFileSync(excludeFile, "utf-8").split("\n");
+                lines.forEach(l => { if (l.trim()) currentEntries.add(l.trim()); });
+            }
+
+            offenders.forEach(o => currentEntries.add(o));
+
+            writeFileSync(excludeFile, Array.from(currentEntries).join("\n") + "\n");
+        } catch (e) {
+            Logger.error("SHIELD", "Failed to sync exclusion file", e);
+        }
+    }
+};

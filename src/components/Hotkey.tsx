@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/react */
 import React from "react";
 import { useTheme } from "../lib/theme";
 import { TextAttributes } from "@opentui/core";
@@ -39,7 +40,7 @@ export function Hotkey({
     );
 
     const renderLabel = () => label ? (
-        <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{label}</text>
+        <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{String(label)}</text>
     ) : null;
 
     if (layout === "prefix") {
@@ -75,13 +76,13 @@ export function Hotkey({
         const innerKey = manualMatch[0].slice(1, -1);
         return (
             <box flexDirection="row">
-                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{parts[0] || ""}</text>
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{String(parts[0] || "")}</text>
                 <box flexDirection="row">
                     <text fg={bracketColor}>[</text>
-                    <text fg={keyColor} attributes={TextAttributes.BOLD}>{innerKey.toUpperCase()}</text>
+                    <text fg={keyColor} attributes={TextAttributes.BOLD}>{String(innerKey.toUpperCase())}</text>
                     <text fg={bracketColor}>]</text>
                 </box>
-                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{parts[1] || ""}</text>
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{String(parts[1] || "")}</text>
             </box>
         );
     }
@@ -92,13 +93,13 @@ export function Hotkey({
         const char = label[charIndex] || "";
         return (
             <box flexDirection="row">
-                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{label.substring(0, charIndex)}</text>
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{String(label.substring(0, charIndex))}</text>
                 <box flexDirection="row">
                     <text fg={bracketColor}>[</text>
-                    <text fg={keyColor} attributes={TextAttributes.BOLD}>{char.toUpperCase()}</text>
+                    <text fg={keyColor} attributes={TextAttributes.BOLD}>{String(char.toUpperCase())}</text>
                     <text fg={bracketColor}>]</text>
                 </box>
-                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{label.substring(charIndex + 1)}</text>
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0}>{String(label.substring(charIndex + 1))}</text>
             </box>
         );
     }

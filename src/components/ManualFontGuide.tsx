@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/react */
 import React from "react";
 import { Env } from "../lib/env";
 import { useTheme } from "../lib/theme";
@@ -61,12 +62,12 @@ export function ManualFontGuide({ returnView: _returnView, onClose }: ManualFont
             flexGrow={1}
         >
             <text attributes={TextAttributes.BOLD} marginBottom={1}>
-                Platform: {Env.isWin ? "Windows" : (Env.isMac ? "macOS" : "Linux")}
+                <text fg={colors.accent}>Detected Platform: {String(Env.isWin ? "Windows" : (Env.isMac ? "macOS" : "Linux"))}</text>
             </text>
 
             <box flexDirection="column" marginBottom={1}>
                 {renderPlatformSteps().map((step, i) => (
-                    <text key={i} fg={colors.fg}>{step}</text>
+                    <text key={i} fg={colors.fg} marginBottom={1}>{String(step)}</text>
                 ))}
             </box>
 

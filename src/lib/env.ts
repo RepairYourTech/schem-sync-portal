@@ -82,6 +82,10 @@ export class Env {
         return join(Env.getPaths().rcloneConfigDir, "schematics-exclude.txt");
     }
 
+    static getOffenderListPath(): string {
+        return join(Env.getPaths().configDir, "shield-offenders.json");
+    }
+
     static getRcloneConfigPath(): string {
         return join(Env.getPaths().rcloneConfigDir, "rclone.conf");
     }

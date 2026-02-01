@@ -36,9 +36,12 @@ export interface DependencyStatus {
     bun: string | null;
     zig: string | null;
     rclone: string | null;
+    rcloneVersion?: string;
+    isRcloneModern?: boolean; // v1.73+ or slog detected
     archive: string | null;
     diskSpace: string | null;
     nerdFont: string | null;
+    clipboard: string | null;
     recommendedVersion: 2 | 3;
     nerdFontDetailed: FontDetectionResult;
 }
@@ -262,15 +265,57 @@ export async function checkDependencies(): Promise<DependencyStatus> {
         return "Requires Visual Verification";
     };
 
+    const checkClipboard = () => {
+        const bins = isWin ? ["clip.exe"] : (Env.isMac ? ["pbcopy"] : ["wl-copy", "xclip", "xsel"]);
+        const binary = Env.findBinary(bins);
+        if (binary) {
+            return binary.split(/[\\/]/).pop() || "Available";
+        }
+
+        // Dynamic hint based on environment
+        if (Env.isMac) return "NOT FOUND (brew install xclip)"; // pbcopy is native, but if missing...
+        if (isWin) return "NOT FOUND (clip.exe missing)";
+
+        // Arch specific hints
+        const hasYay = !!Env.findBinary(["yay"]);
+        const hasPacman = !!Env.findBinary(["pacman"]);
+        const isWayland = !!process.env.WAYLAND_DISPLAY;
+
+        if (isWayland) {
+            if (hasYay) return "NOT FOUND (yay -S wl-clipboard)";
+            if (hasPacman) return "NOT FOUND (pacman -S wl-clipboard)";
+            return "NOT FOUND (Install wl-clipboard)";
+        }
+        return "NOT FOUND (Install xclip)";
+    };
+
     const nerdFontDetailed = await detectNerdFonts();
+
+    const rcloneRaw = getVersion("rclone", ["version"]);
+    let rcloneVersion = "";
+    let isRcloneModern = false;
+
+    if (rcloneRaw) {
+        const match = rcloneRaw.match(/v(\d+\.\d+\.\d+)/);
+        if (match && match[1]) {
+            rcloneVersion = match[1];
+            const parts = rcloneVersion.split(".").map(Number);
+            if (parts[0] > 1 || (parts[0] === 1 && parts[1] >= 73)) {
+                isRcloneModern = true;
+            }
+        }
+    }
 
     return {
         bun: getVersion("bun"),
         zig: getVersion("zig", ["version"]),
-        rclone: getVersion("rclone", ["version"]),
+        rclone: rcloneRaw,
+        rcloneVersion: rcloneVersion || undefined,
+        isRcloneModern,
         archive: checkArchive(),
         diskSpace: getDiskSpace(),
         nerdFont: checkFont(),
+        clipboard: checkClipboard(),
         recommendedVersion: nerdFontDetailed.version || 2,
         nerdFontDetailed
     };

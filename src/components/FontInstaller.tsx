@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/react */
 import React, { useState, useCallback } from "react";
 import { useTheme } from "../lib/theme";
 import { useKeyboard } from "@opentui/react";
@@ -115,17 +116,6 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
         }
     });
 
-    const renderProgressBar = () => {
-        const width = 40;
-        const filled = Math.floor((progress.percent / 100) * width);
-        const bar = '█'.repeat(filled) + '░'.repeat(width - filled);
-        return (
-            <box flexDirection="column" alignItems="center" marginTop={1}>
-                <text fg={colors.primary}>{bar}</text>
-                <text fg={colors.fg} marginTop={1}>{progress.stage.toUpperCase()}... {progress.percent}%</text>
-            </box>
-        );
-    };
 
     return (
         <box
@@ -138,32 +128,33 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
             backgroundColor={colors.bg}
             flexGrow={1}
         >
-            {installState === 'selecting' && (
-                <box flexDirection="column">
-                    <text attributes={TextAttributes.BOLD} marginBottom={1}>Select a Nerd Font to install (v3):</text>
-                    {fonts.map((f, i) => {
-                        const isSelected = selectedFont === f.name;
-                        return (
-                            <box
-                                key={f.name}
-                                onMouseOver={() => setSelectedFont(f.name)}
-                                onMouseDown={() => handleInstall(f.name)}
-                                flexDirection="row"
-                                gap={2}
-                            >
-                                <text fg={isSelected ? colors.success : colors.dim}>{isSelected ? '●' : '○'}</text>
-                                <box flexDirection="column">
-                                    <text fg={isSelected ? colors.success : colors.fg} attributes={isSelected ? TextAttributes.BOLD : 0}>
-                                        {i + 1}. {f.label}
-                                    </text>
-                                    <text fg={colors.dim} attributes={TextAttributes.DIM}>   {f.desc}</text>
+            {installState === 'selecting' ? (
+                <box flexDirection="column" gap={1}>
+                    <text fg={colors.fg}>Select a font family to install:</text>
+                    <box flexDirection="column" gap={0}>
+                        {fonts.map((f, i) => {
+                            const isSelected = selectedFont === f.name;
+                            return (
+                                <box
+                                    key={f.name}
+                                    onMouseOver={() => setSelectedFont(f.name)}
+                                    onMouseDown={() => handleInstall(f.name)}
+                                    flexDirection="row"
+                                    gap={2}
+                                >
+                                    <text fg={isSelected ? colors.success : colors.dim}>{String(isSelected ? '●' : '○')}</text>
+                                    <box flexDirection="column">
+                                        <text fg={isSelected ? colors.success : colors.fg} attributes={isSelected ? TextAttributes.BOLD : 0}>
+                                            {String(i + 1)}. {String(f.label)}
+                                        </text>
+                                        <text fg={colors.dim} attributes={TextAttributes.DIM}>   {String(f.desc)}</text>
+                                    </box>
                                 </box>
-                            </box>
-                        );
-                    })}
+                            );
+                        })}
+                    </box>
                     <box flexDirection="row" marginTop={1} gap={2}>
                         <box
-                            onMouseOver={() => setSelectedFont(selectedFont)}
                             onMouseDown={() => handleInstall(selectedFont)}
                             border
                             borderStyle="single"
@@ -174,7 +165,6 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                             <Hotkey keyLabel="enter" label="Install" isFocused />
                         </box>
                         <box
-                            onMouseOver={() => { }}
                             onMouseDown={() => onCancel()}
                             border
                             borderStyle="single"
@@ -186,25 +176,26 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                         </box>
                     </box>
                 </box>
-            )}
+            ) : null}
 
-            {(installState === 'downloading' || installState === 'installing') && (
-                <box flexDirection="column" alignItems="center" padding={2}>
-                    <text attributes={TextAttributes.BOLD}>Installing {selectedFont} Nerd Font</text>
-                    {renderProgressBar()}
-                    <text fg={colors.dim} marginTop={1} attributes={TextAttributes.DIM}>Please do not close the application.</text>
+            {(installState === 'downloading' || installState === 'installing') ? (
+                <box flexDirection="column" gap={1} alignItems="center" justifyContent="center" flexGrow={1}>
+                    <text fg={colors.accent} attributes={TextAttributes.BOLD}>
+                        {String(installState === 'downloading' ? 'Downloading...' : 'Installing...')}
+                    </text>
+                    <text fg={colors.dim}>[{String("█".repeat(Math.floor((progress.percent / 100) * 20)))}{String("░".repeat(20 - Math.floor((progress.percent / 100) * 20)))}] {String(progress.percent)}%</text>
+                    <text fg={colors.dim} marginTop={1}>Press ESC to cancel</text>
                 </box>
-            )}
+            ) : null}
 
-            {installState === 'success' && (
-                <box flexDirection="column" alignItems="center" padding={1}>
-                    <text fg={colors.success} attributes={TextAttributes.BOLD}>{'\u2714'} SUCCESS!</text>
-                    <text marginTop={1}>{selectedFont} Nerd Font has been installed.</text>
-                    {result?.requiresRestart && (
-                        <text fg={colors.setup} marginTop={1} attributes={TextAttributes.BOLD}>TERMINAL RESTART REQUIRED.</text>
-                    )}
-                    <box
-                        marginTop={1}
+            {installState === 'success' ? (
+                <box flexDirection="column" gap={1} alignItems="center" justifyContent="center" flexGrow={1}>
+                    <text fg={colors.success} attributes={TextAttributes.BOLD}>SUCCESS!</text>
+                    <text fg={colors.fg} marginTop={1}>{String(result?.error || 'Font installed successfully.')}</text>
+                    {result?.requiresRestart ? (
+                        <text fg={colors.setup} attributes={TextAttributes.BOLD} marginTop={1}>TERMINAL RESTART REQUIRED.</text>
+                    ) : null}
+                    <box marginTop={2}
                         onMouseDown={() => result && onComplete(result)}
                         border
                         borderStyle="single"
@@ -215,13 +206,13 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                         <Hotkey keyLabel="enter" label="Complete" isFocused />
                     </box>
                 </box>
-            )}
+            ) : null}
 
-            {installState === 'error' && (
-                <box flexDirection="column" alignItems="center" padding={1}>
+            {installState === 'error' ? (
+                <box flexDirection="column" gap={1} alignItems="center" justifyContent="center" flexGrow={1}>
                     <text fg={colors.danger} attributes={TextAttributes.BOLD}>INSTALLATION FAILED</text>
-                    <text fg={colors.danger} marginTop={1}>{error}</text>
-                    <box flexDirection="row" marginTop={1} gap={2}>
+                    <text fg={colors.danger} marginTop={1}>{String(error)}</text>
+                    <box flexDirection="row" marginTop={2} gap={2}>
                         <box
                             onMouseDown={() => {
                                 setInstallState('selecting');
@@ -247,7 +238,7 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                         </box>
                     </box>
                 </box>
-            )}
+            ) : null}
         </box>
     );
 }

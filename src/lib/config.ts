@@ -25,6 +25,12 @@ export interface PortalConfig {
         bytes_transferred: number;
         status: "success" | "error";
     };
+    last_shield_stats?: {
+        timestamp: number;
+        totalArchives: number;
+        riskyPatternCount: number;
+        extractedFiles: number;
+    };
     desktop_shortcut: number; // 0=unset, 1=on, 2=skipped
     debug_mode: boolean;
     log_level?: LogLevel;
@@ -107,6 +113,7 @@ export function saveConfig(config: PortalConfig): void {
             enable_malware_shield: config.enable_malware_shield,
             malware_policy: config.malware_policy,
             last_sync_stats: config.last_sync_stats,
+            last_shield_stats: config.last_shield_stats,
             desktop_shortcut: config.desktop_shortcut,
             debug_mode: config.debug_mode,
             log_level: config.log_level || "NORMAL",

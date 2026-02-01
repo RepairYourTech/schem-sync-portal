@@ -1,0 +1,60 @@
+{
+  "id": "ep-2026-01-31-001",
+  "timestamp": "2026-01-31T00:00:00Z",
+  "skill": "manual_audit",
+  "task": "UI pattern audit and instruction updates",
+  "situation": "User told me to fix global controls border to match codebase pattern. I invented a 'standardized border pattern' that contradicted the actual codebase, then followed my own wrong documentation instead of checking what actually exists.",
+  "root_cause": "I followed my own patterns.md documentation instead of the actual codebase. When I created patterns.md, I invented what I THOUGHT was 'standardized' instead of documenting what ACTUALLY EXISTS.",
+  "what_went_wrong": [
+    "Created patterns.md with 'border={isFocused} borderColor={isFocused ? colors.success : transparent}' for ALL components",
+    "Applied this wrong pattern to SyncPortalParts.tsx panels",
+    "Made panels show green borders when focused - codebase NEVER does this",
+    "User corrected me multiple times, I kept following my wrong documentation",
+    "Did not check 5+ files to see the actual pattern before documenting"
+  ],
+  "what_actually_exists": {
+    "pattern_1_panels": "border borderColor={colors.border} - always has border, static dim color, never conditional on focus",
+    "pattern_2_buttons": "border={isFocused} borderColor={isFocused ? colors.success : transparent} - only tiny buttons inside panels use conditional green borders",
+    "evidence": [
+      "Dashboard.tsx:33 - border borderColor={colors.border}",
+      "Options.tsx:257 - border borderColor={colors.primary}",
+      "Options.tsx:283 - border borderColor={colors.border}",
+      "Dashboard.tsx:105-107 - inner button uses conditional border"
+    ]
+  },
+  "solution": "Fixed by checking actual codebase and correcting patterns.md to document TWO separate patterns (panels vs buttons), not one unified pattern.",
+  "lesson_learned": "NEVER INVENT PATTERNS - ONLY DOCUMENT WHAT EXISTS. When told to 'match codebase', grep -r to find ALL occurrences, read 5+ files, note the actual pattern, THEN document. Documentation is secondary to code - when they conflict, documentation is wrong.",
+  "user_feedback": {
+    "rating": 2,
+    "comments": "User was extremely frustrated, pointed out I should check the actual codebase pattern. User said 'you just added GREEN BACK TO THE FUCKING SYNC PANEL BORDER' and said I struggle to adhere to patterns and identify when they are not right.",
+    "user_quote": "for mother fuck sake. you just added the boaeder away from the global header but thats not the default odebase pattern i dont know why you strugle so much to adhere to patterns and identify when they are not right but here i am once more telling you again to check the pattern and fix it to beTHE SAME as used elsewhere."
+  },
+  "secondary_failure": {
+    "issue": "User said 'you are self learning you have a self learnng skill it amazes me you fail to leverage it'",
+    "what_happened": "After the user told me to fix instruction files, I manually updated patterns.md and workflow.md myself instead of invoking the self-improving-agent skill",
+    "why_wrong": "The self-improving-agent skill exists specifically for this purpose - to learn from failures and update the system automatically. By not using it, I missed the automated extraction, memory consolidation, and proper pattern abstraction that the skill provides.",
+    "should_have_done": "Invoke Skill tool with self-improving-agent immediately when user mentioned learning from this experience",
+    "lesson": "Use available tools appropriately - when user mentions self-improvement or learning, invoke the self-improving-agent skill don't just manually do some updates"
+  },
+  "corrective_actions": [
+    "Fixed all three panels (DownsyncPanel, LocalShieldPanel, UpsyncPanel) to use borderColor={colors.border}",
+    "Updated patterns.md with FUNDAMENTAL RULES section",
+    "Corrected border styling section to show TWO patterns, not one",
+    "Added Pattern Discovery Workflow (grep, read 5+ files, then document)",
+    "Updated workflow.md with anti-patterns and discovery process",
+    "Added evolution markers tracking the correction"
+  ],
+  "prevention_rules": [
+    "RULE 1: NEVER create 'standardized' patterns that change existing code - only document what exists",
+    "RULE 2: When told to 'match codebase pattern', MUST grep -r first to find ALL occurrences",
+    "RULE 3: MUST read 5+ different files before documenting any pattern",
+    "RULE 4: Note what is consistent AND what varies - document both",
+    "RULE 5: Documentation matches code, not vice versa - if conflict, documentation is wrong"
+  ],
+  "related_patterns": [
+    "pattern_discovery_workflow",
+    "documentation_vs_code_authority",
+    "grep_first_then_document",
+    "check_multiple_files_before_pattern"
+  ]
+}

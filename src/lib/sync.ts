@@ -2,7 +2,7 @@ import { spawn, type Subprocess } from "bun";
 import { join } from "path";
 import { existsSync } from "fs";
 import type { PortalConfig } from "./config";
-import { runCleanupSweep } from "./cleanup";
+import { runCleanupSweep, GARBAGE_PATTERNS } from "./cleanup";
 import { Env } from "./env";
 import { Logger } from "./logger";
 import { readFileSync, writeFileSync, readdirSync } from "fs";
@@ -35,6 +35,7 @@ export interface ManifestStats {
     remoteFileCount: number;
     localFileCount: number;
     missingFileCount: number;
+    riskyFileCount?: number;
     optimizationMode: "manifest" | "full";
     manifestSource?: "source" | "backup" | "none";
 }
@@ -102,15 +103,26 @@ const RETRY_FLAGS = [
 ];
 
 let currentProc: Subprocess | null = null;
+let isSyncPaused = false;
+let activeProgressCallback: ((p: Partial<SyncProgress>) => void) | null = null;
+let currentProgress: SyncProgress = { phase: "done", description: "Ready to sync.", percentage: 0 };
+const lastProgressRef = { current: null as SyncProgress | null };
 
 // Track active file transfers for queue display
 const activeTransfers: Map<string, FileTransferItem> = new Map();
 let transferQueueType: "download" | "upload" = "download";
 
-// Deep Session Tracking (Issue-018)
-// This Set maintains a list of filenames that have completed in the current session
-// to ensure counters remain accurate even across rclone resets or log interleaved output.
+// Deep Session Tracking
 const sessionCompletions = new Set<string>();
+
+/**
+ * Gets the rclone command based on environment (MOCK_RCLONE support)
+ */
+function getRcloneCmd(): string[] {
+    return process.env.MOCK_RCLONE
+        ? ["bun", "run", process.env.MOCK_RCLONE]
+        : ["rclone"];
+}
 
 /**
  * Reset the session completion tracker
@@ -121,7 +133,6 @@ export function resetSessionCompletions(): void {
 
 /**
  * Get the current display queue with a limit on completed transfers (Max 2)
- * to prevent them from "polluting" the view and hiding new active transfers.
  */
 function getDisplayQueue(limit = 10): FileTransferItem[] {
     const all = Array.from(activeTransfers.values());
@@ -129,9 +140,8 @@ function getDisplayQueue(limit = 10): FileTransferItem[] {
     const completed = all
         .filter(t => t.status === "completed")
         .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
-        .slice(0, 2); // Only show 2 most recent completed transfers
+        .slice(0, 10);
 
-    // Filter out very old completed transfers from the source Map to keep it clean
     const now = Date.now();
     activeTransfers.forEach((item, name) => {
         if (item.status === "completed" && item.completedAt && (now - item.completedAt > 60000)) {
@@ -141,7 +151,6 @@ function getDisplayQueue(limit = 10): FileTransferItem[] {
 
     return [...active, ...completed]
         .sort((a, b) => {
-            // Sort active by progress, completed stay at the end (or top, depending on sorting)
             if (a.status === "active" && b.status === "active") return b.percentage - a.percentage;
             if (a.status === "active") return -1;
             if (b.status === "active") return 1;
@@ -151,22 +160,49 @@ function getDisplayQueue(limit = 10): FileTransferItem[] {
 }
 
 /**
+ * Resets internal session state for tests.
+ */
+export function resetSessionState(): void {
+    sessionCompletions.clear();
+    activeTransfers.clear();
+}
+
+/**
  * Parse rclone JSON log entry for transfer statistics
  */
 export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgress>) => void): void {
     const data = json as Record<string, unknown>;
 
-    // Handle transfer progress updates (rclone emits these for each file)
-    if (data.msg === "Transferred" || data.objectType === "file") {
-        const name = data.name as string | undefined;
-        const size = (data.size as number) || 0;
-        const bytes = (data.bytes as number) || 0;
+    // Handle slog/v1.73.0 format where progress might be in 'msg' or 'stats'
+    if (data.msg === "Transferred" || data.objectType === "file" || (data.msg?.toString().includes("Transferring:") && !data.stats)) {
+        const msgStr = data.msg?.toString() || "";
+        const name = (data.name as string) || (msgStr.includes("Transferring:") ? msgStr.split("Transferring:")[1]?.trim().split(":")[0]?.trim() : undefined);
+        let size = (data.size as number) || 0;
+        let bytes = (data.bytes as number) || 0;
+        let percentage = size > 0 ? Math.round((bytes / size) * 100) : 0;
         const speedRaw = data.speed;
-        const speed = typeof speedRaw === "number" ? formatSpeed(speedRaw) : (speedRaw as string | undefined);
-        const eta = data.eta as number | undefined;
+        let speed = typeof speedRaw === "number" ? formatSpeed(speedRaw) : (speedRaw as string | undefined);
+        const etaRaw = data.eta;
+        let eta = typeof etaRaw === "number" ? formatEta(etaRaw) : (etaRaw as string | undefined);
+
+        // Fallback parsing from msg string (e.g. "Transferring: file.txt: 45% /1.2Mi, 128KiB/s, 2s")
+        if (msgStr.includes("Transferring:") && percentage === 0) {
+            const parts = msgStr.split(":");
+            if (parts.length >= 3) {
+                const pctPart = parts[2].trim().split("%")[0];
+                if (pctPart && !isNaN(parseInt(pctPart))) {
+                    percentage = parseInt(pctPart);
+                }
+                // Try to get speed from the third part
+                const speedMatch = msgStr.match(/, ([^,]+)\/s/);
+                if (speedMatch && !speed) speed = speedMatch[1] + "/s";
+
+                const etaMatch = msgStr.match(/, ([^,]+)$/);
+                if (etaMatch && !eta) eta = etaMatch[1];
+            }
+        }
 
         if (name) {
-            const percentage = size > 0 ? Math.round((bytes / size) * 100) : 0;
             const existing = activeTransfers.get(name);
             const status = percentage >= 100 ? "completed" : "active";
 
@@ -179,17 +215,16 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
                 percentage,
                 speed: speed || formatSpeed(bytes),
                 status,
-                eta: eta ? formatEta(eta) : undefined,
+                eta: eta || undefined,
                 completedAt: (status === "completed" && existing?.status !== "completed") ? Date.now() : existing?.completedAt
             });
         }
     }
 
-    // Handle completion of transfers
     if (data.msg?.toString().includes("Copied") || data.msg?.toString().includes("Moved")) {
         const name = data.object as string | undefined;
         if (name) {
-            sessionCompletions.add(name); // Truth-based tracking
+            sessionCompletions.add(name);
             if (activeTransfers.has(name)) {
                 const item = activeTransfers.get(name)!;
                 if (item.status !== "completed") {
@@ -198,7 +233,6 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
                     item.completedAt = Date.now();
                 }
             }
-            // Trigger update so counters refresh immediately
             onUpdate({
                 filesTransferred: sessionCompletions.size,
                 downloadQueue: transferQueueType === "download" ? getDisplayQueue(10) : undefined,
@@ -207,7 +241,6 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
         }
     }
 
-    // Handle overall stats
     if (data.stats) {
         const stats = data.stats as Record<string, unknown>;
         const percentage = stats.percentage as number | undefined;
@@ -215,8 +248,8 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
         const eta = stats.eta as number | undefined;
         const transferring = stats.transferring as Array<Record<string, unknown>> | undefined;
 
-        // Update individual file transfers from stats.transferring array
         if (transferring && Array.isArray(transferring)) {
+            Logger.debug("SYNC", `Processing ${transferring.length} transferring items`);
             for (const transfer of transferring) {
                 const name = transfer.name as string;
                 const size = (transfer.size as number) || 0;
@@ -243,31 +276,35 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
                     });
                 }
             }
+        } else {
+            Logger.debug("SYNC", `No transferring array in stats. Keys: ${Object.keys(stats).join(", ")}`);
         }
 
-        // Build queue from active transfers
         const queue = getDisplayQueue(10);
+        const bytes = (stats?.bytes as number) || 0;
+        const total = (stats?.totalBytes as number) || 0;
 
         const queueUpdate: Partial<SyncProgress> = {
-            percentage: percentage ?? undefined, // Don't overwrite with 0 if missing
+            percentage: percentage ?? undefined,
             transferSpeed: speed ? formatSpeed(speed) : undefined,
             eta: eta ? formatEta(eta) : undefined,
-            filesTransferred: sessionCompletions.size, // Truth-based tracking
+            bytesTransferred: total > 0 ? `${formatBytes(bytes)}/${formatBytes(total)}` : undefined,
+            filesTransferred: sessionCompletions.size,
             transferSlots: { active: queue.filter(t => t.status === "active").length, total: 8 },
         };
 
-        // Assign to correct queue based on current operation type
         if (transferQueueType === "download") {
             queueUpdate.downloadQueue = queue;
+            Logger.debug("SYNC", `Queue update: downloadQueue length=${queue.length}, transferQueueType=${transferQueueType}, activeTransfers size=${activeTransfers.size}`);
         } else {
             queueUpdate.uploadQueue = queue;
         }
 
         onUpdate(queueUpdate);
-    } else if (data.msg === "Transferred" || data.objectType === "file") {
+    } else if (data.msg === "Transferred" || data.objectType === "file" || (data.msg?.toString().includes("Transferring:") && !data.stats)) {
         const queue = getDisplayQueue(10);
         const queueUpdate: Partial<SyncProgress> = {
-            filesTransferred: sessionCompletions.size // Always report truth
+            filesTransferred: sessionCompletions.size
         };
         if (transferQueueType === "download") {
             queueUpdate.downloadQueue = queue;
@@ -278,11 +315,22 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
     }
 }
 
-function formatSpeed(bytesPerSec: number): string {
-    if (bytesPerSec >= 1024 * 1024 * 1024) return `${(bytesPerSec / (1024 * 1024 * 1024)).toFixed(1)} GB/s`;
-    if (bytesPerSec >= 1024 * 1024) return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
-    if (bytesPerSec >= 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
-    return `${bytesPerSec} B/s`;
+/**
+ * Format bytes to human readable string
+ */
+function formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KiB", "MiB", "GiB", "TiB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
+/**
+ * Format speed bits to human readable string
+ */
+function formatSpeed(bytesPerSecond: number): string {
+    return `${formatBytes(bytesPerSecond)}/s`;
 }
 
 function formatEta(seconds: number): string {
@@ -291,6 +339,72 @@ function formatEta(seconds: number): string {
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 }
 
+/**
+ * --- MODULAR PHASE HELPERS ---
+ */
+
+async function discoverManifest(config: PortalConfig, sourceRemote: string): Promise<string | null> {
+    const localManifest = join(config.local_dir, "manifest.txt");
+    const sourceFlags = (config.source_provider === "copyparty" && config.cookie) ? ["--header", config.cookie] : [];
+
+    try {
+        Logger.debug("SYNC", "Checking for remote manifest.txt...");
+        await executeRclone([
+            "copyto", `${sourceRemote}manifest.txt`, localManifest,
+            ...sourceFlags,
+            ...RETRY_FLAGS
+        ], () => { });
+        return localManifest;
+    } catch {
+        if (config.upsync_enabled && config.backup_provider !== "none") {
+            const destRemote = `${Env.REMOTE_PORTAL_BACKUP}:/`;
+            try {
+                await executeRclone([
+                    "copyto", `${destRemote}manifest.txt`, localManifest,
+                    ...RETRY_FLAGS
+                ], () => { });
+                return localManifest;
+            } catch { }
+        }
+    }
+    return null;
+}
+
+function processManifest(localManifest: string, localDir: string): { remoteFiles: string[], initialLocalCount: number, missing: string[] } | null {
+    try {
+        const manifestContent = readFileSync(localManifest, "utf8");
+        const remoteFiles = manifestContent.split("\n")
+            .map(line => line.trim())
+            .filter(line => line.length > 0 && !line.startsWith("#"));
+
+        const localFiles = new Set<string>();
+        const scan = (dir: string, base: string) => {
+            const entries = readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                const relPath = join(base, entry.name);
+                if (entry.isDirectory()) {
+                    scan(join(dir, entry.name), relPath);
+                } else {
+                    localFiles.add(relPath);
+                }
+            }
+        };
+        if (existsSync(localDir)) scan(localDir, "");
+
+        return {
+            remoteFiles,
+            initialLocalCount: localFiles.size,
+            missing: remoteFiles.filter(f => !localFiles.has(f))
+        };
+    } catch (err) {
+        Logger.error("SYNC", "Failed to parse manifest.txt", err as Error);
+        return null;
+    }
+}
+
+/**
+ * Main Sync Entry Point
+ */
 export async function runSync(
     config: PortalConfig,
     onProgress: (progress: Partial<SyncProgress>) => void
@@ -300,25 +414,17 @@ export async function runSync(
         return;
     }
 
-    // --- Phase Weighting Logic (Phase 22: Mission-Centric Progress) ---
     const showPull = config.source_provider !== "none" && config.source_provider !== "unconfigured";
     const showClean = config.enable_malware_shield;
     const showCloud = config.upsync_enabled && config.backup_provider !== "none" && config.backup_provider !== "unconfigured";
 
-    const weights = {
-        pull: showPull ? 45 : 0,
-        clean: showClean ? 10 : 0,
-        cloud: showCloud ? 45 : 0
-    };
-
+    const weights = { pull: showPull ? 45 : 0, clean: showClean ? 10 : 0, cloud: showCloud ? 45 : 0 };
     const totalWeight = weights.pull + weights.clean + weights.cloud;
     const scale = totalWeight > 0 ? 100 / totalWeight : 1;
 
-    // Helper to wrap onProgress and inject global mission percentage
     const wrapProgress = (p: Partial<SyncProgress>) => {
         const phase = p.phase || "pull";
         const phasePct = p.percentage || 0;
-
         let baseWeight = 0;
         if (phase === "clean") baseWeight = weights.pull;
         if (phase === "cloud") baseWeight = weights.pull + weights.clean;
@@ -327,258 +433,218 @@ export async function runSync(
         const currentPhaseWeight = weights[phase as keyof typeof weights] || 0;
         const globalPercentage = Math.min(100, Math.round((baseWeight + (phasePct * currentPhaseWeight / 100)) * scale));
 
-        onProgress({
+        const full: SyncProgress = {
+            ...currentProgress,
             ...p,
             phase: phase as SyncProgress["phase"],
-            description: p.description || "",
+            description: p.description || p.description || "",
             percentage: phasePct,
             globalPercentage
-        });
+        };
+        currentProgress = full;
+        lastProgressRef.current = full;
+        onProgress(full);
     };
 
     try {
         const excludeFile = Env.getExcludeFilePath();
-
-        // --- STEP 1: DOWNLOAD (PULL) ---
-        wrapProgress({ phase: "pull", description: "Analyzing Source...", percentage: 0 });
-
-        if (config.source_provider === "none") {
-            wrapProgress({ phase: "error", description: "Source remote not configured.", percentage: 0 });
-            return;
-        }
-
         const sourceRemote = `${Env.REMOTE_PORTAL_SOURCE}:/`;
-        let sourceFlags: string[] = [];
 
-        // Special handling for CopyParty cookie if still used for porting
-        if (config.source_provider === "copyparty" && config.cookie) {
-            sourceFlags = ["--header", config.cookie];
-        }
+        // --- PULL PHASE ---
+        if (showPull) {
+            wrapProgress({ phase: "pull", description: "Analyzing Source...", percentage: 0 });
+            const localManifest = await discoverManifest(config, sourceRemote);
+            let manifestStats: ManifestStats | undefined;
+            let initialLocalCount = 0;
+            let riskyItems: string[] = [];
+            let standardItems: string[] = [];
 
-        // --- MANIFEST DISCOVERY ---
-        // Attempt to pull manifest.txt from source to enable faster sync
-        const localManifest = join(config.local_dir, "manifest.txt");
-        try {
-            Logger.debug("SYNC", "Checking for remote manifest.txt...");
-            await executeRclone([
-                "copyto", `${sourceRemote}manifest.txt`, localManifest,
-                ...sourceFlags,
-                ...RETRY_FLAGS
-            ], () => { });
-            Logger.info("SYNC", "Remote manifest.txt found at Source.");
-        } catch {
-            Logger.debug("SYNC", "No manifest.txt at Source, checking Backup...");
-            // If not at source, check backup (if configured)
-            if (config.upsync_enabled && config.backup_provider !== "none") {
-                const destRemote = `${Env.REMOTE_PORTAL_BACKUP}:/`;
-                try {
-                    await executeRclone([
-                        "copyto", `${destRemote}manifest.txt`, localManifest,
-                        ...RETRY_FLAGS
-                    ], () => { });
-                    Logger.info("SYNC", "Remote manifest.txt found at Backup.");
-                } catch {
-                    Logger.debug("SYNC", "No manifest.txt at Backup either.");
-                }
-            }
-        }
+            if (localManifest) {
+                const manifestData = processManifest(localManifest, config.local_dir);
+                if (manifestData) {
+                    initialLocalCount = manifestData.initialLocalCount;
 
-        const pullCmd = config.strict_mirror ? "sync" : "copy";
-        let hasManifest = existsSync(localManifest);
-        let pullArgs: string[] = [];
-
-        // Track totals for progress reporting
-        let manifestStats: ManifestStats | undefined;
-        let totalFilesToSync = 0;
-        let initialLocalCount = 0;
-        let initialMissingCount = 0;
-
-        wrapProgress({ phase: "pull", description: `Downloading from ${sourceRemote}...`, percentage: 0 });
-        const missingFile = join(config.local_dir || ".", "missing.txt");
-
-        if (hasManifest) {
-            Logger.info("SYNC", "Synthesizing missing.txt from manifest...");
-            try {
-                const manifestContent = readFileSync(localManifest, "utf8");
-                const remoteFiles = manifestContent.split("\n")
-                    .map(line => line.trim())
-                    .filter(line => line.length > 0 && !line.startsWith("#"));
-
-                // Get local files list
-                const localFiles = new Set<string>();
-                const scan = (dir: string, base: string) => {
-                    const entries = readdirSync(dir, { withFileTypes: true });
-                    for (const entry of entries) {
-                        const relPath = join(base, entry.name);
-                        if (entry.isDirectory()) {
-                            scan(join(dir, entry.name), relPath);
-                        } else {
-                            localFiles.add(relPath);
+                    // Gating logic: skip already excluded items
+                    const alreadyExcluded = new Set<string>();
+                    if (existsSync(excludeFile)) {
+                        try {
+                            const lines = readFileSync(excludeFile, "utf-8").split("\n");
+                            lines.forEach(l => { if (l.trim()) alreadyExcluded.add(l.trim()); });
+                        } catch (e) {
+                            Logger.error("SYNC", "Failed to read exclude file", e);
                         }
                     }
-                };
-                if (existsSync(config.local_dir)) scan(config.local_dir, "");
 
-                const missing = remoteFiles.filter(f => !localFiles.has(f));
-                writeFileSync(missingFile, missing.join("\n"));
+                    const missingFiltered = manifestData.missing.filter(f => !alreadyExcluded.has(f));
+                    riskyItems = missingFiltered.filter(f =>
+                        GARBAGE_PATTERNS.some(p => f.toLowerCase().includes(p.toLowerCase()))
+                    );
+                    standardItems = missingFiltered.filter(f => !riskyItems.includes(f));
 
-                // Populate manifestStats for UI display
-                initialLocalCount = localFiles.size;
-                initialMissingCount = missing.length;
+                    manifestStats = {
+                        remoteFileCount: manifestData.remoteFiles.length,
+                        localFileCount: initialLocalCount,
+                        missingFileCount: missingFiltered.length,
+                        riskyFileCount: riskyItems.length,
+                        optimizationMode: "manifest",
+                        manifestSource: "source"
+                    };
+                }
+            }
 
-                manifestStats = {
-                    remoteFileCount: remoteFiles.length,
-                    localFileCount: initialLocalCount,
-                    missingFileCount: initialMissingCount,
-                    optimizationMode: "manifest",
-                    manifestSource: "source"
-                };
-                totalFilesToSync = missing.length;
+            transferQueueType = "download";
+            activeTransfers.clear();
+            resetSessionCompletions();
+            activeProgressCallback = wrapProgress;
 
-                Logger.info("SYNC", `Manifest parsed: ${remoteFiles.length} remote, ${localFiles.size} local, ${missing.length} missing.`);
+            const basePullArgs = [
+                config.strict_mirror ? "sync" : "copy", sourceRemote, config.local_dir,
+                ...(config.source_provider === "copyparty" && config.cookie ? ["--header", config.cookie] : []),
+                "--exclude-from", excludeFile,
+                "--exclude", "_risk_tools/**",
+                "--size-only", "--fast-list",
+                "--transfers", String(config.downsync_transfers || 4),
+                "--checkers", "16",
+                ...RETRY_FLAGS
+            ];
 
-                // Report manifest stats immediately
+            // STAGE 1: Prioritized Pulll (Known Threats)
+            if (riskyItems.length > 0) {
+                const riskyListFile = join(config.local_dir, "prioritized_risky.txt");
+                writeFileSync(riskyListFile, riskyItems.join("\n"));
+
+                const riskyArgs = [
+                    "copy", sourceRemote, config.local_dir, // Always use copy for partial sub-sync
+                    "--files-from", riskyListFile,
+                    ...basePullArgs.slice(3) // Skip sync/remote/local
+                ];
+
+                await executeRclone(riskyArgs, (stats) => {
+                    wrapProgress({
+                        phase: "pull",
+                        description: `Shield: Neutralizing prioritized threats (${riskyItems.length})...`,
+                        manifestStats,
+                        filesTransferred: sessionCompletions.size,
+                        isPaused: isSyncPaused,
+                        ...stats,
+                        percentage: Math.min(100, Math.round((sessionCompletions.size / (riskyItems.length + standardItems.length)) * 100))
+                    });
+                });
+
+                // Immediate Shield Neutralization
+                await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
+                    wrapProgress({
+                        phase: "pull",
+                        description: `Shield: Neutralizing... ${cStats.flaggedArchives} threats purged.`,
+                        manifestStats,
+                        cleanupStats: cStats,
+                        percentage: Math.min(100, Math.round((sessionCompletions.size / (riskyItems.length + standardItems.length)) * 100))
+                    });
+                });
+            }
+
+            // STAGE 2: Standard Pull
+            const standardFilesCount = standardItems.length;
+            const standardArgs = [...basePullArgs];
+            if (standardFilesCount > 0) {
+                const standardListFile = join(config.local_dir, "standard_missing.txt");
+                writeFileSync(standardListFile, standardItems.join("\n"));
+                standardArgs.push("--files-from", standardListFile);
+            }
+
+            await executeRclone(standardArgs, (stats) => {
+                const completedCount = sessionCompletions.size;
+                const totalMissing = riskyItems.length + standardItems.length;
+                if (manifestStats) {
+                    manifestStats.localFileCount = initialLocalCount + completedCount;
+                    manifestStats.missingFileCount = Math.max(0, totalMissing - completedCount);
+                }
+                const displayPct = (totalMissing > 0) ? Math.min(100, Math.round((completedCount / totalMissing) * 100)) : (stats.percentage ?? 0);
                 wrapProgress({
                     phase: "pull",
-                    description: `Downloading ${missing.length} missing files...`,
-                    percentage: 0,
-                    totalFiles: missing.length,
-                    filesTransferred: 0,
-                    manifestStats
+                    description: "Downloading files...",
+                    manifestStats,
+                    filesTransferred: completedCount,
+                    isPaused: isSyncPaused,
+                    ...stats,
+                    percentage: displayPct
                 });
-            } catch (err) {
-                Logger.error("SYNC", "Failed to parse manifest.txt, ignoring manifest stats", err as Error);
-            }
-        }
-
-        // --- STEP 1: DOWNLOAD (PULL) ---
-        // We still parse manifest for stats if available, but we use regular rclone sync for robustness
-        pullArgs = [
-            pullCmd, sourceRemote, config.local_dir,
-            ...sourceFlags,
-            "--exclude-from", excludeFile,
-            "--exclude", "_risk_tools/**",
-            "--size-only", "--fast-list",
-            "--transfers", String(config.downsync_transfers || 4),
-            "--checkers", "16",
-            ...RETRY_FLAGS
-        ];
-
-        // Set queue type for file transfer tracking
-        transferQueueType = "download";
-        activeTransfers.clear();
-        resetSessionCompletions(); // Truth-based tracking (Issue-018)
-        activeProgressCallback = wrapProgress; // Store for immediate pause/resume refresh
-
-        await executeRclone(pullArgs, (stats) => {
-            // Merge in our known totalFiles from manifest if available
-            const totalFiles = totalFilesToSync > 0 ? totalFilesToSync : stats.totalFiles;
-
-            // Derive Live Manifest Stats from Truth Set (Issue-018)
-            const completedCount = sessionCompletions.size;
-            if (manifestStats) {
-                manifestStats = {
-                    ...manifestStats,
-                    localFileCount: initialLocalCount + completedCount,
-                    missingFileCount: Math.max(0, initialMissingCount - completedCount)
-                };
-            }
-
-            // Smoothing: percentage based on manifest total if available
-            const displayPercentage = (totalFilesToSync > 0)
-                ? Math.min(100, Math.round((completedCount / totalFilesToSync) * 100))
-                : (stats.percentage ?? 0);
-
-            wrapProgress({
-                phase: "pull",
-                description: hasManifest ? "Downloading missing files..." : "Downloading...",
-                percentage: displayPercentage,
-                totalFiles,
-                manifestStats,
-                filesTransferred: completedCount, // Always report truth
-                isPaused: isSyncPaused,
-                ...stats
             });
-        });
-
-
-        // --- STEP 2: CLEAN (MALWARE SHIELD) ---
-        if (config.enable_malware_shield) {
-            wrapProgress({ phase: "clean", description: "Surgical Malware Shield...", percentage: 0 });
-            const cleanupResult = await runCleanupSweep(
-                config.local_dir,
-                excludeFile,
-                config.malware_policy || "purge",
-                (stats: CleanupStats) => {
-                    const progress = stats.totalArchives > 0
-                        ? Math.round((stats.scannedArchives / stats.totalArchives) * 100)
-                        : 0;
-
-                    let desc = "Scanning archives...";
-                    if (stats.currentArchive) {
-                        desc = `Scanning ${stats.currentArchive}...`;
-                    }
-
-                    wrapProgress({
-                        phase: "clean",
-                        description: desc,
-                        percentage: progress,
-                        cleanupStats: stats
-                    });
-                }
-            );
-            if (cleanupResult.completed) {
-                wrapProgress({ phase: "clean", description: "Cleanup complete.", percentage: 100 });
-            } else {
-                Logger.warn("SYNC", `Cleanup incomplete: ${cleanupResult.unscannedArchives.length} archives not scanned`);
-                wrapProgress({ phase: "clean", description: "Cleanup incomplete (aborted).", percentage: 50 });
-            }
         }
 
+        // --- CLEAN PHASE ---
+        if (showClean) {
+            wrapProgress({ phase: "clean", description: "Surgical Malware Shield...", percentage: 0 });
+            await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (stats) => {
+                wrapProgress({
+                    phase: "clean",
+                    description: stats.currentArchive ? `Scanning ${stats.currentArchive}...` : "Scanning archives...",
+                    percentage: stats.totalArchives > 0 ? Math.round((stats.scannedArchives / stats.totalArchives) * 100) : 0,
+                    cleanupStats: stats
+                });
+            });
+        }
 
-        // --- STEP 3: UPLOAD (PUSH) ---
-        if (config.upsync_enabled && config.backup_provider !== "none") {
+        // --- CLOUD PHASE ---
+        if (showCloud) {
             const destRemote = `${Env.REMOTE_PORTAL_BACKUP}:/`;
-
-            wrapProgress({ phase: "cloud", description: `Backing up to ${destRemote}...`, percentage: 0 });
-
+            const localManifest = join(config.local_dir, "manifest.txt");
             const cloudArgs = [
                 "sync", config.local_dir, destRemote,
+                "--exclude-from", excludeFile,
                 "--exclude", "_risk_tools/**",
                 "--size-only", "--fast-list",
                 "--transfers", String(config.upsync_transfers || 4),
                 "--checkers", "16",
                 ...RETRY_FLAGS
             ];
+            if (existsSync(localManifest)) cloudArgs.push("--files-from", localManifest);
+            if (config.backup_provider === "gdrive") cloudArgs.push("--drive-use-trash=false");
 
-            if (hasManifest) {
-                Logger.info("SYNC", "Using manifest.txt for optimized Push.");
-                cloudArgs.push("--files-from", localManifest);
-            }
-
-            // GDrive specific flags (if dest is gdrive)
-            if (config.backup_provider === "gdrive") {
-                cloudArgs.push("--drive-use-trash=false");
-            }
-
-            // Set queue type for file transfer tracking
             transferQueueType = "upload";
             activeTransfers.clear();
-
             await executeRclone(cloudArgs, (stats) => wrapProgress({
                 phase: "cloud",
                 description: "Cloud Backup...",
-                percentage: stats.percentage ?? 0,
                 isPaused: isSyncPaused,
-                ...stats
+                ...stats,
+                percentage: stats.percentage ?? 0  // Set after spread to prevent overwrite
             }));
         }
 
-        wrapProgress({ phase: "done", description: "MISSION ACCOMPLISHED. SYSTEM RESILIENT.", percentage: 100, isPaused: false });
-    } catch (err: unknown) {
-        const error = err as Error;
-        Logger.error("SYNC", "Sync failed", error);
-        wrapProgress({ phase: "error", description: `Sync Failed: ${error.message}`, percentage: 0 });
+        if (activeProgressCallback) {
+            wrapProgress({ phase: "done", description: "MISSION ACCOMPLISHED. SYSTEM RESILIENT.", percentage: 100, isPaused: false });
+        }
+
+        // PERSISTENCE: Save final stats to config
+        const finalStats = lastProgressRef.current;
+        if (finalStats) {
+            const updatedConfig = { ...config };
+
+            // Sync Stats
+            updatedConfig.last_sync_stats = {
+                timestamp: Date.now(),
+                files_processed: finalStats.filesTransferred || 0,
+                bytes_transferred: parseInt(finalStats.bytesTransferred || "0"),
+                status: "success" as const
+            };
+
+            // Shield Stats
+            if (finalStats.cleanupStats) {
+                updatedConfig.last_shield_stats = {
+                    timestamp: Date.now(),
+                    totalArchives: finalStats.cleanupStats.scannedArchives,
+                    riskyPatternCount: finalStats.cleanupStats.riskyPatternCount,
+                    extractedFiles: finalStats.cleanupStats.extractedFiles
+                };
+            }
+
+            const { saveConfig } = await import("./config");
+            saveConfig(updatedConfig);
+        }
+    } catch (err) {
+        Logger.error("SYNC", "Sync failed", err);
+        wrapProgress({ phase: "error", description: `Sync Failed: ${err instanceof Error ? err.message : String(err)}`, percentage: 0 });
     }
 }
 
@@ -590,33 +656,27 @@ async function executeRclone(
         const fullArgs = [
             "--config", Env.getRcloneConfigPath(),
             ...args,
-            "-P",
             "--stats", "500ms",
             "--log-level", "INFO",
             "--use-json-log"
         ];
 
-        Logger.debug("SYNC", `Executing: rclone ${fullArgs.join(" ")}`);
+        const rcloneCmd = getRcloneCmd();
+        const spawnArgs = rcloneCmd[0] === "bun" ? ["bun", ...rcloneCmd.slice(1), ...fullArgs] : ["rclone", ...fullArgs];
+        Logger.debug("SYNC", `Spawning: ${spawnArgs.join(" ")}`);
 
-        const rcloneCmd = process.env.MOCK_RCLONE ? ["bun", process.env.MOCK_RCLONE] : ["rclone"];
-        const finalCmd = [...rcloneCmd, ...fullArgs];
-        Logger.debug("SYNC", `Spawning: ${finalCmd.join(" ")}`);
-
-        currentProc = spawn(finalCmd, {
+        currentProc = spawn(spawnArgs, {
             stdout: "pipe",
             stderr: "pipe",
-            env: process.env
+            env: process.env as Record<string, string>
         });
 
-        // Apply initial pause state if preferred (Production Quality: Survivor Logic)
         if (isSyncPaused) {
-            Logger.info("SYNC", "Applying initial pause state to new process...");
             currentProc.kill("SIGSTOP");
-            // Trigger immediate UI refresh so it doesn't wait for rclone stats
             onUpdate({ isPaused: true });
         }
 
-        const handleOutput = async (stream: ReadableStream, isError: boolean) => {
+        const handleOutput = async (stream: ReadableStream) => {
             const reader = stream.getReader();
             const decoder = new TextDecoder();
             let remainder = "";
@@ -626,7 +686,6 @@ async function executeRclone(
                 if (done) break;
 
                 const text = remainder + decoder.decode(value);
-                // Split on BOTH newline and carriage return
                 const lines = text.split(/[\r\n]+/);
                 remainder = lines.pop() || "";
 
@@ -634,35 +693,30 @@ async function executeRclone(
                     const cleanedLine = stripAnsi(line).trim();
                     if (!cleanedLine) continue;
 
-                    if (isError) {
-                        try {
-                            const json = JSON.parse(cleanedLine);
-                            parseJsonLog(json, onUpdate);
-                            // Restore logging for structured logs
-                            if (json.msg) {
-                                if (json.level === "error") Logger.error("SYNC", `[rclone] ${json.msg}`);
-                                else if (json.level === "info") Logger.info("SYNC", `[rclone] ${json.msg}`);
-                                else Logger.debug("SYNC", `[rclone] ${json.msg}`);
-                            }
-                        } catch {
-                            // Fallback to progress parsing for human-readable errors/info
-                            Logger.info("SYNC", `[rclone] ${cleanedLine}`);
-                            parseProgress(cleanedLine, onUpdate);
+                    try {
+                        const json = JSON.parse(cleanedLine);
+                        // TEMPORARY: Log full JSON structure to diagnose queue issue
+                        if (json.stats || json.msg?.toString().includes("Transferring:")) {
+                            Logger.info("SYNC", `[DEBUG JSON] ${JSON.stringify(json)}`);
                         }
-                    } else {
-                        // Stdout is usually human-readable progress if not using JSON log
-                        parseProgress(cleanedLine, onUpdate);
+                        parseJsonLog(json, onUpdate);
+                        if (json.msg) {
+                            if (json.level === "error") Logger.error("SYNC", `[rclone] ${json.msg}`);
+                            else if (json.level === "info") Logger.info("SYNC", `[rclone] ${json.msg}`);
+                            else Logger.debug("SYNC", `[rclone] ${json.msg}`);
+                        }
+                    } catch {
+                        Logger.info("SYNC", `[rclone] ${cleanedLine}`);
                     }
                 }
             }
         };
 
-        const stdoutDone = currentProc.stdout ? handleOutput(currentProc.stdout as unknown as ReadableStream, false) : Promise.resolve();
-        const stderrDone = currentProc.stderr ? handleOutput(currentProc.stderr as unknown as ReadableStream, true) : Promise.resolve();
+        const stdoutDone = currentProc.stdout ? handleOutput(currentProc.stdout as unknown as ReadableStream) : Promise.resolve();
+        const stderrDone = currentProc.stderr ? handleOutput(currentProc.stderr as unknown as ReadableStream) : Promise.resolve();
 
         const checkExit = async () => {
             const exitCode = await currentProc?.exited;
-            Logger.debug("SYNC", `rclone exited with code ${exitCode}`);
             await Promise.all([stdoutDone, stderrDone]);
             currentProc = null;
             if (exitCode === 0) {
@@ -676,80 +730,6 @@ async function executeRclone(
         checkExit();
     });
 }
-
-export function parseProgress(line: string, onUpdate: (stats: Partial<SyncProgress>) => void) {
-    // Overall Stats
-    const transferredMatch = line.match(/Transferred:\s+([\d.]+ \w+) \/ ([\d.]+ \w+), (\d+)%, ([\d.]+ \w+\/s), ETA ([\w\s]+)/);
-    if (transferredMatch) {
-        onUpdate({
-            bytesTransferred: `${transferredMatch[1]}/${transferredMatch[2]}`,
-            percentage: parseInt(transferredMatch[3]!),
-            transferSpeed: transferredMatch[4],
-            eta: transferredMatch[5]
-        });
-        return;
-    }
-
-    const filesMatch = line.match(/Files:\s+(\d+)\s+\/\s+(\d+),\s+(\d+)%/);
-    if (filesMatch) {
-        onUpdate({
-            filesTransferred: parseInt(filesMatch[1]!),
-            totalFiles: parseInt(filesMatch[2]!),
-            percentage: parseInt(filesMatch[3]!)
-        });
-        return;
-    }
-
-    // Individual File Progress (fallback for -P output)
-    // Example: * some_file.zip: 50% /100.000 MiB, 5.000 MiB/s, 10s
-    // OR:      * some_file.zip: transferring (no percentage yet)
-    // The name can contain spaces, dots, etc. It ends at the last colon before the stats.
-    const fileMatch = line.match(/^\*\s*(.*?):\s*(\d+)?%?\s*(\/)?([\d.]+ \w+)?(,\s*)?([\d.]+ \w+\/s)?(,\s*)?([^\r\n]+)?$/);
-    if (fileMatch && !line.includes("Transferred:") && !line.includes("Files:")) {
-        const name = fileMatch[1]?.trim();
-        if (name) {
-            const percentage = parseInt(fileMatch[2] || "0");
-            const speed = fileMatch[6] || "0 B/s";
-            const existing = activeTransfers.get(name);
-            const status = percentage >= 100 ? "completed" : "active";
-
-            if (status === "completed") sessionCompletions.add(name);
-
-            activeTransfers.set(name, {
-                filename: name,
-                percentage,
-                speed,
-                transferred: 0, // Approximate as 0 for fallback
-                size: 0,        // Approximate as 0 for fallback
-                status,
-                eta: fileMatch[8]?.trim(),
-                completedAt: (status === "completed" && existing?.status !== "completed") ? Date.now() : existing?.completedAt
-            });
-
-            // Use the smart queue logic (max 2 completed)
-            const queue = getDisplayQueue(10);
-
-            onUpdate(transferQueueType === "download"
-                ? { downloadQueue: queue, filesTransferred: sessionCompletions.size }
-                : { uploadQueue: queue, filesTransferred: sessionCompletions.size }
-            );
-        }
-        return;
-    }
-
-    // Catch-all for simple percentage (ONLY if clearly labels as overall progress)
-    // Avoid catching per-file progress like "file.zip: 50%"
-    if (line.includes("Transferred") || line.includes("Files")) {
-        const percentMatch = line.match(/(\d+)%/);
-        if (percentMatch) {
-            onUpdate({ percentage: parseInt(percentMatch[1]!) });
-        }
-    }
-}
-
-// Global tracking for immediate UI refresh (Issue-018)
-let isSyncPaused = false;
-let activeProgressCallback: ((stats: Partial<SyncProgress>) => void) | null = null;
 
 export function getIsSyncPaused(): boolean {
     return isSyncPaused;

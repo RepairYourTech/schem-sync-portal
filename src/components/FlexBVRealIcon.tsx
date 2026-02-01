@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/react */
 import React from "react";
 
 /**
@@ -23,7 +24,7 @@ export function FlexBVRealIcon() {
     return (
         <box flexDirection="column">
             {[0, 1, 2, 3].map(row => (
-                <text key={row} height={1}>
+                <box key={row} flexDirection="row" height={1}>
                     {[0, 1, 2, 3, 4, 5, 6, 7].map(col => {
                         const topPixel = pixels[row * 2]?.[col] || "#FFFFFF";
                         const bottomPixel = pixels[row * 2 + 1]?.[col] || "#FFFFFF";
@@ -37,7 +38,7 @@ export function FlexBVRealIcon() {
                             </text>
                         );
                     })}
-                </text>
+                </box>
             ))}
         </box>
     );

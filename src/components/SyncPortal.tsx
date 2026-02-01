@@ -1,9 +1,11 @@
+/** @jsxImportSource @opentui/react */
 import React, { useMemo, useEffect, useRef } from "react";
 import { TextAttributes } from "@opentui/core";
 import { useTerminalDimensions } from "@opentui/react";
 import type { SyncProgress } from "../lib/sync";
 import type { PortalConfig } from "../lib/config";
-import { DownsyncPanel, LocalShieldPanel, UpsyncPanel, type ThemeColors } from "./SyncPortalParts";
+import { useTheme } from "../lib/theme";
+import { DownsyncPanel, LocalShieldPanel, UpsyncPanel } from "./SyncPortalParts";
 import { Hotkey } from "./Hotkey";
 
 interface SyncPortalProps {
@@ -42,18 +44,7 @@ export const SyncPortal = React.memo(({
     onUpdateConfig
 }: SyncPortalProps) => {
     const { width } = useTerminalDimensions();
-    const colors: ThemeColors = {
-        primary: "#3b82f6",
-        success: "#22c55e",
-        warning: "#eab308",
-        danger: "#ef4444",
-        accent: "#a855f7",
-        setup: "#ec4899",
-        bg: "#0f172a",
-        fg: "#f8fafc",
-        border: "#334155",
-        dim: "#64748b"
-    };
+    const { colors } = useTheme();
 
     const isPull = progress.phase === "pull";
     const isCloud = progress.phase === "cloud";
@@ -115,19 +106,22 @@ export const SyncPortal = React.memo(({
         return focusIndex === idx + 1;
     };
 
-    const handleFocus = (type: "global" | "source" | "shield" | "dest") => {
+    const handleFocus = (type: "global" | "source" | "shield" | "dest", keepSubFocus = false) => {
         onFocusChange("body");
         if (type === "global") onFocusIndexChange(0);
         else {
             const idx = visiblePanels.indexOf(type);
-            if (idx !== -1) onFocusIndexChange(idx + 1);
+            if (idx !== -1) {
+                onFocusIndexChange(idx + 1);
+                if (!keepSubFocus) onSubFocusIndexChange(0);
+            }
         }
     };
 
     const isWide = width >= 80;
 
     return (
-        <box flexDirection="column" gap={1} height="100%">
+        <box flexDirection="column" gap={1} height="100%" border borderStyle="double" borderColor={colors.primary} title="[ SYNC PORTAL ]" padding={1}>
             {/* === GLOBAL HEADER === */}
             <box
                 flexDirection="row"
@@ -135,38 +129,52 @@ export const SyncPortal = React.memo(({
                 alignItems="center"
                 paddingLeft={1}
                 paddingRight={1}
-                height={isRunning ? 2 : 3}
+                height={5}
                 border
                 borderStyle="single"
-                borderColor={isGlobalFocused ? colors.fg : colors.border}
+                borderColor={isGlobalFocused ? colors.primary : colors.dim + "33"}
+                onMouseOver={() => handleFocus("global")}
             >
                 <box flexDirection="column" gap={0}>
                     <text fg={colors.fg} attributes={TextAttributes.BOLD}>SYNC PORTAL</text>
-                    <text fg={statusColor}><text>{statusText}</text></text>
+                    <text fg={statusColor}>{String(statusText)}</text>
                 </box>
 
                 <box flexDirection="row" gap={2} alignItems="center">
                     {!isRunning ? (
                         <box
-                            onMouseDown={() => { handleFocus("global"); if (configLoaded) _onStart(); }}
-                            paddingLeft={2}
-                            paddingRight={2}
-                            border
+                            onMouseOver={() => handleFocus("global")}
+                            onMouseDown={() => { if (configLoaded) _onStart(); }}
+                            paddingLeft={1}
+                            paddingRight={1}
+                            border={isGlobalFocused}
                             borderStyle="single"
-                            borderColor={isGlobalFocused ? colors.fg : (configLoaded ? colors.success : colors.dim)}
+                            borderColor={isGlobalFocused ? colors.success : "transparent"}
                         >
-                            <Hotkey keyLabel="t" label={isGlobalFocused ? "▶ START SYNC" : "S[T]ART SYNC"} isFocused={isGlobalFocused} bold color={isGlobalFocused ? colors.fg : (configLoaded ? colors.success : colors.dim)} />
+                            <Hotkey
+                                keyLabel="t"
+                                label="START SYNC"
+                                isFocused={isGlobalFocused}
+                                bold
+                            />
                         </box>
                     ) : (
                         <box
-                            onMouseDown={() => { handleFocus("global"); _onStop(); }}
-                            paddingLeft={2}
-                            paddingRight={2}
-                            border
+                            onMouseOver={() => handleFocus("global")}
+                            onMouseDown={() => { _onStop(); }}
+                            paddingLeft={1}
+                            paddingRight={1}
+                            border={isGlobalFocused}
                             borderStyle="single"
-                            borderColor={isGlobalFocused ? colors.fg : colors.danger}
+                            borderColor={isGlobalFocused ? colors.primary : colors.dim + "33"}
                         >
-                            <Hotkey keyLabel="t" label={isGlobalFocused ? "■ STOP SYNC" : "S[T]OP SYNC"} isFocused={isGlobalFocused} bold color={isGlobalFocused ? colors.fg : colors.danger} />
+                            <Hotkey
+                                keyLabel="t"
+                                label="STOP SYNC"
+                                isFocused={isGlobalFocused}
+                                bold
+                                color={isGlobalFocused ? colors.primary : colors.danger}
+                            />
                         </box>
                     )}
                 </box>
@@ -178,9 +186,9 @@ export const SyncPortal = React.memo(({
                 <box
                     flexDirection="row"
                     gap={1}
-                    height={isRunning ? (Math.max(config.downsync_transfers || 4, config.upsync_transfers || 4) >= 8 ? 22 : 18) : 12}
+                    height={isRunning ? 22 : 12} // Standardize to max height to ensure alignment
                 >
-                    {showSource && (
+                    {showSource ? (
                         <box flexGrow={1}>
                             <DownsyncPanel
                                 progress={progress}
@@ -189,19 +197,19 @@ export const SyncPortal = React.memo(({
                                 width={Math.floor(width / visiblePanelCount) - 2}
                                 onPause={onPause}
                                 onResume={onResume}
-                                height={isRunning ? ((config.downsync_transfers || 4) >= 8 ? 22 : 18) : 12}
+                                height={isRunning ? 22 : 12}
                                 maxFiles={(config.downsync_transfers || 4) >= 8 ? 12 : (isPull ? 10 : 5)}
                                 transfers={config.downsync_transfers}
                                 onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
                                 isFocused={getPanelFocus("source")}
-                                onFocus={() => handleFocus("source")}
+                                onFocus={(keep) => handleFocus("source", keep)}
                                 subFocusIndex={subFocusIndex}
                                 onSubFocusIndexChange={onSubFocusIndexChange}
                             />
                         </box>
-                    )}
+                    ) : null}
 
-                    {showShield && (
+                    {showShield ? (
                         <box flexGrow={1}>
                             <LocalShieldPanel
                                 progress={progress}
@@ -211,16 +219,16 @@ export const SyncPortal = React.memo(({
                                 onPause={onPause}
                                 onResume={onResume}
                                 isFocused={getPanelFocus("shield")}
-                                onFocus={() => handleFocus("shield")}
+                                onFocus={(keep) => handleFocus("shield", keep)}
                                 subFocusIndex={subFocusIndex}
                                 onSubFocusIndexChange={onSubFocusIndexChange}
-                                height={isRunning ? (Math.max(config.downsync_transfers || 4, config.upsync_transfers || 4) >= 8 ? 22 : 18) : 12}
+                                height={isRunning ? 22 : 12}
                                 isRunning={isRunning}
                             />
                         </box>
-                    )}
+                    ) : null}
 
-                    {showDest && (
+                    {showDest ? (
                         <box flexGrow={1}>
                             <UpsyncPanel
                                 progress={progress}
@@ -230,22 +238,22 @@ export const SyncPortal = React.memo(({
                                 upsyncEnabled={true}
                                 onPause={onPause}
                                 onResume={onResume}
-                                height={isRunning ? ((config.upsync_transfers || 4) >= 8 ? 22 : 18) : 12}
+                                height={isRunning ? 22 : 12}
                                 maxFiles={(config.upsync_transfers || 4) >= 8 ? 12 : (isCloud ? 10 : 5)}
                                 transfers={config.upsync_transfers}
                                 onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
                                 isFocused={getPanelFocus("dest")}
-                                onFocus={() => handleFocus("dest")}
+                                onFocus={(keep) => handleFocus("dest", keep)}
                                 subFocusIndex={subFocusIndex}
                                 onSubFocusIndexChange={onSubFocusIndexChange}
                             />
                         </box>
-                    )}
+                    ) : null}
                 </box>
             ) : (
                 // Narrow layout: single column
                 <box flexDirection="column" gap={1} flexGrow={1}>
-                    {showSource && (
+                    {showSource ? (
                         <DownsyncPanel
                             progress={progress}
                             sourceType={sourceType}
@@ -253,16 +261,16 @@ export const SyncPortal = React.memo(({
                             width={width - 2}
                             onPause={onPause}
                             onResume={onResume}
-                            height={isRunning ? ((config.downsync_transfers || 4) >= 8 ? 20 : 15) : 10}
-                            transfers={config.downsync_transfers}
-                            onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
                             isFocused={getPanelFocus("source")}
-                            onFocus={() => handleFocus("source")}
+                            onFocus={(keep) => handleFocus("source", keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
+                            height={isRunning ? 20 : 10}
+                            transfers={config.downsync_transfers}
+                            onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
                         />
-                    )}
-                    {showShield && (
+                    ) : null}
+                    {showShield ? (
                         <LocalShieldPanel
                             progress={progress}
                             colors={colors}
@@ -271,14 +279,14 @@ export const SyncPortal = React.memo(({
                             onPause={onPause}
                             onResume={onResume}
                             isFocused={getPanelFocus("shield")}
-                            onFocus={() => handleFocus("shield")}
+                            onFocus={(keep) => handleFocus("shield", keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
-                            height={isRunning ? (Math.max(config.downsync_transfers || 4, config.upsync_transfers || 4) >= 8 ? 20 : 15) : 10}
+                            height={isRunning ? 20 : 10}
                             isRunning={isRunning}
                         />
-                    )}
-                    {showDest && (
+                    ) : null}
+                    {showDest ? (
                         <UpsyncPanel
                             progress={progress}
                             destType={destType}
@@ -287,30 +295,20 @@ export const SyncPortal = React.memo(({
                             upsyncEnabled={true}
                             onPause={onPause}
                             onResume={onResume}
-                            height={isRunning ? ((config.upsync_transfers || 4) >= 8 ? 20 : 15) : 10}
-                            transfers={config.upsync_transfers}
-                            onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
                             isFocused={getPanelFocus("dest")}
-                            onFocus={() => handleFocus("dest")}
+                            onFocus={(keep) => handleFocus("dest", keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
+                            height={isRunning ? 20 : 10}
+                            transfers={config.upsync_transfers}
+                            onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
                         />
-                    )}
+                    ) : null}
                 </box>
             )}
 
             {/* === GLOBAL PROGRESS === */}
-            {isRunning && (
-                <box flexDirection="column" gap={0} paddingLeft={1} paddingRight={1}>
-                    <text fg={colors.dim}>TOTAL PROGRESS</text>
-                    <text fg={colors.success} attributes={TextAttributes.BOLD}>
-                        {`[${"█".repeat(Math.round(progress.percentage / 4))}${"░".repeat(25 - Math.round(progress.percentage / 4))}] ${progress.percentage}%`}
-                    </text>
-                    <text fg={colors.dim} attributes={TextAttributes.ITALIC}>
-                        {progress.description}
-                    </text>
-                </box>
-            )}
+            {/* Global progress removed - individual panel phase progress bars provide sufficient feedback */}
         </box>
     );
 });

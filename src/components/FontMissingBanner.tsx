@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/react */
 import React, { useState } from "react";
 import { useTheme } from "../lib/theme";
 import { useKeyboard } from "@opentui/react";

@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/react */
 import { createCliRenderer, TextAttributes } from "@opentui/core";
 import { createRoot, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -20,6 +21,7 @@ import { FontInstaller } from "./components/FontInstaller";
 import { ManualFontGuide } from "./components/ManualFontGuide";
 import { FontMissingBanner } from "./components/FontMissingBanner";
 import type { InstallResult } from "./lib/fontInstaller";
+import { ShieldManager } from "./lib/cleanup";
 
 // Perform hygiene on startup
 Logger.rotateLogs("system.log", 5 * 1024 * 1024); // 5MB limit
@@ -208,29 +210,71 @@ function AppContent() {
 
       // Up/Down Navigation (Switch Panels)
       if (key.name === "up" || key.name === "k") {
-        setSyncFocusIndex(prev => (prev === 0 ? panelCount - 1 : prev - 1));
-        setSyncSubFocusIndex(0);
+        setSyncFocusIndex(prev => {
+          const panelTypes = ["global"];
+          if (showSource) panelTypes.push("source");
+          if (showShield) panelTypes.push("shield");
+          if (showDest) panelTypes.push("dest");
+
+          const currentPanelType = panelTypes[prev];
+          const newPanelIndex = (prev === 0 ? panelCount - 1 : prev - 1);
+          const newPanelType = panelTypes[newPanelIndex];
+
+          // Preserve sub-focus when navigating between source/dest (both support speed buttons)
+          const bothSupportSpeed = (
+            (currentPanelType === "source" || currentPanelType === "dest") &&
+            (newPanelType === "source" || newPanelType === "dest")
+          );
+
+          if (!bothSupportSpeed) {
+            setSyncSubFocusIndex(0);
+          }
+
+          return newPanelIndex;
+        });
         return;
       }
       if (key.name === "down" || key.name === "j") {
-        setSyncFocusIndex(prev => (prev === panelCount - 1 ? 0 : prev + 1));
-        setSyncSubFocusIndex(0);
+        setSyncFocusIndex(prev => {
+          const panelTypes = ["global"];
+          if (showSource) panelTypes.push("source");
+          if (showShield) panelTypes.push("shield");
+          if (showDest) panelTypes.push("dest");
+
+          const currentPanelType = panelTypes[prev];
+          const newPanelIndex = (prev === panelCount - 1 ? 0 : prev + 1);
+          const newPanelType = panelTypes[newPanelIndex];
+
+          // Preserve sub-focus when navigating between source/dest (both support speed buttons)
+          const bothSupportSpeed = (
+            (currentPanelType === "source" || currentPanelType === "dest") &&
+            (newPanelType === "source" || newPanelType === "dest")
+          );
+
+          if (!bothSupportSpeed) {
+            setSyncSubFocusIndex(0);
+          }
+
+          return newPanelIndex;
+        });
         return;
       }
 
       // Left/Right Navigation (Switch Sub-controls)
-      if (key.name === "left" || key.name === "h") {
-        // We'll calculate sub-control count based on panel index
-        // Focus 0: Header (No sub-controls yet)
-        // Focus 1-3: Panels (Pause/Resume, Skip, Speed)
+      if (key.name === "left" || key.name === "right" || key.name === "h" || key.name === "l") {
         if (syncFocusIndex > 0) {
-          setSyncSubFocusIndex(prev => (prev === 0 ? 3 : prev - 1));
-        }
-        return;
-      }
-      if (key.name === "right" || key.name === "l") {
-        if (syncFocusIndex > 0) {
-          setSyncSubFocusIndex(prev => (prev === 3 ? 0 : prev + 1));
+          const panelTypes = ["global"];
+          if (showSource) panelTypes.push("source");
+          if (showShield) panelTypes.push("shield");
+          if (showDest) panelTypes.push("dest");
+          const currentPanelType = panelTypes[syncFocusIndex];
+          const maxSub = (currentPanelType === "source" || currentPanelType === "dest") ? 3 : 0;
+
+          if (key.name === "left" || key.name === "h") {
+            setSyncSubFocusIndex(prev => (prev === 0 ? maxSub : prev - 1));
+          } else {
+            setSyncSubFocusIndex(prev => (prev >= maxSub ? 0 : prev + 1));
+          }
         }
         return;
       }
@@ -559,6 +603,10 @@ function AppContent() {
     setFocusArea("body");
   }, []);
 
+  const onResetShield = useCallback(() => {
+    ShieldManager.resetShield();
+  }, []);
+
 
   const onUpdateWizard = useCallback((newConfig: PortalConfig) => {
     saveConfig(newConfig);
@@ -598,29 +646,27 @@ function AppContent() {
           </box>
         )}
 
-        {showFontInstallPrompt && view === "dashboard" && (
-          <FontMissingBanner
-            onInstall={async () => {
-              setShowFontInstallPrompt(false);
-              setFontInstallerReturnView("dashboard");
-              setView('fontinstaller');
-            }}
-            onSkip={() => {
-              setShowFontInstallPrompt(false);
-              const newConfig = {
-                ...config,
-                nerd_font_auto_install_dismissed: true
-              };
-              setConfig(newConfig);
-              saveConfig(newConfig);
-            }}
-            onLearnMore={() => {
-              setShowFontInstallPrompt(false);
-              setFontInstallerReturnView("dashboard");
-              setView('fontguide');
-            }}
-          />
-        )}
+        {showFontInstallPrompt && view === "dashboard" ? <FontMissingBanner
+          onInstall={async () => {
+            setShowFontInstallPrompt(false);
+            setFontInstallerReturnView("dashboard");
+            setView('fontinstaller');
+          }}
+          onSkip={() => {
+            setShowFontInstallPrompt(false);
+            const newConfig = {
+              ...config,
+              nerd_font_auto_install_dismissed: true
+            };
+            setConfig(newConfig);
+            saveConfig(newConfig);
+          }}
+          onLearnMore={() => {
+            setShowFontInstallPrompt(false);
+            setFontInstallerReturnView("dashboard");
+            setView('fontguide');
+          }}
+        /> : null}
 
         {view === "sync" && (
           <SyncPortal
@@ -667,6 +713,7 @@ function AppContent() {
             onSetup={() => { setView("wizard"); setWizardMode("edit"); }}
             onForensic={() => setView("forensic")}
             onReset={onReset}
+            onResetShield={onResetShield}
             onBack={() => setView("dashboard")}
             focusArea={focusArea}
             onFocusChange={setFocusArea}
@@ -692,23 +739,27 @@ function AppContent() {
           <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ SYSTEM DIAGNOSTICS ]" gap={1}>
             {deps ? (
               <>
-                <text fg={deps.bun ? colors.success : colors.danger}>Bun Runtime: {deps.bun || "MISSING"}</text>
-                <text fg={deps.zig ? colors.success : colors.danger}>Zig Compiler: {deps.zig || "MISSING"}</text>
-                <text fg={deps.rclone ? colors.success : colors.danger}>Rclone Sync: {deps.rclone || "MISSING"}</text>
-                <text fg={deps.archive ? colors.success : colors.danger}>Archive Engines (7z/RAR): {deps.archive || "MISSING"}</text>
+                <text fg={deps.bun ? colors.success : colors.danger}>Bun Runtime: {String(deps.bun || "MISSING")}</text>
+                <text fg={deps.zig ? colors.success : colors.danger}>Zig Compiler: {String(deps.zig || "MISSING")}</text>
+                <text fg={deps.rclone ? colors.success : colors.danger}>
+                  Rclone Sync: {String(deps.rclone || "MISSING")}
+                  {String(deps.rcloneVersion ? ` (${deps.isRcloneModern ? "Modern" : "Legacy"} v${deps.rcloneVersion})` : "")}
+                </text>
+                <text fg={deps.archive ? colors.success : colors.danger}>Archive Engines (7z/RAR): {String(deps.archive || "MISSING")}</text>
+                <text fg={deps.clipboard ? colors.success : colors.warning}>Clipboard Utility: {String(deps.clipboard || "NOT FOUND (OSC 52 Fallback)")}</text>
 
                 <box flexDirection="column" border borderStyle="single" borderColor={colors.border} padding={1} marginTop={1}>
-                  <text fg={colors.primary} attributes={TextAttributes.BOLD}>Font Health: {deps.nerdFontDetailed.isInstalled ? "INSTALLED" : "NOT DETECTED"}</text>
-                  <text fg={colors.primary}>Detection Method: {deps.nerdFontDetailed.method}</text>
-                  <text fg={colors.primary}>Confidence Level: {deps.nerdFontDetailed.confidence}%</text>
+                  <text fg={colors.primary} attributes={TextAttributes.BOLD}>Font Health: {String(deps.nerdFontDetailed.isInstalled ? "INSTALLED" : "NOT DETECTED")}</text>
+                  <text fg={colors.primary}>Detection Method: {String(deps.nerdFontDetailed.method)}</text>
+                  <text fg={colors.primary}>Confidence Level: {String(deps.nerdFontDetailed.confidence)}%</text>
                   <text fg={deps.nerdFontDetailed.version === 3 ? colors.success : (deps.nerdFontDetailed.version === 2 ? colors.setup : colors.danger)}>
-                    Version: v{deps.nerdFontDetailed.version || "Unknown"}
+                    Version: v{String(deps.nerdFontDetailed.version || "Unknown")}
                   </text>
-                  {deps.nerdFontDetailed.installedFonts.length > 0 && (
+                  {!!(deps.nerdFontDetailed.installedFonts.length > 0) ? (
                     <text fg={colors.dim} attributes={TextAttributes.DIM}>
-                      Installed: {deps.nerdFontDetailed.installedFonts.slice(0, 3).join(", ")}
+                      Installed: {String(deps.nerdFontDetailed.installedFonts.slice(0, 3).join(", "))}
                     </text>
-                  )}
+                  ) : null}
                 </box>
 
                 <box flexDirection="column" marginTop={1} padding={1} border borderStyle="single" borderColor={colors.border} title="[ FONT MANAGEMENT ]">
@@ -822,8 +873,8 @@ function AppContent() {
                 <box flexDirection="column" marginTop={1} padding={1} border borderStyle="rounded" borderColor={glyphHighlight ? colors.primary : colors.success} title="[ GLYPH TEST ]">
                   <box flexDirection="column" gap={0}>
                     <box flexDirection="row" gap={2}>
-                      <text fg={activeFontVersion === 2 ? colors.success : colors.dim}>[ {'\uf61a'} ] Legacy Cat (v2){activeFontVersion === 2 ? " ★" : ""}</text>
-                      <text fg={activeFontVersion === 3 ? colors.success : colors.dim}>[ {'\ueeed'} ] Modern Cat (v3 FA){activeFontVersion === 3 ? " ★" : ""}</text>
+                      <text fg={activeFontVersion === 2 ? colors.success : colors.dim}>[ {'\uf61a'} ] Legacy Cat (v2){String(activeFontVersion === 2 ? " ★" : "")}</text>
+                      <text fg={activeFontVersion === 3 ? colors.success : colors.dim}>[ {'\ueeed'} ] Modern Cat (v3 FA){String(activeFontVersion === 3 ? " ★" : "")}</text>
                     </box>
                     <box flexDirection="row" gap={2}>
                       <text fg={activeFontVersion === 3 ? colors.success : colors.dim}>[ {'\u{f011b}'} ] MDI Cat (v3 MDI)</text>

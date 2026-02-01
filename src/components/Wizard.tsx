@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/react */
 import { useKeyboard } from "@opentui/react";
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import type { PortalConfig, PortalProvider } from "../lib/config.ts";
@@ -16,7 +17,6 @@ interface WizardOption {
     name?: string;
     description?: string;
     value?: string | number | boolean | PortalProvider;
-    val?: string | number | boolean | PortalProvider; // mixed usage in code
     key?: string;
     type?: string;
     action?: () => void;
@@ -56,13 +56,13 @@ type Step =
     // For safety, let's prefix or use 'generic' steps if possible, but existing code is heavy prefix.
     // Let's stick to existing "intro/id/key" patterns but route dynamically.
     | "gdrive_intro" | "gdrive_guide_1" | "gdrive_guide_2" | "gdrive_guide_3" | "gdrive_guide_4" | "gdrive_id" | "gdrive_secret" | "gdrive_auth"
-    | "b2_intro" | "b2_id" | "b2_key"
-    | "sftp_intro" | "sftp_host" | "sftp_user" | "sftp_pass"
-    | "pcloud_intro" | "pcloud_user" | "pcloud_pass"
-    | "onedrive_intro" | "onedrive_auth"
-    | "dropbox_intro" | "dropbox_auth"
-    | "mega_intro" | "mega_user" | "mega_pass"
-    | "r2_intro" | "r2_id" | "r2_key" | "r2_endpoint"
+    | "b2_intro" | "b2_guide_1" | "b2_guide_2" | "b2_id" | "b2_key"
+    | "sftp_intro" | "sftp_guide_1" | "sftp_host" | "sftp_user" | "sftp_pass"
+    | "pcloud_intro" | "pcloud_guide_1" | "pcloud_user" | "pcloud_pass"
+    | "onedrive_intro" | "onedrive_guide_1" | "onedrive_guide_2" | "onedrive_auth"
+    | "dropbox_intro" | "dropbox_guide_1" | "dropbox_guide_2" | "dropbox_auth"
+    | "mega_intro" | "mega_guide_1" | "mega_user" | "mega_pass"
+    | "r2_intro" | "r2_guide_1" | "r2_guide_2" | "r2_id" | "r2_key" | "r2_endpoint"
     | "cloud_setup_choice"
     | "cloud_direct_entry"
     | "edit_menu"
@@ -163,10 +163,10 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
     });
 
     // Sync state with refs for zero-lag backend access
-    const updateInput = useCallback((key: keyof typeof wizardInputs, val: string, ref: React.MutableRefObject<string>) => {
-        Logger.debug("UI", `[WIZARD] Input change: ${key}=${key === "pass" ? "********" : val}`);
-        setWizardInputs(prev => ({ ...prev, [key]: val }));
-        ref.current = val;
+    const updateInput = useCallback((key: keyof typeof wizardInputs, value: string, ref: React.MutableRefObject<string>) => {
+        Logger.debug("UI", `[WIZARD] Input change: ${key}=${key === "pass" ? "********" : value}`);
+        setWizardInputs(prev => ({ ...prev, [key]: value }));
+        ref.current = value;
     }, []);
 
     const oauthTokenRef = useRef("");
@@ -366,6 +366,19 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 case "r2_id": nextStep = "r2_key"; break;
                 case "r2_key": nextStep = "r2_endpoint"; break;
 
+                // Guide Transitions
+                case "b2_guide_1": nextStep = "b2_guide_2"; break;
+                case "b2_guide_2": nextStep = "b2_id"; break;
+                case "r2_guide_1": nextStep = "r2_guide_2"; break;
+                case "r2_guide_2": nextStep = "r2_id"; break;
+                case "sftp_guide_1": nextStep = "sftp_host"; break;
+                case "onedrive_guide_1": nextStep = "onedrive_guide_2"; break;
+                case "onedrive_guide_2": nextStep = "onedrive_auth"; break;
+                case "dropbox_guide_1": nextStep = "dropbox_guide_2"; break;
+                case "dropbox_guide_2": nextStep = "dropbox_auth"; break;
+                case "mega_guide_1": nextStep = "mega_user"; break;
+                case "pcloud_guide_1": nextStep = "pcloud_user"; break;
+
                 case "deploy": onComplete(c); break;
             }
             stepStartTime.current = Date.now();
@@ -376,95 +389,107 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
     const getOptions = useCallback(() => {
         if (step === "shortcut") {
             return isShortcutMissing ? [
-                { val: 1, type: "bootstrap" },
-                { val: 2, type: "shortcut" },
-                { val: 0, type: "skip" }
+                { value: 1, type: "bootstrap" },
+                { value: 2, type: "shortcut" },
+                { value: 0, type: "skip" }
             ] : [
-                { val: 1, type: "desktop_shortcut" },
-                { val: 0, type: "desktop_shortcut" }
+                { value: 1, type: "desktop_shortcut" },
+                { value: 0, type: "desktop_shortcut" }
             ];
         }
 
         if (step === "edit_menu") {
             return [
-                { val: "shortcut", type: "jump" },
-                { val: "source_choice", type: "jump" },
-                { val: "dir", type: "jump" },
-                { val: "mirror", type: "jump" },
-                { val: "upsync_ask", type: "jump" },
-                { val: "security", type: "jump" },
-                { val: "deploy", type: "jump" }
+                { value: "shortcut", type: "jump" },
+                { value: "source_choice", type: "jump" },
+                { value: "dir", type: "jump" },
+                { value: "mirror", type: "jump" },
+                { value: "upsync_ask", type: "jump" },
+                { value: "security", type: "jump" },
+                { value: "deploy", type: "jump" }
             ];
         }
 
         if (step === "source_choice") return [
-            { val: "copyparty", type: "source_select" },
-            { val: "gdrive", type: "source_select" },
-            { val: "b2", type: "source_select" },
-            { val: "pcloud", type: "source_select" },
-            { val: "sftp", type: "source_select" },
-            { val: "onedrive", type: "source_select" },
-            { val: "dropbox", type: "source_select" },
-            { val: "mega", type: "source_select" },
-            { val: "r2", type: "source_select" }
+            { value: "copyparty", type: "source_select" },
+            { value: "gdrive", type: "source_select" },
+            { value: "b2", type: "source_select" },
+            { value: "pcloud", type: "source_select" },
+            { value: "sftp", type: "source_select" },
+            { value: "onedrive", type: "source_select" },
+            { value: "dropbox", type: "source_select" },
+            { value: "mega", type: "source_select" },
+            { value: "r2", type: "source_select" }
         ];
 
 
-        if (step === "mirror") return [{ val: false, type: "mirror" }, { val: true, type: "mirror" }];
+        if (step === "mirror") return [{ value: false, type: "mirror" }, { value: true, type: "mirror" }];
 
         if (step === "dir") return [
-            { val: "confirm", type: "dir_confirm" }
+            { value: "confirm", type: "dir_confirm" }
         ];
 
         if (step === "upsync_ask") return [
-            { val: "download_only", type: "sync_mode" },
-            { val: "sync_backup", type: "sync_mode" }
+            { value: "download_only", type: "sync_mode" },
+            { value: "sync_backup", type: "sync_mode" }
         ];
 
         if (step === "security") {
             const opts = [
-                { val: "isolate", type: "sec_policy" },
-                { val: "purge", type: "sec_policy" },
-                { val: false, type: "sec_toggle" }
+                { value: "isolate", type: "sec_policy" },
+                { value: "purge", type: "sec_policy" },
+                { value: false, type: "sec_toggle" }
             ];
             // Enforce mandatory malware shield for Google Drive
             if (config.backup_provider === "gdrive") {
-                return opts.filter(o => o.val !== false);
+                return opts.filter(o => o.value !== false);
             }
             return opts;
         }
 
 
         if (step === "dest_cloud_select") return [
-            { val: "gdrive", type: "backup_provider" },
-            { val: "b2", type: "backup_provider" },
-            { val: "pcloud", type: "backup_provider" },
-            { val: "sftp", type: "backup_provider" },
-            { val: "onedrive", type: "backup_provider" },
-            { val: "dropbox", type: "backup_provider" },
-            { val: "mega", type: "backup_provider" },
-            { val: "r2", type: "backup_provider" }
+            { value: "gdrive", type: "backup_provider" },
+            { value: "b2", type: "backup_provider" },
+            { value: "pcloud", type: "backup_provider" },
+            { value: "sftp", type: "backup_provider" },
+            { value: "onedrive", type: "backup_provider" },
+            { value: "dropbox", type: "backup_provider" },
+            { value: "mega", type: "backup_provider" },
+            { value: "r2", type: "backup_provider" }
         ];
 
         if (step === "cloud_setup_choice") return [
-            { val: "guided", type: "exp_choice" },
-            { val: "direct", type: "exp_choice" }
+            { value: "guided", type: "exp_choice" },
+            { value: "direct", type: "exp_choice" }
         ];
 
-        if (step === "gdrive_intro") return [{ val: "guided", type: "gdrive_path" }, { val: "direct", type: "gdrive_path" }];
-        if (step === "b2_intro") return [{ val: "guided", type: "intro_path" }, { val: "direct", type: "intro_path" }];
-        if (step === "sftp_intro") return [{ val: "guided", type: "intro_path" }, { val: "direct", type: "intro_path" }];
-        if (step === "pcloud_intro") return [{ val: "guided", type: "intro_path" }, { val: "direct", type: "intro_path" }];
-        if (step === "onedrive_intro") return [{ val: "guided", type: "intro_path" }, { val: "direct", type: "intro_path" }];
-        if (step === "dropbox_intro") return [{ val: "guided", type: "intro_path" }, { val: "direct", type: "intro_path" }];
-        if (step === "mega_intro") return [{ val: "guided", type: "intro_path" }, { val: "direct", type: "intro_path" }];
-        if (step === "r2_intro") return [{ val: "guided", type: "intro_path" }, { val: "direct", type: "intro_path" }];
+        if (step === "gdrive_intro") return [{ value: "guided", type: "gdrive_path" }, { value: "direct", type: "gdrive_path" }];
+        if (step === "b2_intro") return [{ value: "guided", type: "intro_path" }, { value: "direct", type: "intro_path" }];
+        if (step === "sftp_intro") return [{ value: "guided", type: "intro_path" }, { value: "direct", type: "intro_path" }];
+        if (step === "pcloud_intro") return [{ value: "guided", type: "intro_path" }, { value: "direct", type: "intro_path" }];
+        if (step === "onedrive_intro") return [{ value: "guided", type: "intro_path" }, { value: "direct", type: "intro_path" }];
+        if (step === "dropbox_intro") return [{ value: "guided", type: "intro_path" }, { value: "direct", type: "intro_path" }];
+        if (step === "mega_intro") return [{ value: "guided", type: "intro_path" }, { value: "direct", type: "intro_path" }];
+        if (step === "r2_intro") return [{ value: "guided", type: "intro_path" }, { value: "direct", type: "intro_path" }];
 
-        if (step === "gdrive_guide_1") return [{ val: true, type: "guide_next" }];
-        if (step === "gdrive_guide_2") return [{ val: true, type: "guide_next" }];
-        if (step === "gdrive_guide_3") return [{ val: true, type: "guide_next" }];
-        if (step === "gdrive_guide_4") return [{ val: true, type: "guide_next" }];
-        if (step === "deploy") return [{ val: true, type: "deploy" }, { val: false, type: "deploy" }];
+        if (step === "gdrive_guide_1") return [{ value: true, type: "guide_next" }];
+        if (step === "gdrive_guide_2") return [{ value: true, type: "guide_next" }];
+        if (step === "gdrive_guide_3") return [{ value: true, type: "guide_next" }];
+        if (step === "gdrive_guide_4") return [{ value: true, type: "guide_next" }];
+
+        if (step === "b2_guide_1") return [{ value: true, type: "guide_next" }];
+        if (step === "b2_guide_2") return [{ value: true, type: "guide_next" }];
+        if (step === "r2_guide_1") return [{ value: true, type: "guide_next" }];
+        if (step === "r2_guide_2") return [{ value: true, type: "guide_next" }];
+        if (step === "sftp_guide_1") return [{ value: true, type: "guide_next" }];
+        if (step === "onedrive_guide_1") return [{ value: true, type: "guide_next" }];
+        if (step === "onedrive_guide_2") return [{ value: true, type: "guide_next" }];
+        if (step === "dropbox_guide_1") return [{ value: true, type: "guide_next" }];
+        if (step === "dropbox_guide_2") return [{ value: true, type: "guide_next" }];
+        if (step === "mega_guide_1") return [{ value: true, type: "guide_next" }];
+        if (step === "pcloud_guide_1") return [{ value: true, type: "guide_next" }];
+        if (step === "deploy") return [{ value: true, type: "deploy" }, { value: false, type: "deploy" }];
         return [];
     }, [step, isShortcutMissing]);
 
@@ -583,19 +608,19 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         if (!opt) return;
 
         if (opt.type === "deploy") {
-            if (opt.val) onComplete(config);
+            if (opt.value) onComplete(config);
             else onCancel();
             return;
         }
 
         if (opt.type === "exp_choice") {
-            setCloudExperience(opt.val as "guided" | "direct");
+            setCloudExperience(opt.value as "guided" | "direct");
             next();
             return;
         }
 
         if (opt.type === "gdrive_path") {
-            if (opt.val === "guided") setStep("gdrive_guide_1");
+            if (opt.value === "guided") setStep("gdrive_guide_1");
             else next();
             return;
         }
@@ -611,17 +636,17 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         }
 
         if (opt.type === "desktop_shortcut") {
-            if (opt.val === 1) {
+            if (opt.value === 1) {
                 bootstrapSystem(join(process.cwd(), "src/index.tsx"));
             }
-            updateConfig(prev => ({ ...prev, desktop_shortcut: opt.val as number }));
+            updateConfig(prev => ({ ...prev, desktop_shortcut: opt.value as number }));
             next();
             return;
         }
 
         if (opt.type === "jump") {
             setIsMenuMode(true);
-            setStep(opt.val as Step);
+            setStep(opt.value as Step);
             return;
         }
 
@@ -633,19 +658,19 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         }
 
         if (opt.type === "sec_policy") {
-            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.val as "purge" | "isolate" }));
+            updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.value as "purge" | "isolate" }));
             next();
         } else if (opt.type === "sec_toggle") {
-            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.val as boolean }));
+            updateConfig(prev => ({ ...prev, enable_malware_shield: opt.value as boolean }));
             next();
         } else if (opt.type === "source_select" || opt.type === "source_provider") {
-            pendingSourceProviderRef.current = opt.val as PortalProvider;
+            pendingSourceProviderRef.current = opt.value as PortalProvider;
             next();
         } else if (opt.type === "backup_provider") {
-            pendingBackupProviderRef.current = opt.val as PortalProvider;
+            pendingBackupProviderRef.current = opt.value as PortalProvider;
             next();
         } else if (opt.type === "sync_mode") {
-            const newVal = opt.val === "sync_backup";
+            const newVal = opt.value === "sync_backup";
             updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
             setSelectedIndex(0);
             if (newVal) {
@@ -660,7 +685,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 mirror: "strict_mirror"
             };
             const field = fieldMap[opt.type as string];
-            if (field) updateConfig(prev => ({ ...prev, [field]: opt.val }));
+            if (field) updateConfig(prev => ({ ...prev, [field]: opt.value }));
             next();
         }
     }, [config, mode, isMenuMode, next, updateConfig, onComplete, onCancel]);
@@ -766,28 +791,35 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                             { name: "Backup Settings", description: "Cloud Upsync & Malware Shield", value: "upsync_ask", key: "5" },
                             { name: "Security Policy", description: "Malware Handling", value: "security", key: "6" },
                             { name: "Deploy & Finish", description: "Finalize changes", value: "deploy", key: "0" }
-                        ].map((opt, i) => (
-                            <box
-                                key={i}
-                                onMouseOver={() => {
-                                    _onFocusChange("body");
-                                    setSelectedIndex(i);
-                                }}
-                                onMouseDown={() => confirmSelection({ type: "jump", val: opt.value })}
-                                paddingLeft={2}
-                                border
-                                borderStyle="single"
-                                borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
-                            >
-                                <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
-                                <Hotkey
-                                    keyLabel={opt.key}
-                                    label={opt.name}
-                                    isFocused={selectedIndex === i && focusArea === "body"}
-                                />
-                                <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
-                            </box>
-                        ))}
+                        ].map((opt, i) => {
+                            const isSelected = selectedIndex === i && focusArea === "body";
+                            return (
+                                <box
+                                    key={i}
+                                    onMouseOver={() => {
+                                        _onFocusChange("body");
+                                        setSelectedIndex(i);
+                                    }}
+                                    onMouseDown={() => confirmSelection({ type: "jump", value: opt.value })}
+                                    paddingLeft={2}
+                                    flexDirection="row"
+                                    alignItems="center"
+                                    border
+                                    borderStyle="single"
+                                    borderColor={isSelected ? colors.success : colors.dim + "33"}
+                                >
+                                    <box width={3}>
+                                        <text fg={isSelected ? colors.primary : colors.dim}>{isSelected ? "▶ " : "  "}</text>
+                                    </box>
+                                    <Hotkey
+                                        keyLabel={opt.key}
+                                        label={opt.name}
+                                        isFocused={isSelected}
+                                    />
+                                    <text fg={isSelected ? colors.fg : colors.dim}> - {String(opt.description)}</text>
+                                </box>
+                            );
+                        })}
                     </box>
                 </box>
             )}
@@ -796,7 +828,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 <box flexDirection="column" gap={1}>
                     <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 1: System Integration</text>
                     <text fg={isShortcutMissing ? colors.danger : colors.fg}>
-                        {isShortcutMissing ? "⚠️  Shortcut missing! Did you move it standard location?" : "Add Portal to Desktop Apps?"}
+                        {String(isShortcutMissing ? "⚠️  Shortcut missing! Did you move it standard location?" : "Add Portal to Desktop Apps?")}
                     </text>
                     <box flexDirection="column" gap={0} marginTop={1}>
                         {(isShortcutMissing ? [
@@ -819,13 +851,13 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                 borderStyle="single"
                                 borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
                             >
-                                <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                 <Hotkey
                                     keyLabel={opt.key}
                                     label={opt.name}
                                     isFocused={selectedIndex === i && focusArea === "body"}
                                 />
-                                <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                             </box>
                         ))}
                     </box>
@@ -888,10 +920,10 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         <text fg={copyparty_config_index === 3 ? colors.primary : colors.fg}>🛡️ Connection Method:</text>
                         <box flexDirection="row" gap={2}>
                             {[
-                                { name: "WebDAV", val: "webdav" },
-                                { name: "HTTP", val: "http" }
+                                { name: "WebDAV", value: "webdav" },
+                                { name: "HTTP", value: "http" }
                             ].map((m, i) => {
-                                const isSelected = (config.copyparty_method || "webdav") === m.val;
+                                const isSelected = (config.copyparty_method || "webdav") === m.value;
                                 const isFocused = copyparty_config_index === 3 && selectedIndex === i;
                                 return (
                                     <box
@@ -901,7 +933,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                             set_copyparty_config_index(3);
                                         }}
                                         onMouseDown={() => {
-                                            updateConfig(prev => ({ ...prev, copyparty_method: m.val as "webdav" | "http" }));
+                                            updateConfig(prev => ({ ...prev, copyparty_method: m.value as "webdav" | "http" }));
                                         }}
                                         border
                                         borderStyle="single"
@@ -909,7 +941,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                         paddingLeft={1}
                                         paddingRight={1}
                                     >
-                                        <text fg={isSelected ? colors.success : colors.fg}>{m.name}</text>
+                                        <text fg={isSelected ? colors.success : colors.fg}>{String(m.name)}</text>
                                     </box>
                                 );
                             })}
@@ -929,13 +961,13 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         alignItems="center"
                     >
                         <text fg={copyparty_config_index === 4 ? colors.success : colors.dim}>
-                            {isAuthLoading ? "🔄 CONNECTING..." : "[ VERIFY & CONNECT ]"}
+                            {String(isAuthLoading ? "🔄 CONNECTING..." : "[ VERIFY & CONNECT ]")}
                         </text>
                     </box>
 
                     {authStatus ? (
                         <box marginTop={1}>
-                            <text fg={authStatus.includes("✅") ? colors.success : colors.danger}>{authStatus}</text>
+                            <text fg={authStatus.includes("✅") ? colors.success : colors.danger}>{String(authStatus)}</text>
                         </box>
                     ) : null}
                 </box>
@@ -979,13 +1011,13 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                 alignItems="center"
                                 gap={1}
                             >
-                                <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                 <Hotkey
                                     keyLabel={opt.key}
                                     label={opt.name}
                                     isFocused={selectedIndex === i && focusArea === "body"}
                                 />
-                                <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                             </box>
                         ))}
                     </box>
@@ -1029,8 +1061,8 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                             borderColor={direct_entry_index === i ? colors.primary : colors.dim + "33"}
                                             padding={1}
                                         >
-                                            <text fg={colors.dim}>{f.icon}</text>
-                                            <text width={15} fg={colors.fg}>{f.label}:</text>
+                                            <text fg={colors.dim}>{String(f.icon)}</text>
+                                            <text width={15} fg={colors.fg}>{String(f.label)}:</text>
                                             <input
                                                 value={f.ref.current}
                                                 onChange={(val) => { f.ref.current = val; onUpdate?.(configRef.current); }}
@@ -1048,7 +1080,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                         }}
                                     >
                                         <box flexDirection="row" gap={1}>
-                                            <text fg={direct_entry_index === fields.length ? colors.primary : colors.dim}>{direct_entry_index === fields.length ? "▶ " : "  "}</text>
+                                            <text fg={direct_entry_index === fields.length ? colors.primary : colors.dim}>{String(direct_entry_index === fields.length ? "▶ " : "  ")}</text>
                                             <Hotkey keyLabel="ENTER" label="CONNECT & SAVE" isFocused={direct_entry_index === fields.length && focusArea === "body"} />
                                         </box>
                                     </box>
@@ -1065,7 +1097,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                     <text fg={colors.fg}>Choose how you want to configure your cloud provider:</text>
                     <box flexDirection="column" gap={0} marginTop={1}>
                         {getOptions().map((opt, i) => {
-                            const exp = opt.val === "guided"
+                            const exp = opt.value === "guided"
                                 ? { name: "Guided Walkthrough", desc: "Step-by-step assistant for beginners." }
                                 : { name: "Direct Entry", desc: "One screen for all settings. (Fast)" };
                             return (
@@ -1084,14 +1116,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     padding={1}
                                 >
                                     <box flexDirection="row" gap={1}>
-                                        <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                        <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                         <Hotkey
                                             keyLabel={(i + 1).toString()}
                                             label={exp.name}
                                             isFocused={selectedIndex === i && focusArea === "body"}
                                         />
                                     </box>
-                                    <text fg={colors.dim} marginLeft={4}>{exp.desc}</text>
+                                    <text fg={colors.dim} marginLeft={4}>{String(exp.desc)}</text>
                                 </box>
                             );
                         })}
@@ -1116,7 +1148,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                 mega: { name: "Mega.nz", icon: "\ueac2" },
                                 r2: { name: "Cloudflare R2", icon: "\ueac2" }
                             };
-                            const p = providers[opt.val as string];
+                            const p = providers[opt.value as string];
                             return (
                                 <box
                                     key={i}
@@ -1125,7 +1157,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                         setSelectedIndex(i);
                                     }}
                                     onMouseDown={() => {
-                                        pendingSourceProviderRef.current = opt.val as PortalProvider;
+                                        pendingSourceProviderRef.current = opt.value as PortalProvider;
                                         next();
                                     }}
                                     paddingLeft={2}
@@ -1136,11 +1168,11 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     alignItems="center"
                                     gap={1}
                                 >
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
-                                    <text fg={colors.primary}>{p?.icon || "\ueac2"}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
+                                    <text fg={colors.primary}>{String(p?.icon || "\ueac2")}</text>
                                     <Hotkey
                                         keyLabel={(i + 1).toString()}
-                                        label={p?.name || (opt.val as string)}
+                                        label={p?.name || (opt.value as string)}
                                         isFocused={selectedIndex === i && focusArea === "body"}
                                     />
                                 </box>
@@ -1158,7 +1190,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         </text>
                         <text fg={colors.fg}>☁️  Select your cloud storage provider:</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
-                            {(getOptions() as { val: PortalProvider, type: string }[]).map((opt, i) => {
+                            {(getOptions() as { value: PortalProvider, type: string }[]).map((opt, i) => {
                                 const providers: Record<string, { name: string, icon: string, desc: string }> = {
                                     gdrive: { name: "Google Drive", icon: "\ueac2", desc: "Safe Bet: 2yr safety net, easy auth. (Cons: Files scanned)" },
                                     b2: { name: "Backblaze Cloud", icon: "\ueac2", desc: "Pro Storage: $6/TB, reliable. (Cons: Complex setup)" },
@@ -1169,7 +1201,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     mega: { name: "Mega.nz", icon: "\ueac2", desc: "Specialized: 20GB Free. (Cons: Slower/Finicky)" },
                                     r2: { name: "Cloudflare R2", icon: "\ueac2", desc: "Specialized: Zero Egress. (Cons: Dev-centric)" }
                                 };
-                                const p = providers[opt.val];
+                                const p = providers[opt.value];
                                 return (
                                     <box
                                         key={i}
@@ -1186,16 +1218,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                         alignItems="center"
                                         gap={1}
                                     >
-                                        <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
-                                        <text fg={colors.primary}>{p?.icon || "\ueac2"}</text>
+                                        <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
+                                        <text fg={colors.primary}>{String(p?.icon || "\ueac2")}</text>
                                         <Hotkey
                                             keyLabel={(i + 1).toString()}
-                                            label={p?.name || opt.val}
+                                            label={p?.name || opt.value}
                                             isFocused={selectedIndex === i && focusArea === "body"}
                                         />
-                                        {p?.desc && (
-                                            <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {p.desc}</text>
-                                        )}
+                                        {p?.desc ? <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(p.desc)}</text> : null}
                                     </box>
                                 );
                             })}
@@ -1231,10 +1261,10 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     alignItems="center"
                                     gap={1}
                                 >
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
-                                    <text fg={colors.primary}>{opt.icon}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
+                                    <text fg={colors.primary}>{String(opt.icon)}</text>
                                     <Hotkey keyLabel={opt.key} label={opt.name} color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary} />
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
@@ -1270,14 +1300,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     borderStyle="single"
                                     borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
                                 >
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
 
                                         color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary}
                                     />
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
@@ -1309,14 +1339,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     borderStyle="single"
                                     borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
                                 >
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
 
                                         color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary}
                                     />
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
@@ -1349,20 +1379,64 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     borderStyle="single"
                                     borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
                                 >
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
 
                                         color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary}
                                     />
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
                         <box marginTop={1} padding={1} border borderStyle="single" borderColor={colors.dim}>
                             <text fg={colors.primary}>PRO: Cheapest reliable cloud ($6/TB). CON: No native image previews.</text>
-                            {selectedIndex === 0 && <text fg={colors.success} marginTop={1}>GUIDE: Go to Backblaze.com -{">"} App Keys -{">"} Add a New Application Key.</text>}
+                            {selectedIndex === 0 && <text fg={colors.success} marginTop={1}>GUIDE: Go to Backblaze.com {"->"} App Keys {"->"} Add a New Application Key.</text>}
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "b2_guide_1" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>B2 Guide: Key Management</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>1. Log in to your Backblaze account.</text>
+                            <text fg={colors.fg}>2. Go to 'App Keys' in the sidebar.</text>
+                            <text fg={colors.fg}>3. Click 'Add a New Application Key'.</text>
+                        </box>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
+                            <text fg={colors.fg}> - I'm in the Key Management screen</text>
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "b2_guide_2" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>B2 Guide: Creating the Key</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>1. Name: 'schem-sync-portal'.</text>
+                            <text fg={colors.fg}>2. Permissions: 'Read and Write'.</text>
+                            <text fg={colors.fg}>3. COPY your KeyID and ApplicationKey!</text>
+                        </box>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="DONE" color={colors.success} />
+                            <text fg={colors.fg}> - I have copied both keys</text>
                         </box>
                     </box>
                 )
@@ -1390,20 +1464,42 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     borderStyle="single"
                                     borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
                                 >
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
 
                                         color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary}
                                     />
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
                         <box marginTop={1} padding={1} border borderStyle="single" borderColor={colors.dim}>
                             <text fg={colors.primary}>PRO: Total Control, $0 fees. CON: You manage uptime.</text>
                             {selectedIndex === 0 && <text fg={colors.success} marginTop={1}>guide: Ensure SSH access is enabled on your target and you know the port (default 22).</text>}
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "sftp_guide_1" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>SFTP Guide: Connection Details</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>1. Ensure SSH is enabled on the remote server.</text>
+                            <text fg={colors.fg}>2. Standard port is 22. Note down if different.</text>
+                            <text fg={colors.fg}>3. Username and Password/Key required.</text>
+                        </box>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="READY" color={colors.success} />
+                            <text fg={colors.fg}> - I have connection details ready</text>
                         </box>
                     </box>
                 )
@@ -1431,14 +1527,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     borderStyle="single"
                                     borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
                                 >
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
 
                                         color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary}
                                     />
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
@@ -1471,14 +1567,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     borderStyle="single"
                                     borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
                                 >
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
 
                                         color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary}
                                     />
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
@@ -1511,14 +1607,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     borderStyle="single"
                                     borderColor={selectedIndex === i ? colors.success : colors.dim + "33"}
                                 >
-                                    <text fg={selectedIndex === i ? colors.primary : colors.dim}>{selectedIndex === i ? "▶ " : "  "}</text>
+                                    <text fg={selectedIndex === i ? colors.primary : colors.dim}>{String(selectedIndex === i ? "▶ " : "  ")}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
 
                                         color={selectedIndex === i ? colors.success : colors.primary}
                                     />
-                                    <text fg={selectedIndex === i ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
@@ -1551,14 +1647,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     borderStyle="single"
                                     borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
                                 >
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
 
                                         color={selectedIndex === i && focusArea === "body" ? colors.success : colors.primary}
                                     />
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
@@ -1592,14 +1688,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     borderStyle="single"
                                     borderColor={selectedIndex === i ? colors.success : colors.dim + "33"}
                                 >
-                                    <text fg={selectedIndex === i ? colors.primary : colors.dim}>{selectedIndex === i ? "▶ " : "  "}</text>
+                                    <text fg={selectedIndex === i ? colors.primary : colors.dim}>{String(selectedIndex === i ? "▶ " : "  ")}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
 
                                         color={selectedIndex === i ? colors.success : colors.primary}
                                     />
-                                    <text fg={selectedIndex === i ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
@@ -1753,7 +1849,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>Google Drive: Handshake</text>
                         <text fg={colors.fg}>Connecting to project with ID: {clientIdRef.current.slice(0, 10)}...</text>
                         <box marginTop={1} flexDirection="column" alignItems="center">
-                            <text fg={colors.success} attributes={TextAttributes.BOLD}>{authStatus || "READY TO AUTHORIZE"}</text>
+                            <text fg={colors.success} attributes={TextAttributes.BOLD}>{String(authStatus || "READY TO AUTHORIZE")}</text>
                             {!authStatus && (
                                 <box border padding={1} onMouseOver={() => _onFocusChange("body")} onMouseDown={() => handleGdriveAuth(clientIdRef.current, clientSecretRef.current)} borderColor={colors.success}>
                                     <text fg={colors.fg}> [ CLICK HERE OR HIT ENTER TO AUTHORIZE ] </text>
@@ -1913,7 +2009,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         <text fg={colors.fg}>This will open a browser to authorize Microsoft OneDrive.</text>
 
                         <box marginTop={1} flexDirection="column" alignItems="center">
-                            <text fg={colors.success} attributes={TextAttributes.BOLD}>{authStatus || "READY TO AUTHORIZE MICROSOFT"}</text>
+                            <text fg={colors.success} attributes={TextAttributes.BOLD}>{String(authStatus || "READY TO AUTHORIZE MICROSOFT")}</text>
                             {!authStatus && (
                                 <box border padding={1} onMouseOver={() => _onFocusChange("body")} onMouseDown={() => startGenericAuth("onedrive")} borderColor={colors.success}>
                                     <text fg={colors.fg}> [ CLICK HERE OR HIT ENTER TO AUTHORIZE ] </text>
@@ -1968,7 +2064,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         <text fg={colors.fg}>This will open a browser to authorize Dropbox.</text>
 
                         <box marginTop={1} flexDirection="column" alignItems="center">
-                            <text fg={colors.success} attributes={TextAttributes.BOLD}>{authStatus || "READY TO AUTHORIZE DROPBOX"}</text>
+                            <text fg={colors.success} attributes={TextAttributes.BOLD}>{String(authStatus || "READY TO AUTHORIZE DROPBOX")}</text>
                             {!authStatus && (
                                 <box border padding={1} onMouseOver={() => _onFocusChange("body")} onMouseDown={() => startGenericAuth("dropbox")} borderColor={colors.success}>
                                     <text fg={colors.fg}> [ CLICK HERE OR HIT ENTER TO AUTHORIZE ] </text>
@@ -2144,13 +2240,13 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     flexDirection="row"
                                     paddingLeft={selectedIndex === i && focusArea === "body" ? 1 : 0}
                                 >
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{selectedIndex === i && focusArea === "body" ? "▶ " : "  "}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
                                         keyLabel={opt.key}
                                         label={opt.name}
                                         isFocused={selectedIndex === i && focusArea === "body"}
                                     />
-                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {opt.description}</text>
+                                    <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                                 </box>
                             ))}
                         </box>
@@ -2158,12 +2254,10 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 )
             }
             {
-                config.debug_mode && (
-                    <box marginTop={1} border borderStyle="single" borderColor={colors.border} padding={1} flexDirection="row">
-                        <text attributes={TextAttributes.DIM} fg={colors.dim}>PROGRESS: </text>
-                        <text attributes={TextAttributes.DIM} fg={colors.dim}>{step.toUpperCase()}</text>
-                    </box>
-                )
+                config.debug_mode ? <box marginTop={1} border borderStyle="single" borderColor={colors.border} padding={1} flexDirection="row">
+                    <text attributes={TextAttributes.DIM} fg={colors.dim}>PROGRESS: </text>
+                    <text attributes={TextAttributes.DIM} fg={colors.dim}>{String(step).toUpperCase()}</text>
+                </box> : null
             }
         </box>
     );

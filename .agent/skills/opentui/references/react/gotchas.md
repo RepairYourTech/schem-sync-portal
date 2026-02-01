@@ -363,6 +363,42 @@ Check event handler names:
 <box onMouseUp={() => {}}>Click</box>
 ```
 
+## Render Issues
+
+### Leaked Renders & Numeric Logic
+
+**Symptom**: Application crashes with `TextNodeRenderable` error or "Text must be created inside of a text node".
+
+This happens when a logical expression in JSX evaluates to `0` (zero), which OpenTUI's reconciler attempts to render as a raw numeric child rather than a component or null.
+
+```tsx
+// ❌ WRONG - Crashes if count is 0
+<box>
+  {count && <Status />}
+</box>
+
+// ✅ CORRECT - Use ternary or double-negation
+<box>
+  {count > 0 ? <Status /> : null}
+  {!!(count) && <Status />}
+</box>
+```
+
+### Numeric Children as Text
+
+**Symptom**: Error about `number` not being a valid child of `<text>`.
+
+OpenTUI's `<text>` component expects string children. Passing numbers directly can cause undefined behavior or crashes in some renderers.
+
+```tsx
+// ❌ WRONG
+<text>Score: {score}</text>
+
+// ✅ CORRECT
+<text>Score: {String(score)}</text>
+<text>Score: {`${score}`}</text>
+```
+
 ## Runtime Issues
 
 ### Use Bun, Not Node

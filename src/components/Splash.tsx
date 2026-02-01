@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/react */
 import React from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
@@ -59,18 +60,18 @@ export function Splash() {
                 {showFull ? (
                     <box flexDirection="row" padding={1} gap={2}>
                         <text fg="#00ffff" wrapMode="none" overflow="hidden">
-                            {schematic.join("\n")}
+                            {String(schematic.join("\n"))}
                         </text>
                         <box flexDirection="column" justifyContent="center">
                             <text fg="#00ffff" wrapMode="none" overflow="hidden">
-                                {logo.join("\n")}
+                                {String(logo.join("\n"))}
                             </text>
                         </box>
                     </box>
                 ) : showSchem ? (
                     <box padding={1}>
                         <text fg="#00ffff" wrapMode="none" overflow="hidden">
-                            {schematic.join("\n")}
+                            {String(schematic.join("\n"))}
                         </text>
                     </box>
                 ) : (

@@ -3,7 +3,7 @@ import { join } from "path";
 import { Env } from "./env";
 
 export type LogLevel = "NORMAL" | "DEBUG" | "VERBOSE";
-export type LogContext = "AUTH" | "SYNC" | "UI" | "DEPLOY" | "CONFIG" | "SYSTEM";
+export type LogContext = "AUTH" | "SYNC" | "UI" | "DEPLOY" | "CONFIG" | "SYSTEM" | "SHIELD";
 
 interface LogEntry {
     timestamp: string;
@@ -32,7 +32,8 @@ export class Logger {
         UI: "OK",
         DEPLOY: "OK",
         CONFIG: "OK",
-        SYSTEM: "OK"
+        SYSTEM: "OK",
+        SHIELD: "OK"
     };
 
     static setLevel(level: LogLevel) {
@@ -99,6 +100,16 @@ export class Logger {
             return content.split("\n").filter((l: string) => l.trim() !== "").slice(-lines);
         } catch {
             return ["Failed to read logs."];
+        }
+    }
+
+    static getAllLogsContent(filename: string = "system.log"): string {
+        try {
+            const logPath = Env.getLogPath(filename);
+            if (!existsSync(logPath)) return "";
+            return readFileSync(logPath, "utf-8");
+        } catch {
+            return "";
         }
     }
 

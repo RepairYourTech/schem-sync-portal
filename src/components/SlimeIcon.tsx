@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/react */
 import React from "react";
 import { TextAttributes } from "@opentui/core";
 
@@ -21,7 +22,7 @@ export function SlimeIcon({ version = 2 }: { version?: 2 | 3 }) {
             alignItems="center"
             justifyContent="center"
         >
-            <text fg="#00ff00" attributes={TextAttributes.BOLD}>{glyph}</text>
+            <text fg="#00ff00" attributes={TextAttributes.BOLD}>{String(glyph)}</text>
         </box>
     );
 }

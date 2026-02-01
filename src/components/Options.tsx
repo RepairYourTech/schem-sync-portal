@@ -1,3 +1,4 @@
+/** @jsxImportSource @opentui/react */
 import React, { useState, useCallback, useEffect } from "react";
 import { useKeyboard } from "@opentui/react";
 import { useTheme } from "../lib/theme";
@@ -7,11 +8,13 @@ import { type PortalConfig } from "../lib/config";
 import { TextAttributes } from "@opentui/core";
 
 import { Logger } from "../lib/logger";
+import { Clipboard } from "../lib/clipboard";
 
 interface OptionsProps {
     onDoctor: () => void;
     onSetup: () => void;
     onReset: () => void;
+    onResetShield: () => void;
     onForensic: () => void;
     onBack: () => void;
     focusArea: "body" | "footer";
@@ -21,7 +24,7 @@ interface OptionsProps {
     onUpdateConfig: (config: PortalConfig) => void;
 }
 
-export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onBack, focusArea, onFocusChange, tabTransition, config, onUpdateConfig }: OptionsProps) => {
+export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, onForensic, onBack, focusArea, onFocusChange, tabTransition, config, onUpdateConfig }: OptionsProps) => {
     const { colors } = useTheme();
     const [subView, setSubView] = useState<"menu" | "about" | "logs">("menu");
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -29,12 +32,13 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
     const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
+    const [copyStatus, setCopyStatus] = useState("");
 
     const options = [
-        { label: "System Diagnostics ([1])", action: onDoctor, description: "Verify dependencies and system health.", key: "1" },
-        { label: "Edit [S]ettings", action: onSetup, description: "Jump directly to specific settings without a full restart.", key: "2" },
+        { label: "SYSTEM DIAGNOSTICS", action: onDoctor, description: "Verify dependencies and system health.", key: "1" },
+        { label: "EDIT SETUP", action: onSetup, description: "Jump directly to specific settings without a full restart.", key: "2" },
         {
-            label: `Debug Mode: [${config.debug_mode ? "ON" : "OFF"}] ([3])`,
+            label: `DEBUG MODE: [${config.debug_mode ? "ON" : "OFF"}]`,
             action: () => {
                 onUpdateConfig({ ...config, debug_mode: !config.debug_mode });
             },
@@ -42,7 +46,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
             key: "3"
         },
         {
-            label: `Log Level: [${config.log_level || "NORMAL"}] ([4])`,
+            label: `LOG LEVEL: [${config.log_level || "NORMAL"}]`,
             action: () => {
                 const levels: ("NORMAL" | "DEBUG" | "VERBOSE")[] = ["NORMAL", "DEBUG", "VERBOSE"];
                 const current = config.log_level || "NORMAL";
@@ -52,10 +56,10 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
             description: "Cycle logging verbosity (NORMAL, DEBUG, VERBOSE).",
             key: "4"
         },
-        { label: "Log [V]iewer", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "5" },
-        { label: "Force Forensic [S]weep", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "6" },
-        { label: "Reset [C]onfiguration", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "7" },
-        { label: "[B]ack", action: onBack, description: "Return to the previous screen.", key: "b" }
+        { label: "LOG VIEWER", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "5" },
+        { label: "FORENSIC SWEEP", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "6" },
+        { label: "RESET SHIELD", action: onResetShield, description: "Clear identified threats & revert to defaults.", key: "7" },
+        { label: "RESET CONFIGURATION", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "8" }
     ];
 
     const handleUpdate = useCallback(async () => {
@@ -73,18 +77,37 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
                 setLogSelectedIndex(0);
             } else {
                 setSelectedIndex(options.length - 1);
-                setLogSelectedIndex(1); // Refresh (0) or Clear (1)? Let's say Clear.
+                setLogSelectedIndex(1); // Refresh (0), Copy (1), or Clear (2)? Let's say Copy.
             }
         }
     }, [focusArea, tabTransition, subView]);
 
+    const handleClearLogs = () => {
+        Logger.clearLogs();
+        setLogs([]);
+    };
+
+    const handleCopyLogs = async () => {
+        const content = Logger.getAllLogsContent();
+        if (!content) {
+            setCopyStatus("No logs to copy");
+            setTimeout(() => setCopyStatus(""), 2000);
+            return;
+        }
+
+        setCopyStatus("Copying...");
+        const success = await Clipboard.copy(content);
+        if (success) {
+            setCopyStatus("✅ Logs copied to clipboard");
+        } else {
+            const path = Clipboard.fallbackToFile(content);
+            setCopyStatus(`📋 Saved to ${path.split("/").pop()}`);
+        }
+        setTimeout(() => setCopyStatus(""), 4000);
+    };
+
     const handleRefreshLogs = useCallback(() => {
         setLogs(Logger.getRecentLogs(25));
-    }, []);
-
-    const handleClearLogs = useCallback(() => {
-        Logger.clearLogs();
-        setLogs(["Logs cleared."]);
     }, []);
 
     useKeyboard((e) => {
@@ -110,22 +133,39 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
             }
 
             if (subView === "menu" && focusArea === "body") {
-                if (e.name === "1") setSelectedIndex(0);
-                else if (e.name === "2") setSelectedIndex(1);
-                else if (e.name === "3") setSelectedIndex(2);
-                else if (e.name === "4") setSelectedIndex(3);
-                else if (e.name === "5") setSelectedIndex(4);
-                else if (e.name === "6") setSelectedIndex(5);
-                else if (e.name === "7") setSelectedIndex(6);
-                else if (e.name === "b") onBack();
-                else if (e.name === "a") setSubView("about");
-                else if (e.name === "up") {
-                    setSelectedIndex(prev => (prev > 0 ? prev - 1 : options.length - 1));
+                // Hotkeys trigger actions IMMEDIATELY
+                const hotkeyMap: Record<string, number> = {
+                    "1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "6": 5, "7": 6
+                };
+
+                if (hotkeyMap[e.name] !== undefined) {
+                    const idx = hotkeyMap[e.name];
+                    setSelectedIndex(idx);
+                    options[idx].action();
+                    return;
+                }
+
+                if (e.name === "b") {
+                    onBack();
+                    return;
+                }
+
+                if (e.name === "a") {
+                    setSubView("about");
+                    return;
+                }
+
+                if (e.name === "up") {
+                    setSelectedIndex(prev => (prev > 0 ? prev - 1 : options.length));
                 } else if (e.name === "down") {
-                    setSelectedIndex(prev => (prev < options.length - 1 ? prev + 1 : 0));
+                    setSelectedIndex(prev => (prev < options.length ? prev + 1 : 0));
                 } else if (e.name === "return") {
-                    const selectedOpt = options[selectedIndex];
-                    if (selectedOpt) selectedOpt.action();
+                    if (selectedIndex === options.length) {
+                        onBack();
+                    } else {
+                        const selectedOpt = options[selectedIndex];
+                        if (selectedOpt) selectedOpt.action();
+                    }
                 } else if (e.name === "escape") {
                     // index.tsx handles the 2-step ESC logic usually, 
                     // but we'll let this be a shortcut to focusing the footer.
@@ -133,16 +173,22 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
                 }
             } else if (subView === "logs" && focusArea === "body") {
                 if (e.name === "left") {
-                    setLogSelectedIndex(0);
+                    setLogSelectedIndex(prev => (prev > 0 ? prev - 1 : 2));
                 } else if (e.name === "right") {
-                    setLogSelectedIndex(1);
+                    setLogSelectedIndex(prev => (prev < 2 ? prev + 1 : 0));
                 } else if (e.name === "r") {
                     setLogSelectedIndex(0);
-                } else if (e.name === "c") {
+                    handleRefreshLogs();
+                } else if (e.name === "y") {
                     setLogSelectedIndex(1);
+                    handleCopyLogs();
+                } else if (e.name === "c") {
+                    setLogSelectedIndex(2);
+                    handleClearLogs();
                 } else if (e.name === "return") {
                     if (logSelectedIndex === 0) handleRefreshLogs();
-                    else if (logSelectedIndex === 1) handleClearLogs();
+                    else if (logSelectedIndex === 1) handleCopyLogs();
+                    else if (logSelectedIndex === 2) handleClearLogs();
                 } else if (e.name === "escape" || e.name === "backspace") {
                     setSubView("menu");
                 }
@@ -164,7 +210,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
             <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ SYSTEM LOGS ]" gap={1}>
                 <box flexDirection="column" gap={0} marginBottom={1} height={12}>
                     {logs.length === 0 ? <text fg={colors.dim}>Empty.</text> :
-                        logs.map((L, i) => <text key={i} fg={L.includes("ERROR") ? colors.danger : colors.fg}>{L}</text>)}
+                        logs.map((L, i) => <text key={i} fg={L.includes("ERROR") ? colors.danger : colors.fg}>{String(L)}</text>)}
                 </box>
 
                 <box border borderStyle="single" borderColor={colors.border} padding={1} marginTop="auto" flexDirection="row" gap={2}>
@@ -174,28 +220,51 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
                             setLogSelectedIndex(0);
                         }}
                         onMouseDown={handleRefreshLogs}
-                        border={logSelectedIndex === 0 && focusArea === "body"}
+                        border={!!(logSelectedIndex === 0 && focusArea === "body")}
                         borderStyle="single"
-                        borderColor={logSelectedIndex === 0 && focusArea === "body" ? colors.success : "transparent"}
+                        borderColor={(logSelectedIndex === 0 && focusArea === "body") ? colors.success : "transparent"}
                         paddingLeft={1}
                         paddingRight={1}
                     >
-                        <Hotkey keyLabel="r" label="Refresh" isFocused={logSelectedIndex === 0 && focusArea === "body"} />
+                        <Hotkey keyLabel="r" label="Refresh" isFocused={!!(logSelectedIndex === 0 && focusArea === "body")} />
                     </box>
                     <box
                         onMouseOver={() => {
                             onFocusChange("body");
                             setLogSelectedIndex(1);
                         }}
-                        onMouseDown={handleClearLogs}
-                        border={logSelectedIndex === 1 && focusArea === "body"}
+                        onMouseDown={handleCopyLogs}
+                        border={!!(logSelectedIndex === 1 && focusArea === "body")}
                         borderStyle="single"
-                        borderColor={logSelectedIndex === 1 && focusArea === "body" ? colors.success : "transparent"}
+                        borderColor={(logSelectedIndex === 1 && focusArea === "body") ? colors.success : "transparent"}
                         paddingLeft={1}
                         paddingRight={1}
                     >
-                        <Hotkey keyLabel="c" label="Clear Logs" isFocused={logSelectedIndex === 1 && focusArea === "body"} />
+                        <Hotkey
+                            keyLabel="y"
+                            label="Copy Logs"
+                            isFocused={!!(logSelectedIndex === 1 && focusArea === "body")}
+                        />
                     </box>
+                    <box
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setLogSelectedIndex(2);
+                        }}
+                        onMouseDown={handleClearLogs}
+                        border={!!(logSelectedIndex === 2 && focusArea === "body")}
+                        borderStyle="single"
+                        borderColor={(logSelectedIndex === 2 && focusArea === "body") ? colors.success : "transparent"}
+                        paddingLeft={1}
+                        paddingRight={1}
+                    >
+                        <Hotkey keyLabel="c" label="Clear Logs" isFocused={!!(logSelectedIndex === 2 && focusArea === "body")} />
+                    </box>
+                    {copyStatus ? (
+                        <box marginLeft={2} alignItems="center">
+                            <text fg={colors.primary}>{String(copyStatus)}</text>
+                        </box>
+                    ) : null}
                 </box>
             </box>
         );
@@ -243,7 +312,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
                     {updateStatus ? (
                         <box marginTop={0}>
                             <text fg={updateStatus.success ? colors.success : colors.danger}>
-                                {updateStatus.success ? "✅ " : "❌ "}{updateStatus.message}
+                                {String(updateStatus.success ? "✅ " : "❌ ")}{String(updateStatus.message)}
                             </text>
                         </box>
                     ) : null}
@@ -266,9 +335,9 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
                             }}
                             onMouseDown={() => opt.action()}
                             paddingLeft={2}
-                            border
+                            border={isSelected}
                             borderStyle="single"
-                            borderColor={isSelected ? colors.success : colors.dim + "33"}
+                            borderColor={isSelected ? colors.success : "transparent"}
                         >
                             <Hotkey
                                 keyLabel={opt.key}
@@ -279,8 +348,26 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onForensic, onB
                     );
                 })}
             </box>
-            <box marginTop="auto" padding={1} border borderStyle="single" borderColor={colors.border}>
-                <text fg={focusArea === "body" ? colors.fg : colors.dim}>{options[selectedIndex]?.description || ""}</text>
+            <box marginTop="auto" flexDirection="column" gap={1}>
+                <box padding={1} border borderStyle="single" borderColor={colors.border}>
+                    <text fg={focusArea === "body" ? colors.fg : colors.dim}>{String(options[selectedIndex]?.description || "")}</text>
+                </box>
+
+                <box
+                    onMouseOver={() => {
+                        onFocusChange("body");
+                        setSelectedIndex(options.length); // Special index for Back
+                    }}
+                    onMouseDown={onBack}
+                    paddingLeft={2}
+                    border={focusArea === "body" && selectedIndex === options.length}
+                    borderStyle="single"
+                    borderColor={(focusArea === "body" && selectedIndex === options.length) ? colors.success : "transparent"}
+                    height={3}
+                    alignItems="center"
+                >
+                    <Hotkey keyLabel="b" label="BACK TO DASHBOARD" isFocused={focusArea === "body" && selectedIndex === options.length} />
+                </box>
             </box>
 
         </box>

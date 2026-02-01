@@ -21,27 +21,48 @@ describe("Malware Shield (Cleanup)", () => {
         __setArchiveEngine = (cleanup as unknown as { __setArchiveEngine: typeof __setArchiveEngine }).__setArchiveEngine;
         __setSpawnSync = (cleanup as unknown as { __setSpawnSync: typeof __setSpawnSync }).__setSpawnSync;
 
-        __setSpawnSync((options: any) => {
+        // Use a generic function type that is compatible with all spawnSync overloads
+        __setSpawnSync(((options: unknown) => {
             const args = Array.isArray(options) ? options : (options as { cmd: string[] }).cmd;
             const cmd = args.join(" ");
             console.log(`[MOCK _spawnSync] ${cmd}`);
-            if (cmd.includes(" l ") || cmd.includes(" v ")) {
-                if (cmd.includes("malware")) {
-                    return { stdout: Buffer.from("lpk.dll\ncrack.exe\nnotes.txt"), success: true };
-                }
-                if (cmd.includes("safe") || cmd.includes("bios")) {
-                    return { stdout: Buffer.from("flash_utility.exe\nbios.bin\nmanual.pdf"), success: true };
-                }
-            }
-            return {
+
+            const result = {
                 stdout: Buffer.from(""),
                 stderr: Buffer.from(""),
                 success: true,
                 exitCode: 0,
                 pid: 1234,
-                resourceUsage: {} as any
-            } as any;
-        });
+                resourceUsage: {
+                    userCPUTime: 0,
+                    systemCPUTime: 0,
+                    maxRSS: 0,
+                    sharedMemorySize: 0,
+                    unsharedDataSize: 0,
+                    unsharedStackSize: 0,
+                    minorPageFaults: 0,
+                    majorPageFaults: 0,
+                    swaps: 0,
+                    inBlockOperations: 0,
+                    outBlockOperations: 0,
+                    msgsSent: 0,
+                    msgsRcvd: 0,
+                    signalsRcvd: 0,
+                    voluntaryContextSwitches: 0,
+                    involuntaryContextSwitches: 0
+                }
+            };
+
+            if (cmd.includes(" l ") || cmd.includes(" v ")) {
+                if (cmd.includes("malware")) {
+                    result.stdout = Buffer.from("lpk.dll\ncrack.exe\nnotes.txt");
+                } else if (cmd.includes("safe") || cmd.includes("bios")) {
+                    result.stdout = Buffer.from("flash_utility.exe\nbios.bin\nmanual.pdf");
+                }
+            }
+
+            return result as unknown;
+        }) as unknown as typeof import("bun").spawnSync);
 
         if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });
         __setArchiveEngine({ type: "7z", bin: "7z" });

@@ -33,6 +33,7 @@ export default [
             "react/prop-types": "off", // Using TypeScript instead
             "react/no-unknown-property": "off", // OpenTUI uses custom props like flexDirection, gap, etc.
             "react/no-unescaped-entities": "off", // Common in TUI text content
+            "react/jsx-no-leaked-render": ["error", { "validStrategies": ["ternary", "coerce"] }],
             "@typescript-eslint/no-explicit-any": "warn", // Useful but common in this codebase
             "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
             "@typescript-eslint/no-require-imports": "warn",
