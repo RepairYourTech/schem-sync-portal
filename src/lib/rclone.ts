@@ -19,6 +19,12 @@ function getRcloneCmd(): string[] {
 export function createRcloneRemote(name: string, type: string, options: Record<string, string>) {
     try {
         const rcloneConfig = Env.getRcloneConfigPath();
+
+        // [ROBUST] Always attempt to remove the remote first to prevent duplicates.
+        // Rclone 'config create' appends duplicates instead of overwriting, which 
+        // causes the portal to use stale credentials.
+        removePortalConfig([name]);
+
         const args = ["--config", rcloneConfig, "config", "create", name, type];
         for (const [key, value] of Object.entries(options)) {
             // Skip empty values to avoid confusing rclone
@@ -35,13 +41,14 @@ export function createRcloneRemote(name: string, type: string, options: Record<s
 
         // Use Bun.spawnSync for consistency and performance
         const result = spawnSync([rcloneCmd[0] as string, ...finalArgs], {
-            stdout: "ignore",
-            stderr: "ignore",
+            stdout: "pipe",
+            stderr: "pipe",
             env: process.env as Record<string, string>
         });
 
         if (!result.success) {
-            throw new Error(`rclone config failed with exit code ${result.exitCode}`);
+            const stderr = result.stderr?.toString() || "Unknown error";
+            throw new Error(`rclone config failed: ${stderr}`);
         }
 
         Logger.info("CONFIG", `Successfully created rclone remote: ${name}`);
@@ -80,13 +87,20 @@ export function removePortalConfig(remoteNames: string[]) {
             const args = [...rcloneCmd.slice(1), "--config", rcloneConfig, "config", "delete", name];
 
             const result = spawnSync([rcloneCmd[0] as string, ...args], {
-                stdout: "ignore",
-                stderr: "ignore",
+                stdout: "pipe", // Capture to log errors
+                stderr: "pipe",
                 env: process.env as Record<string, string>
             });
 
             if (!result.success) {
-                Logger.warn("CONFIG", `Failed to delete remote ${name} (possibly already gone)`);
+                const stderr = result.stderr?.toString() || "";
+                // Only warn if it's not a "not found" error, or if we are debug mode 
+                // (though rclone delete is usually silent on success)
+                if (stderr.includes("section not found")) {
+                    Logger.debug("CONFIG", `Remote ${name} not found (already clean)`);
+                } else {
+                    Logger.warn("CONFIG", `Failed to delete remote ${name}: ${stderr}`);
+                }
             }
         }
         Logger.info("CONFIG", `Finished removing portal remotes: ${remoteNames.join(", ")}`);

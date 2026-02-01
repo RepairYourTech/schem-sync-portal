@@ -35,7 +35,10 @@ export default [
             "react/no-unescaped-entities": "off", // Common in TUI text content
             "react/jsx-no-leaked-render": ["error", { "validStrategies": ["ternary", "coerce"] }],
             "@typescript-eslint/no-explicit-any": "warn", // Useful but common in this codebase
-            "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+            "@typescript-eslint/no-unused-vars": ["warn", {
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_"
+            }],
             "@typescript-eslint/no-require-imports": "warn",
             "tui-internal/no-raw-text": "error",
         },

@@ -26,7 +26,7 @@ describe("Border Pattern Compliance", () => {
         it("should NOT use semi-transparent border hack", () => {
             // Anti-pattern found in Options.tsx:272 (was fixed)
             // Anti-pattern found in panels (was fixed)
-            const antiPattern = 'colors.dim + "33"';
+            const _antiPattern = 'colors.dim + "33"';
             const correctPattern = "transparent";
 
             expect(correctPattern).not.toContain("+");
@@ -262,7 +262,7 @@ describe("Hotkey Component Patterns", () => {
 
     it("should use primary color for regular keys when unfocused", () => {
         const isFocused = false;
-        const keyLabel = "s";
+        const _keyLabel = "s";
         const expectedColor = "#00ffff"; // colors.primary
 
         expect(isFocused).toBe(false);
@@ -271,7 +271,7 @@ describe("Hotkey Component Patterns", () => {
 
     it("should use success color for regular keys when focused", () => {
         const isFocused = true;
-        const keyLabel = "s";
+        const _keyLabel = "s";
         const expectedColor = "#00ff00"; // colors.success
 
         expect(isFocused).toBe(true);

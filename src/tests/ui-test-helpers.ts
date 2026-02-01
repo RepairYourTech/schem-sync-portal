@@ -292,10 +292,10 @@ export function generateUITestSuite(componentName: string) {
  * Note: This is a simplified mock. In production, use
  * @opentui/react/test-utils or @testing-library for proper rendering.
  */
-export function mockRender(component: React.ReactElement) {
+export function mockRender(_component: React.ReactElement) {
     return {
         container: null,
-        rerender: (newComponent: React.ReactElement) => {
+        rerender: (_newComponent: React.ReactElement) => {
             // Mock rerender implementation
         },
         unmount: () => {

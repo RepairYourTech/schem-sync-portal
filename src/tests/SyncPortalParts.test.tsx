@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/react */
 import { describe, it, expect } from "bun:test";
 import React from "react";
-import { DownsyncPanel, LocalShieldPanel, UpsyncPanel, type ThemeColors } from "../components/SyncPortalParts";
+import { DownsyncPanel, LocalShieldPanel, UpsyncPanel } from "../components/SyncPortalParts";
 import type { SyncProgress } from "../lib/sync";
 
 // Mock colors
@@ -159,7 +159,7 @@ describe("Panel Sub-Focus Interaction", () => {
                     transfers={4}
                     isFocused={true}
                     subFocusIndex={index}
-                    onSubFocusIndexChange={() => {}}
+                    onSubFocusIndexChange={() => { }}
                 />
             );
 
@@ -179,7 +179,7 @@ describe("Panel Sub-Focus Interaction", () => {
                 transfers={4}
                 isFocused={true}
                 subFocusIndex={0}
-                onSubFocusIndexChange={() => {}}
+                onSubFocusIndexChange={() => { }}
             />
         );
 
@@ -196,7 +196,7 @@ describe("Panel Border Pattern Compliance", () => {
             { name: "UpsyncPanel", component: UpsyncPanel },
         ];
 
-        panels.forEach(({ name, component: Component }) => {
+        panels.forEach(({ name: _name, component: _Component }) => {
             // All panels should use the same border pattern
             const expectedPattern = {
                 borderStyle: "single",
@@ -211,7 +211,7 @@ describe("Panel Border Pattern Compliance", () => {
 
     it("should NOT use semi-transparent border hacks", () => {
         // Document the fix: was colors.dim + "33", now "transparent"
-        const antiPattern = 'colors.dim + "33"';
+        const _antiPattern = 'colors.dim + "33"';
         const correctPattern = "transparent";
 
         expect(correctPattern).not.toContain("+");
@@ -228,12 +228,12 @@ describe("Panel Component Structure", () => {
 });
 
 // Helper function for rendering
-function render(element: React.ReactElement) {
+function render(_element: React.ReactElement) {
     // This is a simplified mock - in real implementation,
     // we'd use @opentui/react/test-utils or @testing-library
     return {
         container: null,
-        rerender: (newElement: React.ReactElement) => {
+        rerender: (_newElement: React.ReactElement) => {
             // Mock rerender
         },
     };

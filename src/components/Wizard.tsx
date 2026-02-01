@@ -117,6 +117,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
     const [authStatus, setAuthStatus] = useState<string | null>(null);
     const pendingSourceProviderRef = useRef<PortalProvider>(initialConfig.source_provider);
     const pendingBackupProviderRef = useRef<PortalProvider>(initialConfig.backup_provider);
+    const pendingCloudPathRef = useRef<"guided" | "direct">("direct");
 
     // [SEC] Local Credential Refs - Memory-only, never saved to config.json 🧠🛡️🦅
     const urlRef = useRef("");
@@ -181,6 +182,12 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         });
         setAuthStatus(null);
     }, []);
+
+    const getCurrentStepNumber = useCallback(() => {
+        // We calculate real step number based on unique stages in history
+        // but a simpler way is history.length + 1 for intuitive progression.
+        return history.length + 1;
+    }, [history]);
 
     const back = useCallback(() => {
         const { history: h } = stateRef.current;
@@ -292,18 +299,19 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
 
 
                 // Intermediates
-                case "gdrive_intro": nextStep = "cloud_direct_entry"; break;
+                case "gdrive_intro": nextStep = pendingCloudPathRef.current === "guided" ? "gdrive_guide_1" : "cloud_direct_entry"; break;
                 case "gdrive_guide_1": nextStep = "gdrive_guide_2"; break;
                 case "gdrive_guide_2": nextStep = "gdrive_guide_3"; break;
                 case "gdrive_guide_3": nextStep = "gdrive_guide_4"; break;
                 case "gdrive_guide_4": nextStep = "cloud_direct_entry"; break;
-                case "b2_intro": nextStep = "cloud_direct_entry"; break;
-                case "sftp_intro": nextStep = "cloud_direct_entry"; break;
-                case "pcloud_intro": nextStep = "cloud_direct_entry"; break;
-                case "onedrive_intro": nextStep = "cloud_direct_entry"; break;
-                case "dropbox_intro": nextStep = "cloud_direct_entry"; break;
-                case "mega_intro": nextStep = "cloud_direct_entry"; break;
-                case "r2_intro": nextStep = "cloud_direct_entry"; break;
+
+                case "b2_intro": nextStep = pendingCloudPathRef.current === "guided" ? "b2_guide_1" : "cloud_direct_entry"; break;
+                case "sftp_intro": nextStep = pendingCloudPathRef.current === "guided" ? "sftp_guide_1" : "cloud_direct_entry"; break;
+                case "pcloud_intro": nextStep = pendingCloudPathRef.current === "guided" ? "pcloud_guide_1" : "cloud_direct_entry"; break;
+                case "onedrive_intro": nextStep = pendingCloudPathRef.current === "guided" ? "onedrive_guide_1" : "cloud_direct_entry"; break;
+                case "dropbox_intro": nextStep = pendingCloudPathRef.current === "guided" ? "dropbox_guide_1" : "cloud_direct_entry"; break;
+                case "mega_intro": nextStep = pendingCloudPathRef.current === "guided" ? "mega_guide_1" : "cloud_direct_entry"; break;
+                case "r2_intro": nextStep = pendingCloudPathRef.current === "guided" ? "r2_guide_1" : "cloud_direct_entry"; break;
 
                 case "cloud_direct_entry": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
 
@@ -551,32 +559,8 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         }
 
 
-        if (opt.type === "gdrive_path") {
-            if (opt.value === "guided") setStep("gdrive_guide_1");
-            else setStep("cloud_direct_entry");
-            return;
-        }
-
-        if (opt.type === "intro_path") {
-            if (opt.value === "guided") {
-                const guideMap: Record<string, Step> = {
-                    "b2_intro": "b2_guide_1",
-                    "sftp_intro": "sftp_guide_1",
-                    "pcloud_intro": "pcloud_guide_1",
-                    "onedrive_intro": "onedrive_guide_1",
-                    "dropbox_intro": "dropbox_guide_1",
-                    "mega_intro": "mega_guide_1",
-                    "r2_intro": "r2_guide_1"
-                };
-                const nextStep = guideMap[step];
-                if (nextStep) {
-                    setStep(nextStep);
-                    return;
-                }
-            } else {
-                setStep("cloud_direct_entry");
-                return;
-            }
+        if (opt.type === "gdrive_path" || opt.type === "intro_path") {
+            pendingCloudPathRef.current = opt.value as "guided" | "direct";
             next();
             return;
         }
@@ -806,7 +790,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
 
             {step === "shortcut" && (
                 <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 1: System Integration</text>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: System Integration</text>
                     <text fg={isShortcutMissing ? colors.danger : colors.fg}>
                         {String(isShortcutMissing ? "⚠️  Shortcut missing! Did you move it standard location?" : "Add Portal to Desktop Apps?")}
                     </text>
@@ -846,7 +830,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
 
             {step === "copyparty_config" && (
                 <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 3: CopyParty Source Configuration</text>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: CopyParty Source Configuration</text>
 
                     {/* URL */}
                     <box flexDirection="column" gap={0} onMouseDown={() => { _onFocusChange("body"); set_copyparty_config_index(0); }}>
@@ -955,100 +939,121 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
 
             {step === "cloud_direct_entry" && (
                 <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Direct Configuration</text>
-                    <text fg={colors.fg}>Enter credentials for {(wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current).toUpperCase()}:</text>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>
+                        Step {getCurrentStepNumber()}: {(wizardContext === "source" ? "Source" : "Backup")} Configuration
+                    </text>
+                    <text fg={colors.fg}>
+                        Setup credentials for {(wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current).toUpperCase()}:
+                    </text>
 
-                    <box flexDirection="column" gap={0} marginTop={1}>
+                    <box flexDirection="column" gap={1} marginTop={1}>
                         {(() => {
                             const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
-                            const fields: { label: string, ref: React.MutableRefObject<string>, icon: string, placeholder?: string }[] = [];
+                            const fields: { label: string, ref: React.MutableRefObject<string>, icon: string, placeholder?: string, key: keyof typeof wizardInputs }[] = [];
 
                             if (provider === "gdrive") {
-                                fields.push({ label: "Client ID", ref: clientIdRef, icon: "🆔", placeholder: "123...apps.googleusercontent.com" });
-                                fields.push({ label: "Client Secret", ref: clientSecretRef, icon: "🔑", placeholder: "GOCSPX-..." });
+                                fields.push({ label: "Client ID", ref: clientIdRef, icon: "🆔", placeholder: "123...apps.googleusercontent.com", key: "clientId" });
+                                fields.push({ label: "Client Secret", ref: clientSecretRef, icon: "🔑", placeholder: "GOCSPX-...", key: "clientSecret" });
                             } else if (provider === "b2") {
-                                fields.push({ label: "Key ID", ref: b2IdRef, icon: "🆔", placeholder: "005..." });
-                                fields.push({ label: "Application Key", ref: b2KeyRef, icon: "🔑", placeholder: "K005..." });
+                                fields.push({ label: "Key ID", ref: b2IdRef, icon: "🆔", placeholder: "005...", key: "b2Id" });
+                                fields.push({ label: "Application Key", ref: b2KeyRef, icon: "🔑", placeholder: "K005...", key: "b2Key" });
                             } else if (provider === "sftp") {
-                                fields.push({ label: "Host", ref: urlRef, icon: "🌐", placeholder: "sftp.example.com" });
-                                fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "username" });
-                                fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password" });
+                                fields.push({ label: "Host", ref: urlRef, icon: "🌐", placeholder: "sftp.example.com", key: "url" });
+                                fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "username", key: "user" });
+                                fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password", key: "pass" });
                             } else if (provider === "pcloud") {
-                                fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "email@example.com" });
-                                fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password" });
+                                fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "email@example.com", key: "user" });
+                                fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password", key: "pass" });
                             } else if (provider === "onedrive") {
-                                fields.push({ label: "Client ID", ref: userRef, icon: "🆔", placeholder: "client-id" });
-                                fields.push({ label: "Client Secret", ref: passRef, icon: "🔑", placeholder: "client-secret" });
+                                fields.push({ label: "Client ID", ref: userRef, icon: "🆔", placeholder: "client-id", key: "user" });
+                                fields.push({ label: "Client Secret", ref: passRef, icon: "🔑", placeholder: "client-secret", key: "pass" });
                             } else if (provider === "dropbox") {
-                                fields.push({ label: "App Key", ref: userRef, icon: "🆔", placeholder: "app-key" });
-                                fields.push({ label: "App Secret", ref: passRef, icon: "🔑", placeholder: "app-secret" });
+                                fields.push({ label: "App Key", ref: userRef, icon: "🆔", placeholder: "app-key", key: "user" });
+                                fields.push({ label: "App Secret", ref: passRef, icon: "🔑", placeholder: "app-secret", key: "pass" });
                             } else if (provider === "mega") {
-                                fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "email@example.com" });
-                                fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password" });
+                                fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "email@example.com", key: "user" });
+                                fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password", key: "pass" });
                             } else if (provider === "r2") {
-                                fields.push({ label: "Access Key ID", ref: userRef, icon: "🆔", placeholder: "access-key" });
-                                fields.push({ label: "Secret Key", ref: passRef, icon: "🔑", placeholder: "secret-key" });
-                                fields.push({ label: "Endpoint", ref: urlRef, icon: "🌐", placeholder: "account-id.r2.cloudflarestorage.com" });
+                                fields.push({ label: "Access Key ID", ref: userRef, icon: "🆔", placeholder: "access-key", key: "user" });
+                                fields.push({ label: "Secret Key", ref: passRef, icon: "🔑", placeholder: "secret-key", key: "pass" });
+                                fields.push({ label: "Endpoint", ref: urlRef, icon: "🌐", placeholder: "account-id.r2.cloudflarestorage.com", key: "url" });
                             }
 
                             const isConnectFocused = direct_entry_index === fields.length && focusArea === "body";
 
+                            const handleAction = () => {
+                                if (provider === "gdrive") handleGdriveAuth(clientIdRef.current, clientSecretRef.current);
+                                else if (provider === "onedrive" || provider === "dropbox") startGenericAuth(provider);
+                                else {
+                                    const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
+                                    if (provider === "b2") updateGenericRemote(remoteName, "b2", { account: b2IdRef.current, key: b2KeyRef.current });
+                                    else if (provider === "sftp") updateGenericRemote(remoteName, "sftp", { host: urlRef.current, user: userRef.current, pass: passRef.current });
+                                    else if (provider === "pcloud") updateGenericRemote(remoteName, "pcloud", { user: userRef.current, pass: passRef.current });
+                                    else if (provider === "mega") updateGenericRemote(remoteName, "mega", { user: userRef.current, pass: passRef.current });
+                                    else if (provider === "r2") updateGenericRemote(remoteName, "s3", { access_key_id: userRef.current, secret_access_key: passRef.current, endpoint: urlRef.current });
+
+                                    const field = wizardContext === "source" ? "source_provider" : "backup_provider";
+                                    updateConfig(prev => ({ ...prev, [field]: provider }));
+                                    next();
+                                }
+                            };
+
                             return (
                                 <>
                                     {fields.map((f, i) => (
-                                        <box key={i} flexDirection="row" gap={1}
-                                            border borderStyle="single"
-                                            borderColor={direct_entry_index === i && focusArea === "body" ? colors.primary : "transparent"}
-                                            padding={1}
-                                            onMouseOver={() => { _onFocusChange("body"); set_direct_entry_index(i); }}
+                                        <box key={i} flexDirection="column" gap={0}
+                                            onMouseDown={() => { _onFocusChange("body"); set_direct_entry_index(i); }}
                                         >
-                                            <text fg={colors.dim}>{String(f.icon)}</text>
-                                            <text width={15} fg={colors.fg}>{String(f.label)}:</text>
+                                            <text fg={direct_entry_index === i && focusArea === "body" ? colors.primary : colors.fg}>
+                                                {String(f.icon)} {String(f.label)}:
+                                            </text>
                                             <input
-                                                value={f.ref.current}
-                                                onChange={(val) => { f.ref.current = val; onUpdate?.(configRef.current); }}
+                                                value={wizardInputs[f.key]}
+                                                onChange={(val) => updateInput(f.key, val, f.ref)}
                                                 focused={direct_entry_index === i && focusArea === "body"}
-                                                width={40}
                                                 placeholder={f.placeholder}
+                                                onKeyDown={(e) => {
+                                                    if (e.name === "return" || e.name === "down") {
+                                                        set_direct_entry_index(i + 1);
+                                                    } else if (e.name === "up" && i > 0) {
+                                                        set_direct_entry_index(i - 1);
+                                                    }
+                                                }}
                                             />
                                         </box>
                                     ))}
-                                    <box
-                                        marginTop={1} padding={1} border borderStyle="double"
-                                        borderColor={isConnectFocused ? colors.success : colors.dim}
-                                        onMouseOver={() => { _onFocusChange("body"); set_direct_entry_index(fields.length); }}
-                                        onMouseDown={() => {
-                                            if (provider === "gdrive") handleGdriveAuth(clientIdRef.current, clientSecretRef.current);
-                                            else if (provider === "onedrive" || provider === "dropbox") startGenericAuth(provider);
-                                            else {
-                                                const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                                                if (provider === "b2") updateGenericRemote(remoteName, "b2", { account: b2IdRef.current, key: b2KeyRef.current });
-                                                else if (provider === "sftp") updateGenericRemote(remoteName, "sftp", { host: urlRef.current, user: userRef.current, pass: passRef.current });
-                                                else if (provider === "pcloud") updateGenericRemote(remoteName, "pcloud", { user: userRef.current, pass: passRef.current });
-                                                else if (provider === "mega") updateGenericRemote(remoteName, "mega", { user: userRef.current, pass: passRef.current });
-                                                else if (provider === "r2") updateGenericRemote(remoteName, "s3", { access_key_id: userRef.current, secret_access_key: passRef.current, endpoint: urlRef.current });
 
-                                                const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                                                updateConfig(prev => ({ ...prev, [field]: provider }));
-                                                next();
-                                            }
-                                        }}
+                                    <box
+                                        marginTop={1}
+                                        onMouseOver={() => { _onFocusChange("body"); set_direct_entry_index(fields.length); }}
+                                        onMouseDown={handleAction}
+                                        border
+                                        borderStyle="double"
+                                        borderColor={isConnectFocused ? colors.success : colors.dim}
+                                        paddingLeft={2}
+                                        paddingRight={2}
+                                        alignItems="center"
                                     >
-                                        <box flexDirection="row" gap={1}>
-                                            <text fg={isConnectFocused ? colors.primary : colors.dim}>{String(isConnectFocused ? "▶ " : "  ")}</text>
-                                            <Hotkey keyLabel="ENTER" label="CONNECT & SAVE" isFocused={isConnectFocused} />
-                                        </box>
+                                        <text fg={isConnectFocused ? colors.success : colors.dim}>
+                                            {String(isAuthLoading ? "🔄 CONNECTING..." : "[ VERIFY & CONNECT ]")}
+                                        </text>
                                     </box>
                                 </>
                             );
                         })()}
                     </box>
+
+                    {authStatus ? (
+                        <box marginTop={1}>
+                            <text fg={authStatus.includes("✅") ? colors.success : colors.danger}>{String(authStatus)}</text>
+                        </box>
+                    ) : null}
                 </box>
             )}
 
             {step === "dir" && (
                 <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 4: Storage Path</text>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Storage Path</text>
                     <text fg={colors.fg}>📂 Local Sync Directory:</text>
                     <input
                         focused={focusArea === "body" && !isAuthLoading}
@@ -1062,7 +1067,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
 
             {step === "mirror" && (
                 <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 5: Sync Strategy</text>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Sync Strategy</text>
                     <text fg={colors.fg}>🔄 Mirror Mode (Delete local files not on remote?):</text>
                     <box flexDirection="column" gap={0} marginTop={1}>
                         {[
@@ -1101,7 +1106,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
 
             {step === "source_choice" && (
                 <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 2: Source Provider</text>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Source Provider</text>
                     <text fg={colors.fg}>🔗 Select your "Source of Truth":</text>
                     <box flexDirection="column" gap={0} marginTop={1}>
                         {getOptions().map((opt, i) => {
@@ -1207,7 +1212,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "upsync_ask" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 6: Cloud Backup (Optional)</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Cloud Backup (Optional)</text>
                         <text fg={colors.fg}>🚀 Do you want to enable Upsync (Backup)?</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1243,7 +1248,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "security" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: Malware Shield</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Malware Shield</text>
                         <text fg={colors.fg}>🛡️ Surgical Security Policy (How to handle risky tools):</text>
                         {config.backup_provider === "gdrive" && (
                             <text fg={colors.warning} attributes={TextAttributes.BOLD} marginTop={1}>
@@ -1288,7 +1293,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "gdrive_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 7: Cloud Setup (Google Drive)</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Cloud Setup (Google Drive)</text>
                         <text fg={colors.fg}>To keep your system backups safe, we need a dedicated Google Cloud Project.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1328,7 +1333,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "b2_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: Backblaze B2 Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Backblaze B2 Setup</text>
                         <text fg={colors.fg}>Connect your low-cost B2 bucket for secure offsite checks.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1369,20 +1374,27 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "b2_guide_1" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>B2 Guide: Key Management</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: B2 Guide: Key Management</text>
                         <box flexDirection="column">
                             <text fg={colors.fg}>1. Log in to your Backblaze account.</text>
                             <text fg={colors.fg}>2. Go to 'App Keys' in the sidebar.</text>
                             <text fg={colors.fg}>3. Click 'Add a New Application Key'.</text>
                         </box>
                         <box
-                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            marginTop={1}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
-                            <text fg={colors.fg}> - I'm in the Key Management screen</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="NEXT STEP" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1391,20 +1403,27 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "b2_guide_2" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>B2 Guide: Creating the Key</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: B2 Guide: Creating the Key</text>
                         <box flexDirection="column">
                             <text fg={colors.fg}>1. Name: 'schem-sync-portal'.</text>
                             <text fg={colors.fg}>2. Permissions: 'Read and Write'.</text>
                             <text fg={colors.fg}>3. COPY your KeyID and ApplicationKey!</text>
                         </box>
                         <box
-                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            marginTop={1}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="DONE" color={colors.success} />
-                            <text fg={colors.fg}> - I have copied both keys</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="DONE" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1413,7 +1432,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "sftp_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: SFTP / Sovereign Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: SFTP / Sovereign Setup</text>
                         <text fg={colors.fg}>Connect your own server, NAS, or generic remote.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1454,20 +1473,27 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "sftp_guide_1" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>SFTP Guide: Connection Details</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: SFTP Guide: Connection Details</text>
                         <box flexDirection="column">
                             <text fg={colors.fg}>1. Ensure SSH is enabled on the remote server.</text>
                             <text fg={colors.fg}>2. Standard port is 22. Note down if different.</text>
                             <text fg={colors.fg}>3. Username and Password/Key required.</text>
                         </box>
                         <box
-                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            marginTop={1}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="READY" color={colors.success} />
-                            <text fg={colors.fg}> - I have connection details ready</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="READY" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1476,7 +1502,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "pcloud_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: pCloud Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: pCloud Setup</text>
                         <text fg={colors.fg}>Swiss-hosted secure storage with lifetime plans.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1516,20 +1542,26 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "pcloud_guide_1" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>pCloud Guide: Authentication</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: pCloud Guide: Credentials</text>
                         <box flexDirection="column">
-                            <text fg={colors.fg}>1. Use your standard pCloud login credentials.</text>
-                            <text fg={colors.fg}>2. If 2FA is on, use an Application Password if possible.</text>
-                            <text fg={colors.fg}>3. Portal will auto-detect EU vs US regions.</text>
+                            <text fg={colors.fg}>1. Use your pCloud login email and password.</text>
+                            <text fg={colors.fg}>2. If using 2FA, create an "App Password" in security.</text>
                         </box>
                         <box
-                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            marginTop={1}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="READY" color={colors.success} />
-                            <text fg={colors.fg}> - I have my credentials</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="READY" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1538,7 +1570,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "onedrive_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: OneDrive Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: OneDrive Setup</text>
                         <text fg={colors.fg}>Use your existing Office 365 or Microsoft Storage.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1578,18 +1610,27 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "onedrive_guide_1" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>OneDrive Guide: The Handshake</text>
-                        <text fg={colors.fg}>1. A browser window will open on your system.</text>
-                        <text fg={colors.fg}>2. Log in with your Microsoft account.</text>
-                        <text fg={colors.fg}>3. Accept the permissions for 'rclone'.</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: OneDrive Guide: Handshake</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>1. A browser window will open on your system.</text>
+                            <text fg={colors.fg}>2. Log in with your Microsoft account.</text>
+                            <text fg={colors.fg}>3. Accept the permissions for 'rclone'.</text>
+                        </box>
                         <box
-                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            marginTop={1}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
-                            <text fg={colors.fg}> - I understand the process</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="NEXT STEP" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1598,18 +1639,27 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "onedrive_guide_2" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>OneDrive Guide: Capturing the Token</text>
-                        <text fg={colors.fg}>1. After login, you'll see a 'Success' message in browser.</text>
-                        <text fg={colors.fg}>2. Portal will automatically receive the encrypted token.</text>
-                        <text fg={colors.fg}>3. No need to copy/paste anything if it works!</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: OneDrive Guide: Success Process</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>1. After login, you'll see a 'Success' message in browser.</text>
+                            <text fg={colors.fg}>2. Portal will automatically receive the encrypted token.</text>
+                            <text fg={colors.fg}>3. No need to copy/paste anything if it works!</text>
+                        </box>
                         <box
-                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            marginTop={1}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="START" color={colors.success} />
-                            <text fg={colors.fg}> - Let's begin the handshake</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="START" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1618,7 +1668,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "dropbox_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: Dropbox Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Dropbox Setup</text>
                         <text fg={colors.fg}>Reliable sync with excellent version history.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1658,18 +1708,27 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "dropbox_guide_1" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>Dropbox Guide: Handshake</text>
-                        <text fg={colors.fg}>1. Portal will launch rclone authorize dropbox.</text>
-                        <text fg={colors.fg}>2. Browser window pops up for authorization.</text>
-                        <text fg={colors.fg}>3. Grant access to your Dropbox files.</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Dropbox Guide: Handshake</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>1. Portal will launch rclone authorize dropbox.</text>
+                            <text fg={colors.fg}>2. Browser window pops up for authorization.</text>
+                            <text fg={colors.fg}>3. Grant access to your Dropbox files.</text>
+                        </box>
                         <box
-                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            marginTop={1}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
-                            <text fg={colors.fg}> - Understood</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="NEXT STEP" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1678,17 +1737,26 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "dropbox_guide_2" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>Dropbox Guide: Success</text>
-                        <text fg={colors.fg}>Wait for the browser to finish its redirect.</text>
-                        <text fg={colors.fg}>The token will automatically flow back to Portal.</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Dropbox Guide: Success</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>Wait for the browser to finish its redirect.</text>
+                            <text fg={colors.fg}>The token will automatically flow back to Portal.</text>
+                        </box>
                         <box
-                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            marginTop={1}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="START" color={colors.success} />
-                            <text fg={colors.fg}> - Start handshake</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="START" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1697,7 +1765,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "mega_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: Mega.nz Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Mega.nz Setup</text>
                         <text fg={colors.fg}>Zero-knowledge encryption with generous free tier.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1738,18 +1806,26 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "mega_guide_1" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>Mega Guide: 2FA {"&"} Privacy</text>
-                        <text fg={colors.fg}>1. Portal uses standard encrypted login.</text>
-                        <text fg={colors.fg}>2. 2FA is supported via standard TOTP.</text>
-                        <text fg={colors.fg}>3. Ensure you have your Recovery Key safely stored!</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Mega Guide: Authentication</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>1. Use your Mega.nz login email and password.</text>
+                            <text fg={colors.fg}>2. Ensure 2FA is handled if enabled.</text>
+                        </box>
                         <box
-                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            marginTop={1}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="READY" color={colors.success} />
-                            <text fg={colors.fg}> - I have my credentials</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="CONTINUE" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1758,7 +1834,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "r2_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 8: Cloudflare R2 Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Cloudflare R2 Setup</text>
                         <text fg={colors.fg}>S3-compatible storage with zero egress fees.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1799,20 +1875,27 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "r2_guide_1" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>R2 Guide: API Tokens</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: R2 Guide: API Tokens</text>
                         <box flexDirection="column">
                             <text fg={colors.fg}>1. Go to Cloudflare Dashboard {"->"} R2.</text>
                             <text fg={colors.fg}>2. Click 'Manage R2 API Tokens'.</text>
                             <text fg={colors.fg}>3. Create a token with 'Object Read {"&"} Write' permissions.</text>
                         </box>
                         <box
-                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            marginTop={1}
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
-                            <text fg={colors.fg}> - I'm in the Dashboard</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="NEXT STEP" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1843,7 +1926,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "gdrive_guide_1" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>Guide Part 1: The Google Project</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Guide Part 1 (The Google Project)</text>
                         <box flexDirection="column">
                             <text fg={colors.fg}>1. Open the GCP Console at https://console.cloud.google.com/</text>
                             <text fg={colors.fg}>2. Click "Select a Project" -{">"} "New Project"</text>
@@ -1851,17 +1934,19 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         </box>
                         <box
                             marginTop={1}
-                            paddingLeft={2}
-                            border
-                            borderStyle="single"
-                            borderColor={focusArea === "body" ? colors.success : "transparent"}
-                            flexDirection="row"
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => confirmSelection(getOptions()[0]!)}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={focusArea === "body" ? colors.primary : colors.dim}>▶ </text>
-                            <Hotkey keyLabel="1" label="NEXT" color={focusArea === "body" ? colors.success : colors.primary} />
-                            <text fg={focusArea === "body" ? colors.fg : colors.dim}> - I have created the project</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="NEXT STEP" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1870,23 +1955,26 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "gdrive_guide_2" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>Guide Part 2: Activating Drive</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Guide Part 2 (Activating Drive)</text>
                         <box flexDirection="column">
                             <text fg={colors.fg}>1. Search for "Google Drive API" in the top bar.</text>
                             <text fg={colors.fg}>2. Click the API and hit ENABLE.</text>
                         </box>
                         <box
                             marginTop={1}
-                            paddingLeft={2}
-                            border
-                            borderStyle="single"
-                            borderColor={colors.success}
                             onMouseOver={() => _onFocusChange("body")}
-                            onMouseDown={() => confirmSelection(getOptions()[0]!)}
+                            onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
-                            <text fg={colors.fg}> - API is enabled</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="NEXT STEP" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1895,24 +1983,27 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "gdrive_guide_3" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>Guide Part 3: Identity & Scopes</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Guide Part 3 (Identity {"&"} Scopes)</text>
                         <box flexDirection="column">
-                            <text fg={colors.fg}>1. Go to APIs & Services -{">"} OAuth consent screen.</text>
+                            <text fg={colors.fg}>1. Go to APIs {"&"} Services -{">"} OAuth consent screen.</text>
                             <text fg={colors.fg}>2. Choose External -{">"} Create.</text>
                             <text fg={colors.fg}>3. Add your own email under Test Users.</text>
                         </box>
                         <box
                             marginTop={1}
-                            paddingLeft={2}
-                            border
-                            borderStyle="single"
-                            borderColor={colors.success}
                             onMouseOver={() => _onFocusChange("body")}
-                            onMouseDown={() => confirmSelection(getOptions()[0]!)}
+                            onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
-                            <text fg={colors.fg}> - Consent screen is configured</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="NEXT STEP" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )
@@ -1921,7 +2012,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "gdrive_guide_4" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>Guide Part 4: Generating Keys</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Guide Part 4 (Generating Keys)</text>
                         <box flexDirection="column">
                             <text fg={colors.fg}>1. Go to Credentials -{">"} Create Credentials.</text>
                             <text fg={colors.fg}>2. Select OAuth client ID.</text>
@@ -1929,16 +2020,19 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         </box>
                         <box
                             marginTop={1}
-                            paddingLeft={2}
-                            border
-                            borderStyle="single"
-                            borderColor={colors.success}
                             onMouseOver={() => _onFocusChange("body")}
-                            onMouseDown={() => confirmSelection(getOptions()[0]!)}
+                            onMouseDown={() => next()}
+                            border
+                            borderStyle="double"
+                            borderColor={focusArea === "body" ? colors.success : colors.dim}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            alignItems="center"
                         >
-                            <text fg={colors.primary}>▶ </text>
-                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
-                            <text fg={colors.fg}> - I have my Client ID and Secret</text>
+                            <text fg={focusArea === "body" ? colors.success : colors.dim}>
+                                {String(focusArea === "body" ? "▶ " : "  ")}
+                            </text>
+                            <Hotkey keyLabel="1" label="DONE" isFocused={focusArea === "body"} />
                         </box>
                     </box>
                 )

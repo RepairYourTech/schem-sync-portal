@@ -3,19 +3,7 @@ import { describe, it, expect } from "bun:test";
 import React from "react";
 import { Hotkey } from "../components/Hotkey";
 
-// Mock theme
-const mockColors = {
-    primary: "#00ffff",
-    success: "#00ff00",
-    warning: "#ffff00",
-    danger: "#ff0000",
-    accent: "#ff00ff",
-    setup: "#aaaa00",
-    bg: "#000000",
-    fg: "#ffffff",
-    border: "#444444",
-    dim: "#666666",
-};
+// Mock theme removed as it was unused
 
 describe("Hotkey Component", () => {
     describe("Color System", () => {
@@ -74,7 +62,7 @@ describe("Hotkey Component", () => {
 
     describe("Auto-Nesting Logic", () => {
         it("should auto-nest single character hotkey in label", () => {
-            const { container } = render(
+            const { container: _container } = render(
                 <Hotkey
                     keyLabel="c"
                     label="Continue"
@@ -232,9 +220,9 @@ describe("Hotkey Focus Propagation", () => {
 });
 
 // Helper function
-function render(element: React.ReactElement) {
+function render(_element: React.ReactElement) {
     return {
         container: null,
-        rerender: () => {},
+        rerender: () => { },
     };
 }
