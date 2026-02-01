@@ -2,8 +2,7 @@
 import { describe, it, expect } from "bun:test";
 import React from "react";
 import { Dashboard } from "../components/Dashboard";
-import type { PortalConfig } from "../lib/config";
-import { mockRender as render } from "./ui-test-helpers";
+import { mockRender as render, createMockConfig } from "./ui-test-helpers";
 
 // Mock theme
 const mockColors = {
@@ -23,9 +22,10 @@ const mockColors = {
 console.log("Using mock theme for Dashboard tests:", mockColors.primary);
 
 // Mock config states
-const emptyConfig: PortalConfig = {
+const emptyConfig = createMockConfig({
     source_provider: "none",
     backup_provider: "none",
+    backup_dir: "",
     local_dir: "",
     upsync_enabled: false,
     strict_mirror: false,
@@ -36,20 +36,20 @@ const emptyConfig: PortalConfig = {
     upsync_transfers: 4,
     debug_mode: false,
     log_level: "NORMAL",
-};
+});
 
-const incompleteConfig: PortalConfig = {
+const incompleteConfig = createMockConfig({
     ...emptyConfig,
     source_provider: "gdrive",
     local_dir: "/tmp/test",
-};
+});
 
-const completeConfig: PortalConfig = {
+const completeConfig = createMockConfig({
     ...incompleteConfig,
     backup_provider: "gdrive",
     upsync_enabled: true,
     enable_malware_shield: true,
-};
+});
 
 describe("Dashboard Component", () => {
     describe("Focus Management", () => {

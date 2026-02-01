@@ -159,8 +159,9 @@ export function createHttpRemote(name: string, url: string, cookie?: string) {
 /**
  * Runs 'rclone authorize' asynchronously to capture the token.
  * This launches the user's browser for OAuth flows.
+ * Supports AbortSignal for cancellation.
  */
-export function authorizeRemote(provider: string): Promise<string> {
+export function authorizeRemote(provider: string, signal?: AbortSignal): Promise<string> {
     return new Promise(async (resolve, reject) => {
         try {
             const rcloneCmd = getRcloneCmd();
@@ -175,11 +176,24 @@ export function authorizeRemote(provider: string): Promise<string> {
                 env: process.env as Record<string, string>
             });
 
-            const stdout = await new Response(proc.stdout).text();
-            const stderr = await new Response(proc.stderr).text();
+            if (signal) {
+                signal.addEventListener("abort", () => {
+                    Logger.info("AUTH", `Aborting rclone authorize for ${provider}...`);
+                    proc.kill();
+                    reject(new Error("ABORTED"));
+                });
+            }
+
+            const stdoutPromise = new Response(proc.stdout).text();
+            const stderrPromise = new Response(proc.stderr).text();
+
             const exitCode = await proc.exited;
+            const stdout = await stdoutPromise;
+            const stderr = await stderrPromise;
 
             if (exitCode !== 0) {
+                // If aborted, the promise might have already rejected
+                if (signal?.aborted) return;
                 reject(stderr || `rclone authorize failed with exit code ${exitCode}`);
                 return;
             }

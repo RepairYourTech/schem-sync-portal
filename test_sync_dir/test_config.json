@@ -1,0 +1,23 @@
+{
+  "source_provider": "gdrive",
+  "backup_provider": "b2",
+  "backup_dir": "",
+  "upsync_enabled": true,
+  "local_dir": "/home/birdman/schem-sync-portal/test_sync_dir",
+  "strict_mirror": true,
+  "enable_malware_shield": false,
+  "malware_policy": "purge",
+  "last_sync_stats": {
+    "timestamp": 1769984283834,
+    "files_processed": 7,
+    "bytes_transferred": 100,
+    "status": "success"
+  },
+  "desktop_shortcut": 0,
+  "debug_mode": true,
+  "log_level": "NORMAL",
+  "nerd_font_auto_install": false,
+  "nerd_font_auto_install_dismissed": false,
+  "downsync_transfers": 4,
+  "upsync_transfers": 4
+}

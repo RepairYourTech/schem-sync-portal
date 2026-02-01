@@ -6,6 +6,7 @@
  */
 
 import type { ThemeColors } from "../components/SyncPortalParts";
+import { type PortalConfig, EMPTY_CONFIG } from "../lib/config";
 
 /**
  * Standard theme colors for testing
@@ -330,4 +331,17 @@ export function simulateKeyDown(element: HTMLElement, key: string) {
         cancelable: true,
     });
     element.dispatchEvent(event);
+}
+/**
+ * Creates a schema-compliant mock configuration, leveraging EMPTY_CONFIG
+ * to ensure all current and future fields are present.
+ *
+ * @param overrides - Optional overrides for specific config fields
+ * @returns A full PortalConfig object
+ */
+export function createMockConfig(overrides: Partial<PortalConfig> = {}): PortalConfig {
+    return {
+        ...EMPTY_CONFIG,
+        ...overrides,
+    };
 }

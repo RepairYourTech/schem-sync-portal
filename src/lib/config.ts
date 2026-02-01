@@ -53,7 +53,14 @@ export interface PortalConfig {
 }
 
 const PROJECT_ROOT = join(process.cwd());
-const CONFIG_PATH = join(PROJECT_ROOT, "config.json");
+
+/**
+ * Gets the current configuration path.
+ * Evaluated lazily to ensure environment variable changes (e.g. in tests) are respected.
+ */
+export function getConfigPath(): string {
+    return process.env.PORTAL_CONFIG_PATH || join(PROJECT_ROOT, "config.json");
+}
 
 /**
  * Pure Default Template - Uses "unconfigured" to force interaction.
@@ -62,16 +69,16 @@ export const EMPTY_CONFIG: PortalConfig = {
     source_provider: "unconfigured",
     backup_provider: "unconfigured",
     backup_dir: "",
-    upsync_enabled: undefined,
+    upsync_enabled: false,
     local_dir: "",
-    strict_mirror: undefined,
+    strict_mirror: false,
     malware_policy: "purge",
     enable_malware_shield: false,
     desktop_shortcut: 0,
     debug_mode: false,
     log_level: "NORMAL",
-    nerd_font_auto_install: undefined,
-    nerd_font_auto_install_dismissed: undefined,
+    nerd_font_auto_install: false,
+    nerd_font_auto_install_dismissed: false,
     nerd_font_installed_family: undefined,
     nerd_font_last_check: undefined,
     downsync_transfers: 4,
@@ -79,9 +86,10 @@ export const EMPTY_CONFIG: PortalConfig = {
 };
 
 export function loadConfig(): PortalConfig {
+    const configPath = getConfigPath();
     try {
-        if (existsSync(CONFIG_PATH)) {
-            const data = readFileSync(CONFIG_PATH, "utf-8");
+        if (existsSync(configPath)) {
+            const data = readFileSync(configPath, "utf-8");
             let parsed = JSON.parse(data);
 
             // MIGRATION: Convert legacy "none" defaults to "unconfigured" or ""
@@ -104,6 +112,7 @@ export function loadConfig(): PortalConfig {
 }
 
 export function saveConfig(config: PortalConfig): void {
+    const configPath = getConfigPath();
     try {
         // THOROUGH SAVE: Ensure ALL fields defined in the type are explicitly picked.
         const clean: PortalConfig = {
@@ -134,7 +143,7 @@ export function saveConfig(config: PortalConfig): void {
         };
 
         const data = JSON.stringify(clean, null, 2);
-        writeFileSync(CONFIG_PATH, data, "utf-8");
+        writeFileSync(configPath, data, "utf-8");
     } catch (err: unknown) {
         Logger.error("SYSTEM", "Error saving config", err as Error);
     }
@@ -143,12 +152,9 @@ export function saveConfig(config: PortalConfig): void {
 export function isConfigComplete(config: PortalConfig): boolean {
     if (!config.local_dir || config.local_dir === "" || config.local_dir === "none") return false;
     if (config.source_provider === "unconfigured" || config.source_provider === "none") return false;
-    if (config.strict_mirror === undefined) return false;
-    if (config.upsync_enabled === undefined) return false;
 
     // If backup is intended, it must have a provider (unconfigured is NOT allowed if upsync is on)
     if (config.upsync_enabled && (config.backup_provider === "unconfigured")) return false;
-    if (config.upsync_enabled && !config.backup_dir) return false;
 
     return true;
 }

@@ -1,16 +1,17 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { runSync, type SyncProgress } from "../lib/sync";
-import type { PortalConfig } from "../lib/config";
 import { Logger } from "../lib/logger";
 import { join } from "path";
 import { mkdirSync, existsSync } from "fs";
+import { createMockConfig } from "./ui-test-helpers";
 
 describe("Sync Engine Integration", () => {
     const testDir = join(process.cwd(), "test_sync_dir");
 
-    const mockConfig: PortalConfig = {
+    const mockConfig = createMockConfig({
         source_provider: "gdrive",
         backup_provider: "b2",
+        backup_dir: "",
         upsync_enabled: true,
         local_dir: testDir,
         strict_mirror: true,
@@ -18,10 +19,12 @@ describe("Sync Engine Integration", () => {
         malware_policy: "purge",
         desktop_shortcut: 0,
         debug_mode: true
-    };
+    });
 
     beforeAll(() => {
         if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });
+        // Isolation: use a temp config file for tests
+        process.env.PORTAL_CONFIG_PATH = join(testDir, "test_config.json");
         // Set up MockRclone
         process.env.MOCK_RCLONE = "src/tests/mock_rclone.ts";
         process.env.MOCK_LATENCY = "10"; // Fast tests

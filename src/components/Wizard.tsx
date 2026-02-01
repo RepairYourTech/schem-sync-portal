@@ -73,7 +73,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
     // Helper to determine if we are currently configuring Source or Destination
     // This allows us to reuse the cloud provider steps for both!
     // We'll store a "wizardContext" state: "configuring_source" | "configuring_dest"
-    const [wizardContext, setWizardContext] = useState<"source" | "dest">("source");
+    const [wizardContext, setWizardContextState] = useState<"source" | "dest">("source");
+    const wizardContextRef = useRef<"source" | "dest">("source");
+
+    const setWizardContext = useCallback((newCtx: "source" | "dest") => {
+        Logger.debug("UI", `[WIZARD] Switching context: ${wizardContextRef.current} -> ${newCtx}`);
+        wizardContextRef.current = newCtx;
+        setWizardContextState(newCtx);
+    }, []);
 
     const findNextStep = (c: PortalConfig): Step => {
         if (mode === "edit") return "edit_menu";
@@ -148,8 +155,17 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
     }, []);
 
     const oauthTokenRef = useRef("");
+    const authAbortControllerRef = useRef<AbortController | null>(null);
     const [history, setHistory] = useState<Step[]>([]);
     const stepStartTime = useRef(Date.now());
+
+    const abortAuth = useCallback(() => {
+        if (authAbortControllerRef.current) {
+            Logger.info("AUTH", "[WIZARD] Aborting existing auth process...");
+            authAbortControllerRef.current.abort();
+            authAbortControllerRef.current = null;
+        }
+    }, []);
 
     const updateConfig = useCallback((updater: (prev: PortalConfig) => PortalConfig) => {
         const nextConfig = updater(configRef.current);
@@ -182,8 +198,9 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             b2Key: "",
             oauthToken: ""
         });
+        abortAuth();
         setAuthStatus(null);
-    }, []);
+    }, [abortAuth]);
 
     const getCurrentStepNumber = useCallback(() => {
         // We calculate real step number based on unique stages in history
@@ -210,8 +227,27 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         Logger.debug("UI", "[WIZARD] Component MOUNTED.");
         return () => {
             Logger.debug("UI", "[WIZARD] Component UNMOUNTED.");
+            if (authAbortControllerRef.current) {
+                Logger.info("AUTH", "[WIZARD] Unmounting: killing pending auth...");
+                authAbortControllerRef.current.abort();
+            }
         };
     }, []);
+
+    // Step-change safety: kill auth if we move away
+    useEffect(() => {
+        if (authAbortControllerRef.current && !isAuthLoading) {
+            // If we are NOT loading but have a controller, it's stale
+            authAbortControllerRef.current = null;
+        }
+        return () => {
+            // If the step changes while we ARE loading, kill it
+            if (stateRef.current.step !== step && authAbortControllerRef.current) {
+                Logger.info("AUTH", "[WIZARD] Step changed, killing active handshake.");
+                authAbortControllerRef.current.abort();
+            }
+        };
+    }, [step, isAuthLoading]);
 
     useEffect(() => {
         if (firstRender.current) {
@@ -317,7 +353,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 case "mega_intro": nextStep = pendingCloudPathRef.current === "guided" ? "mega_guide_1" : "cloud_direct_entry"; break;
                 case "r2_intro": nextStep = pendingCloudPathRef.current === "guided" ? "r2_guide_1" : "cloud_direct_entry"; break;
 
-                case "cloud_direct_entry": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "backup_dir")); break;
+                case "cloud_direct_entry": nextStep = (isMenuMode ? "edit_menu" : (wizardContextRef.current === "source" ? "dir" : "backup_dir")); break;
 
                 // Guide Transitions
                 case "b2_guide_1": nextStep = "b2_guide_2"; break;
@@ -337,7 +373,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             stepStartTime.current = Date.now();
             return nextStep;
         });
-    }, [onComplete]);
+    }, [onComplete, wizardContext, isMenuMode, mode, selectedIndex]);
 
     const getOptions = useCallback(() => {
         if (step === "shortcut") {
@@ -440,7 +476,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         if (step === "pcloud_guide_1") return [{ value: true, type: "guide_next" }];
         if (step === "deploy") return [{ value: true, type: "deploy" }, { value: false, type: "deploy" }];
         return [];
-    }, [step, isShortcutMissing]);
+    }, [step, isShortcutMissing, config.backup_provider, wizardContext]);
 
     useEffect(() => {
         if (focusArea === "body" && tabTransition) {
@@ -506,11 +542,15 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
     }, [next, updateConfig]);
 
     const handleGdriveAuth = useCallback(async (clientId: string, clientSecret: string) => {
+        abortAuth();
         setIsAuthLoading(true);
         setAuthStatus("🔄 Launching Google Handshake...");
 
+        const controller = new AbortController();
+        authAbortControllerRef.current = controller;
+
         try {
-            const token = await authorizeRemote("drive");
+            const token = await authorizeRemote("drive", controller.signal);
             if (token) {
                 setAuthStatus("✅ Google Connected!");
                 oauthTokenRef.current = token;
@@ -522,19 +562,27 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 next();
             }
         } catch (err: unknown) {
+            if (controller.signal.aborted) return;
             const error = err as Error;
             setAuthStatus(`❌ Error: ${error.message}`);
         } finally {
-            setIsAuthLoading(false);
+            if (authAbortControllerRef.current === controller) {
+                authAbortControllerRef.current = null;
+                setIsAuthLoading(false);
+            }
         }
-    }, [wizardContext, next, updateConfig]);
+    }, [wizardContext, next, updateConfig, abortAuth]);
 
     const startGenericAuth = useCallback(async (provider: string) => {
+        abortAuth();
         setIsAuthLoading(true);
         setAuthStatus(`🚀 Launching ${provider.toUpperCase()} Authorization...`);
 
+        const controller = new AbortController();
+        authAbortControllerRef.current = controller;
+
         try {
-            const token = await authorizeRemote(provider);
+            const token = await authorizeRemote(provider, controller.signal);
             if (token) {
                 setAuthStatus(`✅ ${provider.toUpperCase()} Connected!`);
                 oauthTokenRef.current = token;
@@ -546,12 +594,16 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 next();
             }
         } catch (err: unknown) {
+            if (controller.signal.aborted) return;
             const error = err as Error;
             setAuthStatus(`❌ Error: ${error.message}`);
         } finally {
-            setIsAuthLoading(false);
+            if (authAbortControllerRef.current === controller) {
+                authAbortControllerRef.current = null;
+                setIsAuthLoading(false);
+            }
         }
-    }, [wizardContext, next, updateConfig]);
+    }, [wizardContext, next, updateConfig, abortAuth]);
 
     const confirmSelection = useCallback((opt: WizardOption) => {
         if (!opt) return;
@@ -585,7 +637,10 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
 
         if (opt.type === "jump") {
             setIsMenuMode(true);
-            setStep(opt.value as Step);
+            const targetStep = opt.value as Step;
+            if (targetStep === "source_choice" || targetStep === "copyparty_config") setWizardContext("source");
+            if (targetStep === "dest_cloud_select") setWizardContext("dest");
+            setStep(targetStep);
             return;
         }
 
@@ -945,7 +1000,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {step === "cloud_direct_entry" && (
                 <box flexDirection="column" gap={1}>
                     <text attributes={TextAttributes.BOLD} fg={colors.fg}>
-                        Step {getCurrentStepNumber()}: {(wizardContext === "source" ? "Source" : "Backup")} Configuration
+                        Step {getCurrentStepNumber()}: {wizardContext === "source" ? "[ SOURCE ]" : "[ BACKUP ]"} Credentials
                     </text>
                     <text fg={colors.fg}>
                         Setup credentials for {(wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current).toUpperCase()}:
@@ -1315,7 +1370,9 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "gdrive_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Cloud Setup (Google Drive)</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>
+                            Step {getCurrentStepNumber()}: {wizardContext === "source" ? "[ SOURCE ]" : "[ BACKUP ]"} Google Drive Setup
+                        </text>
                         <text fg={colors.fg}>To keep your system backups safe, we need a dedicated Google Cloud Project.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1355,7 +1412,9 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "b2_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Backblaze B2 Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>
+                            Step {getCurrentStepNumber()}: {wizardContext === "source" ? "[ SOURCE ]" : "[ BACKUP ]"} Backblaze B2 Setup
+                        </text>
                         <text fg={colors.fg}>Connect your low-cost B2 bucket for secure offsite checks.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1454,7 +1513,9 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "sftp_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: SFTP / Sovereign Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>
+                            Step {getCurrentStepNumber()}: {wizardContext === "source" ? "[ SOURCE ]" : "[ BACKUP ]"} SFTP / Sovereign Setup
+                        </text>
                         <text fg={colors.fg}>Connect your own server, NAS, or generic remote.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1524,7 +1585,9 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "pcloud_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: pCloud Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>
+                            Step {getCurrentStepNumber()}: {wizardContext === "source" ? "[ SOURCE ]" : "[ BACKUP ]"} pCloud Setup
+                        </text>
                         <text fg={colors.fg}>Swiss-hosted secure storage with lifetime plans.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1592,7 +1655,9 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "onedrive_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: OneDrive Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>
+                            Step {getCurrentStepNumber()}: {wizardContext === "source" ? "[ SOURCE ]" : "[ BACKUP ]"} OneDrive Setup
+                        </text>
                         <text fg={colors.fg}>Use your existing Office 365 or Microsoft Storage.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1690,7 +1755,9 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "dropbox_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Dropbox Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>
+                            Step {getCurrentStepNumber()}: {wizardContext === "source" ? "[ SOURCE ]" : "[ BACKUP ]"} Dropbox Setup
+                        </text>
                         <text fg={colors.fg}>Reliable sync with excellent version history.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1787,7 +1854,9 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "mega_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Mega.nz Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>
+                            Step {getCurrentStepNumber()}: {wizardContext === "source" ? "[ SOURCE ]" : "[ BACKUP ]"} Mega.nz Setup
+                        </text>
                         <text fg={colors.fg}>Zero-knowledge encryption with generous free tier.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
@@ -1856,7 +1925,9 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             {
                 step === "r2_intro" && (
                     <box flexDirection="column" gap={1}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {getCurrentStepNumber()}: Cloudflare R2 Setup</text>
+                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>
+                            Step {getCurrentStepNumber()}: {wizardContext === "source" ? "[ SOURCE ]" : "[ BACKUP ]"} Cloudflare R2 Setup
+                        </text>
                         <text fg={colors.fg}>S3-compatible storage with zero egress fees.</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
                             {[
