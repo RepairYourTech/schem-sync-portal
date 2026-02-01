@@ -59,7 +59,8 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
         { label: "LOG VIEWER", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "5" },
         { label: "FORENSIC SWEEP", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "6" },
         { label: "RESET SHIELD", action: onResetShield, description: "Clear identified threats & revert to defaults.", key: "7" },
-        { label: "RESET CONFIGURATION", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "8" }
+        { label: "RESET CONFIGURATION", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "8" },
+        { label: "SAVE & EXIT", action: onBack, description: "Persist change and return to dashboard.", key: "v" }
     ];
 
     const handleUpdate = useCallback(async () => {
@@ -135,7 +136,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
             if (subView === "menu" && focusArea === "body") {
                 // Hotkeys trigger actions IMMEDIATELY
                 const hotkeyMap: Record<string, number> = {
-                    "1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "6": 5, "7": 6
+                    "1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "6": 5, "7": 6, "8": 7, "v": 8
                 };
 
                 if (hotkeyMap[e.name] !== undefined) {

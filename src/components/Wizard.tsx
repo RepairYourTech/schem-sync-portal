@@ -52,18 +52,14 @@ type Step =
     | "security" // Malware Shield (Only if Upsync is on)
 
     // Cloud Provider Specifics (Shared for Source/Dest - we'll reuse UI but need context)
-    // NOTE: To avoid complexity, we can prefix them, or reuse them and depend on `context` state.
-    // For safety, let's prefix or use 'generic' steps if possible, but existing code is heavy prefix.
-    // Let's stick to existing "intro/id/key" patterns but route dynamically.
-    | "gdrive_intro" | "gdrive_guide_1" | "gdrive_guide_2" | "gdrive_guide_3" | "gdrive_guide_4" | "gdrive_id" | "gdrive_secret" | "gdrive_auth"
-    | "b2_intro" | "b2_guide_1" | "b2_guide_2" | "b2_id" | "b2_key"
-    | "sftp_intro" | "sftp_guide_1" | "sftp_host" | "sftp_user" | "sftp_pass"
-    | "pcloud_intro" | "pcloud_guide_1" | "pcloud_user" | "pcloud_pass"
-    | "onedrive_intro" | "onedrive_guide_1" | "onedrive_guide_2" | "onedrive_auth"
-    | "dropbox_intro" | "dropbox_guide_1" | "dropbox_guide_2" | "dropbox_auth"
-    | "mega_intro" | "mega_guide_1" | "mega_user" | "mega_pass"
-    | "r2_intro" | "r2_guide_1" | "r2_guide_2" | "r2_id" | "r2_key" | "r2_endpoint"
-    | "cloud_setup_choice"
+    | "gdrive_intro" | "gdrive_guide_1" | "gdrive_guide_2" | "gdrive_guide_3" | "gdrive_guide_4"
+    | "b2_intro" | "b2_guide_1" | "b2_guide_2"
+    | "sftp_intro" | "sftp_guide_1"
+    | "pcloud_intro" | "pcloud_guide_1"
+    | "onedrive_intro" | "onedrive_guide_1" | "onedrive_guide_2"
+    | "dropbox_intro" | "dropbox_guide_1" | "dropbox_guide_2"
+    | "mega_intro" | "mega_guide_1"
+    | "r2_intro" | "r2_guide_1" | "r2_guide_2"
     | "cloud_direct_entry"
     | "edit_menu"
     | "deploy";
@@ -121,7 +117,6 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
     const [authStatus, setAuthStatus] = useState<string | null>(null);
     const pendingSourceProviderRef = useRef<PortalProvider>(initialConfig.source_provider);
     const pendingBackupProviderRef = useRef<PortalProvider>(initialConfig.backup_provider);
-    const [cloudExperience, setCloudExperience] = useState<"guided" | "direct">("guided");
 
     // [SEC] Local Credential Refs - Memory-only, never saved to config.json 🧠🛡️🦅
     const urlRef = useRef("");
@@ -131,16 +126,6 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
     const clientSecretRef = useRef("");
     const b2IdRef = useRef("");
     const b2KeyRef = useRef("");
-    const sftpHostRef = useRef("");
-    const sftpUserRef = useRef("");
-    const sftpPassRef = useRef("");
-    const pcloudUserRef = useRef("");
-    const pcloudPassRef = useRef("");
-    const megaUserRef = useRef("");
-    const megaPassRef = useRef("");
-    const r2IdRef = useRef("");
-    const r2KeyRef = useRef("");
-    const r2EndpointRef = useRef("");
     const [wizardInputs, setWizardInputs] = useState({
         url: "",
         user: "",
@@ -149,16 +134,6 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         clientSecret: "",
         b2Id: "",
         b2Key: "",
-        sftpHost: "",
-        sftpUser: "",
-        sftpPass: "",
-        pcloudUser: "",
-        pcloudPass: "",
-        megaUser: "",
-        megaPass: "",
-        r2Id: "",
-        r2Key: "",
-        r2Endpoint: "",
         oauthToken: ""
     });
 
@@ -193,16 +168,6 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         clientSecretRef.current = "";
         b2IdRef.current = "";
         b2KeyRef.current = "";
-        sftpHostRef.current = "";
-        sftpUserRef.current = "";
-        sftpPassRef.current = "";
-        pcloudUserRef.current = "";
-        pcloudPassRef.current = "";
-        megaUserRef.current = "";
-        megaPassRef.current = "";
-        r2IdRef.current = "";
-        r2KeyRef.current = "";
-        r2EndpointRef.current = "";
         oauthTokenRef.current = "";
         setWizardInputs({
             url: "",
@@ -212,16 +177,6 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             clientSecret: "",
             b2Id: "",
             b2Key: "",
-            sftpHost: "",
-            sftpUser: "",
-            sftpPass: "",
-            pcloudUser: "",
-            pcloudPass: "",
-            megaUser: "",
-            megaPass: "",
-            r2Id: "",
-            r2Key: "",
-            r2Endpoint: "",
             oauthToken: ""
         });
         setAuthStatus(null);
@@ -285,15 +240,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                     } else if (currentSource === "none") {
                         nextStep = (isMenuMode ? "edit_menu" : "dir");
                     } else {
-                        nextStep = "cloud_setup_choice";
-                    }
-                    break;
-
-                case "cloud_setup_choice":
-                    if (cloudExperience === "direct") {
-                        nextStep = "cloud_direct_entry";
-                    } else {
-                        const provider = (wizardContext === "source" ? currentSource : currentBackup);
+                        const provider = currentSource;
                         if (provider === "gdrive") nextStep = "gdrive_intro";
                         else if (provider === "b2") nextStep = "b2_intro";
                         else if (provider === "sftp") nextStep = "sftp_intro";
@@ -302,13 +249,11 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         else if (provider === "dropbox") nextStep = "dropbox_intro";
                         else if (provider === "mega") nextStep = "mega_intro";
                         else if (provider === "r2") nextStep = "r2_intro";
-                        else nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security"));
+                        else nextStep = (isMenuMode ? "edit_menu" : "dir");
                     }
                     break;
 
-                case "cloud_direct_entry":
-                    nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security"));
-                    break;
+
 
                 case "copyparty_config": nextStep = (isMenuMode ? "edit_menu" : "dir"); break;
 
@@ -329,55 +274,51 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
 
                 case "dest_cloud_select":
                     if (currentBackup === "unconfigured") return prevStep;
-                    nextStep = "cloud_setup_choice";
+                    {
+                        const provider = currentBackup;
+                        if (provider === "gdrive") nextStep = "gdrive_intro";
+                        else if (provider === "b2") nextStep = "b2_intro";
+                        else if (provider === "sftp") nextStep = "sftp_intro";
+                        else if (provider === "pcloud") nextStep = "pcloud_intro";
+                        else if (provider === "onedrive") nextStep = "onedrive_intro";
+                        else if (provider === "dropbox") nextStep = "dropbox_intro";
+                        else if (provider === "mega") nextStep = "mega_intro";
+                        else if (provider === "r2") nextStep = "r2_intro";
+                        else nextStep = (isMenuMode ? "edit_menu" : "security");
+                    }
                     break;
 
                 case "security": nextStep = (isMenuMode ? "edit_menu" : "deploy"); break;
 
-                case "gdrive_auth": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "b2_key": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "sftp_pass": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "pcloud_pass": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "onedrive_auth": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "dropbox_auth": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "mega_pass": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
-                case "r2_endpoint": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
 
                 // Intermediates
-                case "gdrive_intro": nextStep = "gdrive_id"; break;
+                case "gdrive_intro": nextStep = "cloud_direct_entry"; break;
                 case "gdrive_guide_1": nextStep = "gdrive_guide_2"; break;
                 case "gdrive_guide_2": nextStep = "gdrive_guide_3"; break;
                 case "gdrive_guide_3": nextStep = "gdrive_guide_4"; break;
-                case "gdrive_guide_4": nextStep = "gdrive_id"; break;
-                case "gdrive_id": nextStep = "gdrive_secret"; break;
-                case "gdrive_secret": nextStep = "gdrive_auth"; break;
-                case "b2_intro": nextStep = "b2_id"; break;
-                case "b2_id": nextStep = "b2_key"; break;
-                case "sftp_intro": nextStep = "sftp_host"; break;
-                case "sftp_host": nextStep = "sftp_user"; break;
-                case "sftp_user": nextStep = "sftp_pass"; break;
-                case "pcloud_intro": nextStep = "pcloud_user"; break;
-                case "pcloud_user": nextStep = "pcloud_pass"; break;
-                case "onedrive_intro": nextStep = "onedrive_auth"; break;
-                case "dropbox_intro": nextStep = "dropbox_auth"; break;
-                case "mega_intro": nextStep = "mega_user"; break;
-                case "mega_user": nextStep = "mega_pass"; break;
-                case "r2_intro": nextStep = "r2_id"; break;
-                case "r2_id": nextStep = "r2_key"; break;
-                case "r2_key": nextStep = "r2_endpoint"; break;
+                case "gdrive_guide_4": nextStep = "cloud_direct_entry"; break;
+                case "b2_intro": nextStep = "cloud_direct_entry"; break;
+                case "sftp_intro": nextStep = "cloud_direct_entry"; break;
+                case "pcloud_intro": nextStep = "cloud_direct_entry"; break;
+                case "onedrive_intro": nextStep = "cloud_direct_entry"; break;
+                case "dropbox_intro": nextStep = "cloud_direct_entry"; break;
+                case "mega_intro": nextStep = "cloud_direct_entry"; break;
+                case "r2_intro": nextStep = "cloud_direct_entry"; break;
+
+                case "cloud_direct_entry": nextStep = (isMenuMode ? "edit_menu" : (wizardContext === "source" ? "dir" : "security")); break;
 
                 // Guide Transitions
                 case "b2_guide_1": nextStep = "b2_guide_2"; break;
-                case "b2_guide_2": nextStep = "b2_id"; break;
+                case "b2_guide_2": nextStep = "cloud_direct_entry"; break;
                 case "r2_guide_1": nextStep = "r2_guide_2"; break;
-                case "r2_guide_2": nextStep = "r2_id"; break;
-                case "sftp_guide_1": nextStep = "sftp_host"; break;
+                case "r2_guide_2": nextStep = "cloud_direct_entry"; break;
+                case "sftp_guide_1": nextStep = "cloud_direct_entry"; break;
                 case "onedrive_guide_1": nextStep = "onedrive_guide_2"; break;
-                case "onedrive_guide_2": nextStep = "onedrive_auth"; break;
+                case "onedrive_guide_2": nextStep = "cloud_direct_entry"; break;
                 case "dropbox_guide_1": nextStep = "dropbox_guide_2"; break;
-                case "dropbox_guide_2": nextStep = "dropbox_auth"; break;
-                case "mega_guide_1": nextStep = "mega_user"; break;
-                case "pcloud_guide_1": nextStep = "pcloud_user"; break;
+                case "dropbox_guide_2": nextStep = "cloud_direct_entry"; break;
+                case "mega_guide_1": nextStep = "cloud_direct_entry"; break;
+                case "pcloud_guide_1": nextStep = "cloud_direct_entry"; break;
 
                 case "deploy": onComplete(c); break;
             }
@@ -459,10 +400,6 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             { value: "r2", type: "backup_provider" }
         ];
 
-        if (step === "cloud_setup_choice") return [
-            { value: "guided", type: "exp_choice" },
-            { value: "direct", type: "exp_choice" }
-        ];
 
         if (step === "gdrive_intro") return [{ value: "guided", type: "gdrive_path" }, { value: "direct", type: "gdrive_path" }];
         if (step === "b2_intro") return [{ value: "guided", type: "intro_path" }, { value: "direct", type: "intro_path" }];
@@ -613,19 +550,33 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             return;
         }
 
-        if (opt.type === "exp_choice") {
-            setCloudExperience(opt.value as "guided" | "direct");
-            next();
-            return;
-        }
 
         if (opt.type === "gdrive_path") {
             if (opt.value === "guided") setStep("gdrive_guide_1");
-            else next();
+            else setStep("cloud_direct_entry");
             return;
         }
 
         if (opt.type === "intro_path") {
+            if (opt.value === "guided") {
+                const guideMap: Record<string, Step> = {
+                    "b2_intro": "b2_guide_1",
+                    "sftp_intro": "sftp_guide_1",
+                    "pcloud_intro": "pcloud_guide_1",
+                    "onedrive_intro": "onedrive_guide_1",
+                    "dropbox_intro": "dropbox_guide_1",
+                    "mega_intro": "mega_guide_1",
+                    "r2_intro": "r2_guide_1"
+                };
+                const nextStep = guideMap[step];
+                if (nextStep) {
+                    setStep(nextStep);
+                    return;
+                }
+            } else {
+                setStep("cloud_direct_entry");
+                return;
+            }
             next();
             return;
         }
@@ -702,6 +653,16 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         if (copyparty_config_index === 4) _onFocusChange("footer");
                         else set_copyparty_config_index(prev => prev + 1);
                     }
+                } else if (step === "cloud_direct_entry") {
+                    const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
+                    const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
+                    if (e.shift) {
+                        if (direct_entry_index === 0) _onFocusChange("footer");
+                        else set_direct_entry_index(prev => prev - 1);
+                    } else {
+                        if (direct_entry_index === maxIdx) _onFocusChange("footer");
+                        else set_direct_entry_index(prev => prev + 1);
+                    }
                 } else {
                     const options = getOptions();
                     if (options.length > 0) {
@@ -735,18 +696,11 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
 
             if (step === "cloud_direct_entry") {
                 const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
-                let maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
-                if (e.name === "down") set_direct_entry_index(prev => Math.min(maxIdx, prev + 1));
-                else if (e.name === "up") set_direct_entry_index(prev => Math.max(0, prev - 1));
-
-                if (e.name === "return" && direct_entry_index === maxIdx) {
-                    if (!isAuthLoading) {
-                        if (provider === "gdrive" || provider === "onedrive" || provider === "dropbox") handleAuth();
-                        else next();
-                    }
-                    return;
-                }
+                const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
+                if (e.name === "down") { set_direct_entry_index(prev => Math.min(maxIdx, prev + 1)); return; }
+                else if (e.name === "up") { set_direct_entry_index(prev => Math.max(0, prev - 1)); return; }
             }
+
 
             if (e.name === "return") {
                 if (step === "copyparty_config") {
@@ -754,10 +708,36 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                     else set_copyparty_config_index(prev => Math.min(4, prev + 1));
                     return;
                 }
+                if (step === "cloud_direct_entry") {
+                    const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
+                    const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
+                    if (direct_entry_index === maxIdx) {
+                        if (!isAuthLoading) {
+                            if (provider === "gdrive") handleGdriveAuth(clientIdRef.current, clientSecretRef.current);
+                            else if (provider === "onedrive" || provider === "dropbox") startGenericAuth(provider);
+                            else {
+                                // Save and proceed
+                                const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
+                                if (provider === "b2") updateGenericRemote(remoteName, "b2", { account: b2IdRef.current, key: b2KeyRef.current });
+                                else if (provider === "sftp") updateGenericRemote(remoteName, "sftp", { host: urlRef.current, user: userRef.current, pass: passRef.current });
+                                else if (provider === "pcloud") updateGenericRemote(remoteName, "pcloud", { user: userRef.current, pass: passRef.current });
+                                else if (provider === "mega") updateGenericRemote(remoteName, "mega", { user: userRef.current, pass: passRef.current });
+                                else if (provider === "r2") updateGenericRemote(remoteName, "s3", { access_key_id: userRef.current, secret_access_key: passRef.current, endpoint: urlRef.current });
+
+                                const field = wizardContext === "source" ? "source_provider" : "backup_provider";
+                                updateConfig(prev => ({ ...prev, [field]: provider }));
+                                next();
+                            }
+                        }
+                    } else {
+                        set_direct_entry_index(prev => prev + 1);
+                    }
+                    return;
+                }
             }
         }
 
-        const selectableSteps: Step[] = ["shortcut", "source_choice", "mirror", "upsync_ask", "security", "dest_cloud_select", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "deploy", "cloud_setup_choice"];
+        const selectableSteps: Step[] = ["shortcut", "source_choice", "mirror", "upsync_ask", "security", "dest_cloud_select", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "deploy", "cloud_direct_entry"];
         if (selectableSteps.includes(step)) {
             const options = getOptions();
             if (e.name === "down") setSelectedIndex(prev => (prev + 1) % options.length);
@@ -806,7 +786,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     alignItems="center"
                                     border
                                     borderStyle="single"
-                                    borderColor={isSelected ? colors.success : colors.dim + "33"}
+                                    borderColor={isSelected ? colors.success : "transparent"}
                                 >
                                     <box width={3}>
                                         <text fg={isSelected ? colors.primary : colors.dim}>{isSelected ? "▶ " : "  "}</text>
@@ -849,7 +829,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                 paddingLeft={2}
                                 border
                                 borderStyle="single"
-                                borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                             >
                                 <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                 <Hotkey
@@ -973,6 +953,99 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 </box>
             )}
 
+            {step === "cloud_direct_entry" && (
+                <box flexDirection="column" gap={1}>
+                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Direct Configuration</text>
+                    <text fg={colors.fg}>Enter credentials for {(wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current).toUpperCase()}:</text>
+
+                    <box flexDirection="column" gap={0} marginTop={1}>
+                        {(() => {
+                            const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
+                            const fields: { label: string, ref: React.MutableRefObject<string>, icon: string, placeholder?: string }[] = [];
+
+                            if (provider === "gdrive") {
+                                fields.push({ label: "Client ID", ref: clientIdRef, icon: "🆔", placeholder: "123...apps.googleusercontent.com" });
+                                fields.push({ label: "Client Secret", ref: clientSecretRef, icon: "🔑", placeholder: "GOCSPX-..." });
+                            } else if (provider === "b2") {
+                                fields.push({ label: "Key ID", ref: b2IdRef, icon: "🆔", placeholder: "005..." });
+                                fields.push({ label: "Application Key", ref: b2KeyRef, icon: "🔑", placeholder: "K005..." });
+                            } else if (provider === "sftp") {
+                                fields.push({ label: "Host", ref: urlRef, icon: "🌐", placeholder: "sftp.example.com" });
+                                fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "username" });
+                                fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password" });
+                            } else if (provider === "pcloud") {
+                                fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "email@example.com" });
+                                fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password" });
+                            } else if (provider === "onedrive") {
+                                fields.push({ label: "Client ID", ref: userRef, icon: "🆔", placeholder: "client-id" });
+                                fields.push({ label: "Client Secret", ref: passRef, icon: "🔑", placeholder: "client-secret" });
+                            } else if (provider === "dropbox") {
+                                fields.push({ label: "App Key", ref: userRef, icon: "🆔", placeholder: "app-key" });
+                                fields.push({ label: "App Secret", ref: passRef, icon: "🔑", placeholder: "app-secret" });
+                            } else if (provider === "mega") {
+                                fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "email@example.com" });
+                                fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password" });
+                            } else if (provider === "r2") {
+                                fields.push({ label: "Access Key ID", ref: userRef, icon: "🆔", placeholder: "access-key" });
+                                fields.push({ label: "Secret Key", ref: passRef, icon: "🔑", placeholder: "secret-key" });
+                                fields.push({ label: "Endpoint", ref: urlRef, icon: "🌐", placeholder: "account-id.r2.cloudflarestorage.com" });
+                            }
+
+                            const isConnectFocused = direct_entry_index === fields.length && focusArea === "body";
+
+                            return (
+                                <>
+                                    {fields.map((f, i) => (
+                                        <box key={i} flexDirection="row" gap={1}
+                                            border borderStyle="single"
+                                            borderColor={direct_entry_index === i && focusArea === "body" ? colors.primary : "transparent"}
+                                            padding={1}
+                                            onMouseOver={() => { _onFocusChange("body"); set_direct_entry_index(i); }}
+                                        >
+                                            <text fg={colors.dim}>{String(f.icon)}</text>
+                                            <text width={15} fg={colors.fg}>{String(f.label)}:</text>
+                                            <input
+                                                value={f.ref.current}
+                                                onChange={(val) => { f.ref.current = val; onUpdate?.(configRef.current); }}
+                                                focused={direct_entry_index === i && focusArea === "body"}
+                                                width={40}
+                                                placeholder={f.placeholder}
+                                            />
+                                        </box>
+                                    ))}
+                                    <box
+                                        marginTop={1} padding={1} border borderStyle="double"
+                                        borderColor={isConnectFocused ? colors.success : colors.dim}
+                                        onMouseOver={() => { _onFocusChange("body"); set_direct_entry_index(fields.length); }}
+                                        onMouseDown={() => {
+                                            if (provider === "gdrive") handleGdriveAuth(clientIdRef.current, clientSecretRef.current);
+                                            else if (provider === "onedrive" || provider === "dropbox") startGenericAuth(provider);
+                                            else {
+                                                const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
+                                                if (provider === "b2") updateGenericRemote(remoteName, "b2", { account: b2IdRef.current, key: b2KeyRef.current });
+                                                else if (provider === "sftp") updateGenericRemote(remoteName, "sftp", { host: urlRef.current, user: userRef.current, pass: passRef.current });
+                                                else if (provider === "pcloud") updateGenericRemote(remoteName, "pcloud", { user: userRef.current, pass: passRef.current });
+                                                else if (provider === "mega") updateGenericRemote(remoteName, "mega", { user: userRef.current, pass: passRef.current });
+                                                else if (provider === "r2") updateGenericRemote(remoteName, "s3", { access_key_id: userRef.current, secret_access_key: passRef.current, endpoint: urlRef.current });
+
+                                                const field = wizardContext === "source" ? "source_provider" : "backup_provider";
+                                                updateConfig(prev => ({ ...prev, [field]: provider }));
+                                                next();
+                                            }
+                                        }}
+                                    >
+                                        <box flexDirection="row" gap={1}>
+                                            <text fg={isConnectFocused ? colors.primary : colors.dim}>{String(isConnectFocused ? "▶ " : "  ")}</text>
+                                            <Hotkey keyLabel="ENTER" label="CONNECT & SAVE" isFocused={isConnectFocused} />
+                                        </box>
+                                    </box>
+                                </>
+                            );
+                        })()}
+                    </box>
+                </box>
+            )}
+
             {step === "dir" && (
                 <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
                     <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step 4: Storage Path</text>
@@ -1006,7 +1079,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                 paddingLeft={2}
                                 border
                                 borderStyle="single"
-                                borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                 flexDirection="row"
                                 alignItems="center"
                                 gap={1}
@@ -1024,112 +1097,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 </box>
             )}
 
-            {step === "cloud_direct_entry" && (
-                <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Direct Configuration</text>
-                    <text fg={colors.fg}>Enter all credentials for {(wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current).toUpperCase()}:</text>
 
-                    <box flexDirection="column" gap={0} marginTop={1}>
-                        {(() => {
-                            const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
-                            const fields: { label: string, ref: React.MutableRefObject<string>, icon: string }[] = [];
-
-                            if (provider === "gdrive") {
-                                fields.push({ label: "Client ID", ref: userRef, icon: "🆔" });
-                                fields.push({ label: "Client Secret", ref: passRef, icon: "🔑" });
-                            } else if (provider === "b2") {
-                                fields.push({ label: "Key ID", ref: userRef, icon: "🆔" });
-                                fields.push({ label: "Application Key", ref: passRef, icon: "🔑" });
-                            } else if (provider === "sftp") {
-                                fields.push({ label: "Host", ref: urlRef, icon: "🌐" });
-                                fields.push({ label: "User", ref: userRef, icon: "👤" });
-                                fields.push({ label: "Pass", ref: passRef, icon: "🔑" });
-                            } else if (provider === "r2") {
-                                fields.push({ label: "Access Key ID", ref: userRef, icon: "🆔" });
-                                fields.push({ label: "Secret Key", ref: passRef, icon: "🔑" });
-                                fields.push({ label: "Endpoint", ref: urlRef, icon: "🌐" });
-                            } else if (provider === "pcloud" || provider === "mega" || provider === "onedrive" || provider === "dropbox") {
-                                fields.push({ label: "Username/ID", ref: userRef, icon: "👤" });
-                                fields.push({ label: "Password/Secret", ref: passRef, icon: "🔑" });
-                            }
-
-                            return (
-                                <>
-                                    {fields.map((f, i) => (
-                                        <box key={i} flexDirection="row" gap={1}
-                                            border borderStyle="single"
-                                            borderColor={direct_entry_index === i ? colors.primary : colors.dim + "33"}
-                                            padding={1}
-                                        >
-                                            <text fg={colors.dim}>{String(f.icon)}</text>
-                                            <text width={15} fg={colors.fg}>{String(f.label)}:</text>
-                                            <input
-                                                value={f.ref.current}
-                                                onChange={(val) => { f.ref.current = val; onUpdate?.(configRef.current); }}
-                                                focused={direct_entry_index === i && focusArea === "body"}
-                                                width={40}
-                                            />
-                                        </box>
-                                    ))}
-                                    <box
-                                        marginTop={1} padding={1} border borderStyle="double"
-                                        borderColor={direct_entry_index === fields.length ? colors.success : colors.dim + "33"}
-                                        onMouseDown={() => {
-                                            if (provider === "gdrive" || provider === "onedrive" || provider === "dropbox") handleAuth();
-                                            else next();
-                                        }}
-                                    >
-                                        <box flexDirection="row" gap={1}>
-                                            <text fg={direct_entry_index === fields.length ? colors.primary : colors.dim}>{String(direct_entry_index === fields.length ? "▶ " : "  ")}</text>
-                                            <Hotkey keyLabel="ENTER" label="CONNECT & SAVE" isFocused={direct_entry_index === fields.length && focusArea === "body"} />
-                                        </box>
-                                    </box>
-                                </>
-                            );
-                        })()}
-                    </box>
-                </box>
-            )}
-
-            {step === "cloud_setup_choice" && (
-                <box flexDirection="column" gap={1}>
-                    <text attributes={TextAttributes.BOLD} fg={colors.fg}>Setup Experience</text>
-                    <text fg={colors.fg}>Choose how you want to configure your cloud provider:</text>
-                    <box flexDirection="column" gap={0} marginTop={1}>
-                        {getOptions().map((opt, i) => {
-                            const exp = opt.value === "guided"
-                                ? { name: "Guided Walkthrough", desc: "Step-by-step assistant for beginners." }
-                                : { name: "Direct Entry", desc: "One screen for all settings. (Fast)" };
-                            return (
-                                <box
-                                    key={i}
-                                    onMouseOver={() => {
-                                        _onFocusChange("body");
-                                        setSelectedIndex(i);
-                                    }}
-                                    onMouseDown={() => confirmSelection(opt)}
-                                    paddingLeft={2}
-                                    border
-                                    borderStyle="single"
-                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
-                                    flexDirection="column"
-                                    padding={1}
-                                >
-                                    <box flexDirection="row" gap={1}>
-                                        <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
-                                        <Hotkey
-                                            keyLabel={(i + 1).toString()}
-                                            label={exp.name}
-                                            isFocused={selectedIndex === i && focusArea === "body"}
-                                        />
-                                    </box>
-                                    <text fg={colors.dim} marginLeft={4}>{String(exp.desc)}</text>
-                                </box>
-                            );
-                        })}
-                    </box>
-                </box>
-            )}
 
             {step === "source_choice" && (
                 <box flexDirection="column" gap={1}>
@@ -1163,7 +1131,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                     flexDirection="row"
                                     alignItems="center"
                                     gap={1}
@@ -1213,7 +1181,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                         paddingLeft={2}
                                         border
                                         borderStyle="single"
-                                        borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                        borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                         flexDirection="row"
                                         alignItems="center"
                                         gap={1}
@@ -1256,7 +1224,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                     flexDirection="row"
                                     alignItems="center"
                                     gap={1}
@@ -1298,7 +1266,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                 >
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
@@ -1337,7 +1305,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                 >
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
@@ -1377,7 +1345,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                 >
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
@@ -1462,7 +1430,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                 >
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
@@ -1525,7 +1493,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                 >
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
@@ -1540,6 +1508,28 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         </box>
                         <box marginTop={1} padding={1} border borderStyle="single" borderColor={colors.dim}>
                             <text fg={colors.primary}>PRO: Privacy-focused, Swiss laws. CON: API usage limits on free tier.</text>
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "pcloud_guide_1" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>pCloud Guide: Authentication</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>1. Use your standard pCloud login credentials.</text>
+                            <text fg={colors.fg}>2. If 2FA is on, use an Application Password if possible.</text>
+                            <text fg={colors.fg}>3. Portal will auto-detect EU vs US regions.</text>
+                        </box>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="READY" color={colors.success} />
+                            <text fg={colors.fg}> - I have my credentials</text>
                         </box>
                     </box>
                 )
@@ -1565,7 +1555,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                 >
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
@@ -1580,6 +1570,46 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         </box>
                         <box marginTop={1} padding={1} border borderStyle="single" borderColor={colors.dim}>
                             <text fg={colors.primary}>PRO: Fast corporate speed. CON: Scans for content.</text>
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "onedrive_guide_1" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>OneDrive Guide: The Handshake</text>
+                        <text fg={colors.fg}>1. A browser window will open on your system.</text>
+                        <text fg={colors.fg}>2. Log in with your Microsoft account.</text>
+                        <text fg={colors.fg}>3. Accept the permissions for 'rclone'.</text>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
+                            <text fg={colors.fg}> - I understand the process</text>
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "onedrive_guide_2" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>OneDrive Guide: Capturing the Token</text>
+                        <text fg={colors.fg}>1. After login, you'll see a 'Success' message in browser.</text>
+                        <text fg={colors.fg}>2. Portal will automatically receive the encrypted token.</text>
+                        <text fg={colors.fg}>3. No need to copy/paste anything if it works!</text>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="START" color={colors.success} />
+                            <text fg={colors.fg}> - Let's begin the handshake</text>
                         </box>
                     </box>
                 )
@@ -1605,7 +1635,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i ? colors.success : "transparent"}
                                 >
                                     <text fg={selectedIndex === i ? colors.primary : colors.dim}>{String(selectedIndex === i ? "▶ " : "  ")}</text>
                                     <Hotkey
@@ -1620,6 +1650,45 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         </box>
                         <box marginTop={1} padding={1} border borderStyle="single" borderColor={colors.dim}>
                             <text fg={colors.primary}>PRO: Very reliable. CON: Expensive per GB.</text>
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "dropbox_guide_1" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>Dropbox Guide: Handshake</text>
+                        <text fg={colors.fg}>1. Portal will launch rclone authorize dropbox.</text>
+                        <text fg={colors.fg}>2. Browser window pops up for authorization.</text>
+                        <text fg={colors.fg}>3. Grant access to your Dropbox files.</text>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
+                            <text fg={colors.fg}> - Understood</text>
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "dropbox_guide_2" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>Dropbox Guide: Success</text>
+                        <text fg={colors.fg}>Wait for the browser to finish its redirect.</text>
+                        <text fg={colors.fg}>The token will automatically flow back to Portal.</text>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="START" color={colors.success} />
+                            <text fg={colors.fg}> - Start handshake</text>
                         </box>
                     </box>
                 )
@@ -1645,7 +1714,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                                 >
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                                     <Hotkey
@@ -1661,6 +1730,26 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         <box marginTop={1} padding={1} border borderStyle="single" borderColor={colors.dim}>
                             <text fg={colors.primary}>PRO: 20GB Free, Encrypted. CON: Bandwidth limits on free plans.</text>
                             {selectedIndex === 0 && <text fg={colors.success} marginTop={1}>NOTE: If you use 2FA, you must disable it temporarily or use an App Password.</text>}
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "mega_guide_1" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>Mega Guide: 2FA {"&"} Privacy</text>
+                        <text fg={colors.fg}>1. Portal uses standard encrypted login.</text>
+                        <text fg={colors.fg}>2. 2FA is supported via standard TOTP.</text>
+                        <text fg={colors.fg}>3. Ensure you have your Recovery Key safely stored!</text>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="READY" color={colors.success} />
+                            <text fg={colors.fg}> - I have my credentials</text>
                         </box>
                     </box>
                 )
@@ -1686,7 +1775,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     paddingLeft={2}
                                     border
                                     borderStyle="single"
-                                    borderColor={selectedIndex === i ? colors.success : colors.dim + "33"}
+                                    borderColor={selectedIndex === i ? colors.success : "transparent"}
                                 >
                                     <text fg={selectedIndex === i ? colors.primary : colors.dim}>{String(selectedIndex === i ? "▶ " : "  ")}</text>
                                     <Hotkey
@@ -1701,7 +1790,51 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                         </box>
                         <box marginTop={1} padding={1} border borderStyle="single" borderColor={colors.dim}>
                             <text fg={colors.primary}>PRO: No bandwidth fees. CON: S3 complexity.</text>
-                            {selectedIndex === 0 && <text fg={colors.success} marginTop={1}>GUIDE: Dash -{">"} R2 -{">"} Manage R2 API Tokens -{">"} Create Token (Admin Read/Write).</text>}
+                            {selectedIndex === 0 && <text fg={colors.success} marginTop={1}>GUIDE: Dash {"->"} R2 {"->"} Manage R2 API Tokens {"->"} Create Token (Admin Read/Write).</text>}
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "r2_guide_1" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>R2 Guide: API Tokens</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>1. Go to Cloudflare Dashboard {"->"} R2.</text>
+                            <text fg={colors.fg}>2. Click 'Manage R2 API Tokens'.</text>
+                            <text fg={colors.fg}>3. Create a token with 'Object Read {"&"} Write' permissions.</text>
+                        </box>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="NEXT" color={colors.success} />
+                            <text fg={colors.fg}> - I'm in the Dashboard</text>
+                        </box>
+                    </box>
+                )
+            }
+
+            {
+                step === "r2_guide_2" && (
+                    <box flexDirection="column" gap={1}>
+                        <text attributes={TextAttributes.BOLD} fg={colors.primary}>R2 Guide: The Endpoint</text>
+                        <box flexDirection="column">
+                            <text fg={colors.fg}>1. Find your 'Account ID' on the R2 homepage.</text>
+                            <text fg={colors.fg}>2. Copy the Access Key ID and Secret Access Key.</text>
+                            <text fg={colors.fg}>3. Endpoint: https://{"<"}$ACCOUNT_ID{">"}.r2.cloudflarestorage.com</text>
+                        </box>
+                        <box
+                            marginTop={1} paddingLeft={2} border borderStyle="single" borderColor={colors.success}
+                            onMouseOver={() => _onFocusChange("body")}
+                            onMouseDown={() => next()}
+                        >
+                            <text fg={colors.primary}>▶ </text>
+                            <Hotkey keyLabel="1" label="DONE" color={colors.success} />
+                            <text fg={colors.fg}> - I have ID, Key, and Endpoint</text>
                         </box>
                     </box>
                 )
@@ -1721,7 +1854,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                             paddingLeft={2}
                             border
                             borderStyle="single"
-                            borderColor={focusArea === "body" ? colors.success : colors.dim + "33"}
+                            borderColor={focusArea === "body" ? colors.success : "transparent"}
                             flexDirection="row"
                             onMouseOver={() => _onFocusChange("body")}
                             onMouseDown={() => confirmSelection(getOptions()[0]!)}
@@ -1811,409 +1944,6 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 )
             }
 
-            {
-                step === "gdrive_id" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Google Drive: Client ID</text>
-                        <text fg={colors.fg}>🔑 Enter your GCP Client ID:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="123456789-abc.apps.googleusercontent.com"
-                            value={wizardInputs.clientId}
-                            onChange={(val) => updateInput("clientId", val, clientIdRef)}
-                            onKeyDown={(e) => { if (e.name === "return") next(); }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "gdrive_secret" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Google Drive: Client Secret</text>
-                        <text fg={colors.fg}>🔒 Enter your GCP Client Secret:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="GOCSPX-..."
-                            value={wizardInputs.clientSecret}
-                            onChange={(val) => updateInput("clientSecret", val, clientSecretRef)}
-                            onKeyDown={(e) => { if (e.name === "return") next(); }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "gdrive_auth" && (
-                    <box flexDirection="column" gap={1} alignItems="center">
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Google Drive: Handshake</text>
-                        <text fg={colors.fg}>Connecting to project with ID: {clientIdRef.current.slice(0, 10)}...</text>
-                        <box marginTop={1} flexDirection="column" alignItems="center">
-                            <text fg={colors.success} attributes={TextAttributes.BOLD}>{String(authStatus || "READY TO AUTHORIZE")}</text>
-                            {!authStatus && (
-                                <box border padding={1} onMouseOver={() => _onFocusChange("body")} onMouseDown={() => handleGdriveAuth(clientIdRef.current, clientSecretRef.current)} borderColor={colors.success}>
-                                    <text fg={colors.fg}> [ CLICK HERE OR HIT ENTER TO AUTHORIZE ] </text>
-                                </box>
-                            )}
-                            {!authStatus && (
-                                <input focused={focusArea === "body"} value="" onChange={() => { }} onKeyDown={(e) => { if (e.name === "return") handleGdriveAuth(clientIdRef.current, clientSecretRef.current); }} />
-                            )}
-                        </box>
-                    </box>
-                )
-            }
-
-            {
-                step === "b2_id" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Backblaze B2: Key ID</text>
-                        <text fg={colors.fg}>🔑 Enter your B2 keyID:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="005..."
-                            value={wizardInputs.b2Id}
-                            onChange={(val) => updateInput("b2Id", val, b2IdRef)}
-                            onKeyDown={(e) => { if (e.name === "return") next(); }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "b2_key" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Backblaze B2: Application Key</text>
-                        <text fg={colors.fg}>🔒 Enter your B2 applicationKey:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="K005..."
-                            value={wizardInputs.b2Key}
-                            onChange={(val) => updateInput("b2Key", val, b2KeyRef)}
-                            onKeyDown={(e) => {
-                                if (e.name === "return") {
-                                    const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                                    updateGenericRemote(remoteName, "b2", { account: b2IdRef.current, key: b2KeyRef.current });
-                                    // COMMIT
-                                    const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                                    updateConfig(prev => ({ ...prev, [field]: wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current }));
-                                    next();
-                                }
-                            }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "sftp_host" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>SFTP: Server Address</text>
-                        <text fg={colors.fg}>🌐 Enter SFTP Host (e.g., example.com):</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="sftp.example.com"
-                            value={wizardInputs.sftpHost}
-                            onChange={(val) => updateInput("sftpHost", val, sftpHostRef)}
-                            onKeyDown={(e) => { if (e.name === "return") next(); }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "sftp_user" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>SFTP: Username</text>
-                        <text fg={colors.fg}>👤 Enter SSH/SFTP User:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="root"
-                            value={wizardInputs.sftpUser}
-                            onChange={(val) => updateInput("sftpUser", val, sftpUserRef)}
-                            onKeyDown={(e) => { if (e.name === "return") next(); }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "sftp_pass" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>SFTP: Security</text>
-                        <text fg={colors.fg}>🔑 Enter SSH/SFTP Password (or leave empty for key):</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="Password"
-                            value={wizardInputs.sftpPass}
-                            onChange={(val) => updateInput("sftpPass", val, sftpPassRef)}
-                            onKeyDown={(e) => {
-                                if (e.name === "return") {
-                                    const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                                    updateGenericRemote(remoteName, "sftp", { host: sftpHostRef.current, user: sftpUserRef.current, pass: sftpPassRef.current });
-                                    // COMMIT
-                                    const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                                    updateConfig(prev => ({ ...prev, [field]: wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current }));
-                                    next();
-                                }
-                            }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "pcloud_user" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>pCloud: Identity</text>
-                        <text fg={colors.fg}>👤 Enter pCloud Email:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="user@example.com"
-                            value={wizardInputs.pcloudUser}
-                            onChange={(val) => updateInput("pcloudUser", val, pcloudUserRef)}
-                            onKeyDown={(e) => { if (e.name === "return") next(); }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "pcloud_pass" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>pCloud: Security</text>
-                        <text fg={colors.fg}>🔑 Enter pCloud Password:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="Password"
-                            value={wizardInputs.pcloudPass}
-                            onChange={(val) => updateInput("pcloudPass", val, pcloudPassRef)}
-                            onKeyDown={(e) => {
-                                if (e.name === "return") {
-                                    const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                                    updateGenericRemote(remoteName, "pcloud", { username: pcloudUserRef.current, password: pcloudPassRef.current });
-                                    // COMMIT
-                                    const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                                    updateConfig(prev => ({ ...prev, [field]: wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current }));
-                                    next();
-                                }
-                            }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "onedrive_auth" && (
-                    <box flexDirection="column" gap={1} alignItems="center">
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>OneDrive Configuration: Handshake</text>
-                        <text fg={colors.fg}>This will open a browser to authorize Microsoft OneDrive.</text>
-
-                        <box marginTop={1} flexDirection="column" alignItems="center">
-                            <text fg={colors.success} attributes={TextAttributes.BOLD}>{String(authStatus || "READY TO AUTHORIZE MICROSOFT")}</text>
-                            {!authStatus && (
-                                <box border padding={1} onMouseOver={() => _onFocusChange("body")} onMouseDown={() => startGenericAuth("onedrive")} borderColor={colors.success}>
-                                    <text fg={colors.fg}> [ CLICK HERE OR HIT ENTER TO AUTHORIZE ] </text>
-                                </box>
-                            )}
-                            {!authStatus && (
-                                <input focused={focusArea === "body"} value="" onChange={() => { }} onKeyDown={(e) => { if (e.name === "return") startGenericAuth("onedrive"); }} />
-                            )}
-
-                            {oauthTokenRef.current ? (
-                                <box marginTop={1}>
-                                    <text fg={colors.success}>✅ TOKEN CAPTURED. Microsoft Connected.</text>
-                                    <box marginTop={1} border padding={1} borderColor={colors.primary}>
-                                        <text fg={colors.fg}> [ HIT ENTER TO FINALIZE ] </text>
-                                    </box>
-                                    <input focused value="" onChange={() => { }} onKeyDown={(e) => { if (e.name === "return") next(); }} />
-                                </box>
-                            ) : (
-                                authStatus?.includes("📡") && (
-                                    <box marginTop={1} flexDirection="column" onMouseDown={() => _onFocusChange("body")}>
-                                        <text fg={colors.dim}>Paste the Token JSON here:</text>
-                                        <input
-                                            focused={focusArea === "body"}
-                                            placeholder='{"access_token":"..."}'
-                                            value={wizardInputs.oauthToken}
-                                            onChange={(val) => {
-                                                const token = val.trim();
-                                                updateInput("oauthToken", token, oauthTokenRef);
-
-                                                const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                                                updateGenericRemote(remoteName, "onedrive", { token: token });
-                                                // COMMIT
-                                                const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                                                updateConfig(prev => ({ ...prev, [field]: wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current }));
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.name === "return" && oauthTokenRef.current) next();
-                                            }}
-                                        />
-                                    </box>
-                                ) || null
-                            )}
-                        </box>
-                    </box>
-                )
-            }
-
-            {
-                step === "dropbox_auth" && (
-                    <box flexDirection="column" gap={1} alignItems="center">
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Dropbox Configuration: Handshake</text>
-                        <text fg={colors.fg}>This will open a browser to authorize Dropbox.</text>
-
-                        <box marginTop={1} flexDirection="column" alignItems="center">
-                            <text fg={colors.success} attributes={TextAttributes.BOLD}>{String(authStatus || "READY TO AUTHORIZE DROPBOX")}</text>
-                            {!authStatus && (
-                                <box border padding={1} onMouseOver={() => _onFocusChange("body")} onMouseDown={() => startGenericAuth("dropbox")} borderColor={colors.success}>
-                                    <text fg={colors.fg}> [ CLICK HERE OR HIT ENTER TO AUTHORIZE ] </text>
-                                </box>
-                            )}
-                            {!authStatus && (
-                                <input focused={focusArea === "body"} value="" onChange={() => { }} onKeyDown={(e) => { if (e.name === "return") startGenericAuth("dropbox"); }} />
-                            )}
-
-                            {oauthTokenRef.current ? (
-                                <box marginTop={1}>
-                                    <text fg={colors.success}>✅ TOKEN CAPTURED. Dropbox Connected.</text>
-                                    <box marginTop={1} border padding={1} borderColor={colors.primary}>
-                                        <text fg={colors.fg}> [ HIT ENTER TO FINALIZE ] </text>
-                                    </box>
-                                    <input focused value="" onChange={() => { }} onKeyDown={(e) => { if (e.name === "return") next(); }} />
-                                </box>
-                            ) : (
-                                authStatus?.includes("📡") && (
-                                    <box marginTop={1} flexDirection="column" onMouseDown={() => _onFocusChange("body")}>
-                                        <text fg={colors.dim}>Paste the Token JSON here:</text>
-                                        <input
-                                            focused={focusArea === "body"}
-                                            placeholder='{"access_token":"..."}'
-                                            value={wizardInputs.oauthToken}
-                                            onChange={(val) => {
-                                                const token = val.trim();
-                                                updateInput("oauthToken", token, oauthTokenRef);
-
-                                                const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                                                updateGenericRemote(remoteName, "dropbox", { token: token });
-                                                // COMMIT
-                                                const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                                                updateConfig(prev => ({ ...prev, [field]: wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current }));
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.name === "return" && oauthTokenRef.current) next();
-                                            }}
-                                        />
-                                    </box>
-                                ) || null
-                            )}
-                        </box>
-                    </box>
-                )
-            }
-
-            {
-                step === "mega_user" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Mega.nz Configuration: Identity</text>
-                        <text fg={colors.fg}>👤 Enter Mega.nz Email:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="user@example.com"
-                            value={wizardInputs.megaUser}
-                            onChange={(val) => updateInput("megaUser", val, megaUserRef)}
-                            onKeyDown={(e) => { if (e.name === "return") next(); }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "mega_pass" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Mega.nz Configuration: Security</text>
-                        <text fg={colors.fg}>🔑 Enter Mega.nz Password:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="Password"
-                            value={wizardInputs.megaPass}
-                            onChange={(val) => updateInput("megaPass", val, megaPassRef)}
-                            onKeyDown={(e) => {
-                                if (e.name === "return") {
-                                    const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                                    updateGenericRemote(remoteName, "mega", { user: megaUserRef.current, pass: megaPassRef.current });
-                                    // COMMIT
-                                    const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                                    updateConfig(prev => ({ ...prev, [field]: wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current }));
-                                    next();
-                                }
-                            }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "r2_id" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Cloudflare R2: Access Key</text>
-                        <text fg={colors.fg}>🔑 Enter R2 Access Key ID:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="abc123..."
-                            value={wizardInputs.r2Id}
-                            onChange={(val) => updateInput("r2Id", val, r2IdRef)}
-                            onKeyDown={(e) => { if (e.name === "return") next(); }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "r2_key" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Cloudflare R2: Secret Key</text>
-                        <text fg={colors.fg}>🔒 Enter R2 Secret Access Key:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="xyz789..."
-                            value={wizardInputs.r2Key}
-                            onChange={(val) => updateInput("r2Key", val, r2KeyRef)}
-                            onKeyDown={(e) => { if (e.name === "return") next(); }}
-                        />
-                    </box>
-                )
-            }
-
-            {
-                step === "r2_endpoint" && (
-                    <box flexDirection="column" gap={1} onMouseDown={() => _onFocusChange("body")}>
-                        <text attributes={TextAttributes.BOLD} fg={colors.fg}>Cloudflare R2: Endpoint</text>
-                        <text fg={colors.fg}>🌐 Enter R2 S3 Endpoint URL:</text>
-                        <input
-                            focused={focusArea === "body"}
-                            placeholder="https://<account_id>.r2.cloudflarestorage.com"
-                            value={wizardInputs.r2Endpoint}
-                            onChange={(val) => updateInput("r2Endpoint", val, r2EndpointRef)}
-                            onKeyDown={(e) => {
-                                if (e.name === "return") {
-                                    const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                                    updateGenericRemote(remoteName, "s3", {
-                                        provider: "Cloudflare",
-                                        access_key_id: r2IdRef.current,
-                                        secret_access_key: r2KeyRef.current,
-                                        endpoint: r2EndpointRef.current
-                                    });
-                                    // COMMIT
-                                    const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                                    updateConfig(prev => ({ ...prev, [field]: wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current }));
-                                    next();
-                                }
-                            }}
-                        />
-                    </box>
-                )
-            }
 
             {
                 step === "deploy" && (
