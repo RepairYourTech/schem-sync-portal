@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * UI Testing Helper Utilities
  *
@@ -289,48 +290,81 @@ export function generateUITestSuite(componentName: string) {
 
 /**
  * Mock render helper for TUI components
- *
- * Note: This is a simplified mock. In production, use
- * @opentui/react/test-utils or @testing-library for proper rendering.
+ * Supports finding elements by props and simulating events.
  */
-export function mockRender(_component: React.ReactElement) {
+export function mockRender(element: React.ReactElement) {
+    // Basic mock of the component tree for testing purposes
+    // We unwrap memoized components to allow traversal
+    const unwrap = (node: any): any => {
+        if (!node || typeof node !== 'object') return node;
+
+        // Handle React.memo
+        let type = node.type;
+        if (type && typeof type === 'object' && type.$$typeof === Symbol.for('react.memo')) {
+            type = type.type;
+        }
+
+        // Handle functional components
+        if (typeof type === 'function') {
+            try {
+                // Shallowly unwrap the first level to find the TUI primitive
+                const child = type(node.props);
+                return unwrap(child);
+            } catch {
+                // If it fails (e.g. hooks), return the node as-is so we can still inspect props
+                return node;
+            }
+        }
+        return node;
+    };
+
+    const tree = unwrap(element);
+
     return {
-        container: null,
-        rerender: (_newComponent: React.ReactElement) => {
-            // Mock rerender implementation
-        },
-        unmount: () => {
-            // Mock unmount implementation
-        },
+        container: tree,
+        rerender: (_newElement: React.ReactElement) => { },
+        unmount: () => { },
+        findWithProp: (propName: string, value?: any): any => {
+            const find = (node: any): any => {
+                if (!node || typeof node !== 'object') return null;
+                if (node.props && node.props[propName] !== undefined) {
+                    if (value === undefined || node.props[propName] === value) {
+                        return node;
+                    }
+                }
+                if (node.props && node.props.children) {
+                    const children = Array.isArray(node.props.children) ? node.props.children : [node.props.children];
+                    for (const child of children) {
+                        const found = find(child);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            };
+            return find(tree);
+        }
     };
 }
 
 /**
  * Event simulation helpers
  */
-export function simulateMouseOver(element: HTMLElement) {
-    const event = new MouseEvent("mouseover", {
-        bubbles: true,
-        cancelable: true,
-    });
-    element.dispatchEvent(event);
+export function simulateMouseOver(element: any) {
+    if (element && element.props && element.props.onMouseOver) {
+        element.props.onMouseOver();
+    }
 }
 
-export function simulateMouseDown(element: HTMLElement) {
-    const event = new MouseEvent("mousedown", {
-        bubbles: true,
-        cancelable: true,
-    });
-    element.dispatchEvent(event);
+export function simulateMouseDown(element: any) {
+    if (element && element.props && element.props.onMouseDown) {
+        element.props.onMouseDown();
+    }
 }
 
-export function simulateKeyDown(element: HTMLElement, key: string) {
-    const event = new KeyboardEvent("keydown", {
-        key,
-        bubbles: true,
-        cancelable: true,
-    });
-    element.dispatchEvent(event);
+export function simulateKeyDown(element: any, key: string) {
+    if (element && element.props && element.props.onKeyDown) {
+        element.props.onKeyDown({ name: key, sequence: key } as any);
+    }
 }
 /**
  * Creates a schema-compliant mock configuration, leveraging EMPTY_CONFIG

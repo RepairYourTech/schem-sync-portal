@@ -126,7 +126,7 @@ async function internalDetectNerdFonts(): Promise<FontDetectionResult> {
                     }
                 }
             } catch {
-                // Directory might not exist or be readable
+                // Directory might not exist or be readable, silently skip
             }
         };
 
@@ -178,7 +178,7 @@ function detectNerdFontVersion(): 2 | 3 {
             return 2;
         }
     } catch {
-        // Silently fail, move to heuristics
+        // fc-list not available, fall back to heuristics
     }
 
     const term = process.env.TERM_PROGRAM || "";
@@ -212,7 +212,7 @@ export async function checkDependencies(): Promise<DependencyStatus> {
                 return version;
             }
         } catch {
-            Logger.error("SYSTEM", `Failed to check dependency: ${cmd}`);
+            Logger.debug("SYSTEM", `Failed to check dependency: ${cmd}`);
         }
         return null;
     };
@@ -300,7 +300,9 @@ export async function checkDependencies(): Promise<DependencyStatus> {
         if (match && match[1]) {
             rcloneVersion = match[1];
             const parts = rcloneVersion.split(".").map(Number);
-            if (parts[0] > 1 || (parts[0] === 1 && parts[1] >= 73)) {
+            const major = parts[0] ?? 0;
+            const minor = parts[1] ?? 0;
+            if (major > 1 || (major === 1 && minor >= 73)) {
                 isRcloneModern = true;
             }
         }

@@ -2,7 +2,7 @@ import { join } from "path";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { Logger, type LogLevel } from "./logger";
 
-export type PortalProvider = "copyparty" | "gdrive" | "b2" | "sftp" | "pcloud" | "onedrive" | "dropbox" | "mega" | "r2" | "none" | "unconfigured";
+export type PortalProvider = "copyparty" | "gdrive" | "b2" | "sftp" | "pcloud" | "onedrive" | "dropbox" | "mega" | "r2" | "s3" | "none" | "unconfigured";
 
 export interface PortalConfig {
     // 1. Connection & Providers (One SSoT) 🧠🛡️🦅

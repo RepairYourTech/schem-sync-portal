@@ -93,9 +93,11 @@ export class Env {
     static getLogPath(filename: string = "app.log"): string {
         const { logsDir } = Env.getPaths();
         try {
-            if (!existsSync(logsDir)) mkdirSync(logsDir, { recursive: true });
-        } catch { }
-        return join(logsDir, filename);
+            if (logsDir && !existsSync(logsDir)) mkdirSync(logsDir, { recursive: true });
+        } catch (err) {
+            console.debug("Failed to create logs directory:", err);
+        }
+        return join(logsDir || ".", filename);
     }
 
     /**

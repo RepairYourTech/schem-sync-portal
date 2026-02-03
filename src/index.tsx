@@ -593,7 +593,9 @@ function AppContent() {
     try {
       const { unlinkSync } = await import("fs");
       unlinkSync("/tmp/portal_auth.log");
-    } catch { }
+    } catch {
+      // Auth log may not exist, silently continue
+    }
 
     const configM = await import("./lib/config");
     configM.clearConfig();

@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useKeyboard } from "@opentui/react";
 import { useTheme } from "../lib/theme";
+import pkg from "../../package.json";
 import { performUpdate, type UpdateStatus } from "../lib/updater";
 import { Hotkey } from "./Hotkey";
 import { type PortalConfig } from "../lib/config";
@@ -139,10 +140,10 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                     "1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "6": 5, "7": 6, "8": 7, "v": 8
                 };
 
-                if (hotkeyMap[e.name] !== undefined) {
-                    const idx = hotkeyMap[e.name];
-                    setSelectedIndex(idx);
-                    options[idx].action();
+                const hotkeyIdx = hotkeyMap[e.name];
+                if (hotkeyIdx !== undefined && options[hotkeyIdx]) {
+                    setSelectedIndex(hotkeyIdx);
+                    options[hotkeyIdx].action();
                     return;
                 }
 
@@ -276,7 +277,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
         return (
             <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ ABOUT & UPDATES ]" gap={1}>
                 <box flexDirection="column" gap={0} marginBottom={1}>
-                    <text fg={colors.fg} attributes={TextAttributes.BOLD}>Schematic Sync Portal v2.0.0</text>
+                    <text fg={colors.fg} attributes={TextAttributes.BOLD}>Schematic Sync Portal v{String(pkg.version)}</text>
                     <text fg={colors.dim}>Universal Sync Client for CopyParty</text>
                 </box>
 
