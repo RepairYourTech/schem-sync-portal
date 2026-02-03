@@ -65,6 +65,35 @@ type Step =
     | "edit_menu"
     | "deploy";
 
+const getStepContext = (s: Step, history: Step[]): "source" | "dest" | null => {
+    switch (s) {
+        case "source_choice":
+        case "copyparty_config":
+            return "source";
+        case "dest_cloud_select":
+        case "backup_dir":
+        case "security":
+            return "dest";
+        case "gdrive_intro": case "gdrive_guide_1": case "gdrive_guide_2": case "gdrive_guide_3": case "gdrive_guide_4":
+        case "b2_intro": case "b2_guide_1": case "b2_guide_2":
+        case "sftp_intro": case "sftp_guide_1":
+        case "pcloud_intro": case "pcloud_guide_1":
+        case "onedrive_intro": case "onedrive_guide_1": case "onedrive_guide_2":
+        case "dropbox_intro": case "dropbox_guide_1": case "dropbox_guide_2":
+        case "mega_intro": case "mega_guide_1":
+        case "r2_intro": case "r2_guide_1": case "r2_guide_2":
+        case "cloud_direct_entry":
+            // Scan backward through history to disambiguate shared provider setup
+            for (let i = history.length - 1; i >= 0; i--) {
+                if (history[i] === "source_choice") return "source";
+                if (history[i] === "dest_cloud_select") return "dest";
+            }
+            return null;
+        default:
+            return null;
+    }
+};
+
 export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, tabTransition, backSignal }: WizardProps) => {
     const { colors } = useTheme();
     const isBootstrapped = isSystemBootstrapped();
@@ -260,6 +289,15 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
             back();
         }
     }, [backSignal, back]);
+
+    // Context enforcement: Ensure wizardContext is correct even on back navigation
+    useEffect(() => {
+        const context = getStepContext(step, history);
+        if (context) {
+            setWizardContext(context);
+            Logger.debug("UI", `[WIZARD] Step changed to ${step}, enforcing context: ${context}`);
+        }
+    }, [step, history, setWizardContext]);
 
     const next = useCallback(() => {
         const { step: s } = stateRef.current;

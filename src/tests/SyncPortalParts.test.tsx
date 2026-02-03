@@ -20,7 +20,8 @@ const mockColors = {
 
 // Mock progress states
 const idleProgress: SyncProgress = {
-    phase: "idle",
+    phase: "done",
+    description: "",
     percentage: 0,
     isPaused: false,
     transferSpeed: "0 B/s",
@@ -34,15 +35,16 @@ const idleProgress: SyncProgress = {
 const activeProgress: SyncProgress = {
     ...idleProgress,
     phase: "pull",
+    description: "Downloading files...",
     percentage: 45,
     transferSpeed: "5.2 MB/s",
     eta: "2m 30s",
     filesTransferred: 23,
     totalFiles: 50,
     downloadQueue: [
-        { filename: "test1.zip", percentage: 100, status: "completed" },
-        { filename: "test2.zip", percentage: 50, status: "transferring" },
-        { filename: "test3.zip", percentage: 0, status: "pending" },
+        { filename: "test1.zip", percentage: 100, status: "completed", size: 1024, transferred: 1024, speed: "0 B/s" },
+        { filename: "test2.zip", percentage: 50, status: "active", size: 2048, transferred: 1024, speed: "5.2 MB/s" },
+        { filename: "test3.zip", percentage: 0, status: "queued", size: 4096, transferred: 0, speed: "0 B/s" },
     ],
 };
 
@@ -228,12 +230,12 @@ describe("Panel Component Structure", () => {
 });
 
 // Helper function for rendering
-function render(_element: React.ReactElement) {
+function render(_element: React.ReactNode) {
     // This is a simplified mock - in real implementation,
     // we'd use @opentui/react/test-utils or @testing-library
     return {
         container: null,
-        rerender: (_newElement: React.ReactElement) => {
+        rerender: (_newElement: React.ReactNode) => {
             // Mock rerender
         },
     };
