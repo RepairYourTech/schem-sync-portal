@@ -2,7 +2,7 @@ import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { runSync, type SyncProgress } from "../lib/sync";
 import { Logger } from "../lib/logger";
 import { join } from "path";
-import { mkdirSync, existsSync } from "fs";
+import { mkdirSync, existsSync, rmSync } from "fs";
 import { createMockConfig } from "./ui-test-helpers";
 
 describe("Sync Engine Integration", () => {
@@ -36,6 +36,14 @@ describe("Sync Engine Integration", () => {
         // Clean up
         delete process.env.MOCK_RCLONE;
         delete process.env.MOCK_LATENCY;
+        try {
+            if (existsSync(testDir)) {
+                rmSync(testDir, { recursive: true, force: true });
+                Logger.debug("SYSTEM", "Cleaned up test artifacts in test_sync_dir");
+            }
+        } catch (err) {
+            Logger.error("SYSTEM", `Failed to clean up test artifacts: ${err}`);
+        }
     });
 
     test("should parse progress correctly from MockRclone", async () => {

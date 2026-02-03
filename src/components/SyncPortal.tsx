@@ -265,7 +265,7 @@ export const SyncPortal = React.memo(({
                             onFocus={(keep) => handleFocus("source", keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
-                            height={isRunning ? 20 : 10}
+                            height={isRunning ? 22 : 12}
                             transfers={config.downsync_transfers}
                             onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
                         />
@@ -282,7 +282,7 @@ export const SyncPortal = React.memo(({
                             onFocus={(keep) => handleFocus("shield", keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
-                            height={isRunning ? 20 : 10}
+                            height={isRunning ? 22 : 12}
                             isRunning={isRunning}
                         />
                     ) : null}
@@ -299,7 +299,7 @@ export const SyncPortal = React.memo(({
                             onFocus={(keep) => handleFocus("dest", keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
-                            height={isRunning ? 20 : 10}
+                            height={isRunning ? 22 : 12}
                             transfers={config.upsync_transfers}
                             onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
                         />

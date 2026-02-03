@@ -269,7 +269,6 @@ export const PanelHeader = React.memo(({
     );
 });
 PanelHeader.displayName = "PanelHeader";
-PanelHeader.displayName = "PanelHeader";
 
 // --- FILE QUEUE ---
 interface FileQueueProps {
@@ -597,16 +596,16 @@ export const UpsyncPanel = React.memo(({
     colors,
     width,
     upsyncEnabled,
-    onPause: _onPause,
-    onResume: _onResume,
+    onPause,
+    onResume,
     height = 10,
     maxFiles = 5,
-    transfers: _transfers = 4,
-    onRateChange: _onRateChange,
+    transfers = 4,
+    onRateChange,
     isFocused = false,
     onFocus,
-    subFocusIndex: _subFocusIndex = 0,
-    onSubFocusIndexChange: _onSubFocusIndexChange
+    subFocusIndex = 0,
+    onSubFocusIndexChange
 }: UpsyncPanelProps) => {
     const isActive = progress.phase === "cloud";
     const isGlobalPaused = progress.isPaused;
@@ -647,6 +646,21 @@ export const UpsyncPanel = React.memo(({
             <box flexDirection="column" gap={0} marginTop={1}>
                 <text fg={colors.dim} paddingLeft={1} attributes={TextAttributes.BOLD}>UPLOAD QUEUE</text>
                 <FileQueue files={uploadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} />
+            </box>
+
+            {/* ACTION BAR (Bottom-docked) */}
+            <box marginTop="auto">
+                <PanelControls
+                    onPause={(isActive && !isGlobalPaused) ? onPause : undefined}
+                    onResume={isGlobalPaused ? onResume : undefined}
+                    transfers={transfers}
+                    onRateChange={onRateChange}
+                    colors={colors}
+                    isFocused={isFocused}
+                    subFocusIndex={subFocusIndex}
+                    onSubFocusIndexChange={onSubFocusIndexChange}
+                    onFocus={onFocus}
+                />
             </box>
 
             {/* Footer Stats Row */}

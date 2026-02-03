@@ -188,7 +188,7 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
         // Fallback parsing from msg string (e.g. "Transferring: file.txt: 45% /1.2Mi, 128KiB/s, 2s")
         if (msgStr.includes("Transferring:") && percentage === 0) {
             const parts = msgStr.split(":");
-            if (parts.length >= 3) {
+            if (parts.length >= 3 && parts[2]) {
                 const pctPart = parts[2].trim().split("%")[0];
                 if (pctPart && !isNaN(parseInt(pctPart))) {
                     percentage = parseInt(pctPart);
@@ -437,7 +437,7 @@ export async function runSync(
             ...currentProgress,
             ...p,
             phase: phase as SyncProgress["phase"],
-            description: p.description || p.description || "",
+            description: p.description || "",
             percentage: phasePct,
             globalPercentage
         };
@@ -508,7 +508,7 @@ export async function runSync(
                 ...RETRY_FLAGS
             ];
 
-            // STAGE 1: Prioritized Pulll (Known Threats)
+            // STAGE 1: Prioritized Pull (Known Threats)
             if (riskyItems.length > 0) {
                 const riskyListFile = join(config.local_dir, "prioritized_risky.txt");
                 writeFileSync(riskyListFile, riskyItems.join("\n"));
@@ -696,10 +696,6 @@ async function executeRclone(
 
                     try {
                         const json = JSON.parse(cleanedLine);
-                        // TEMPORARY: Log full JSON structure to diagnose queue issue
-                        if (json.stats || json.msg?.toString().includes("Transferring:")) {
-                            Logger.info("SYNC", `[DEBUG JSON] ${JSON.stringify(json)}`);
-                        }
                         parseJsonLog(json, onUpdate);
                         if (json.msg) {
                             if (json.level === "error") Logger.error("SYNC", `[rclone] ${json.msg}`);
