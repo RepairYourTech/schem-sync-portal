@@ -7,7 +7,7 @@
   "strict_mirror": false,
   "enable_malware_shield": false,
   "malware_policy": "purge",
-  "desktop_shortcut": 0,
+  "desktop_shortcut": 1,
   "debug_mode": false,
   "log_level": "NORMAL",
   "nerd_font_version": 3,

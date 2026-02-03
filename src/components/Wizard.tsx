@@ -4,6 +4,7 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import type { PortalConfig, PortalProvider } from "../lib/config.ts";
 import { getCopypartyCookie } from "../lib/auth.ts";
 import { Hotkey } from "./Hotkey";
+import { ProviderIcon } from "./ProviderIcon";
 import { updateGdriveRemote, updateGenericRemote, authorizeRemote } from "../lib/rclone.ts";
 import { TextAttributes } from "@opentui/core";
 import { bootstrapSystem, isSystemBootstrapped } from "../lib/deploy.ts";
@@ -148,6 +149,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
         desktop_shortcut: isBootstrapped ? 1 : (initialConfig.desktop_shortcut ?? 0)
     });
     const configRef = useRef<PortalConfig>(config); // Synchronous mirror for zero-lag access
+    const fontVersion = config.nerd_font_version || 2;
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [copyparty_config_index, set_copyparty_config_index] = useState(0); // 0:URL, 1:User, 2:Pass, 3:Method, 4:Connect
     const [direct_entry_index, set_direct_entry_index] = useState(0);
@@ -1056,18 +1058,14 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                 fields.push({ label: "Key ID", ref: b2IdRef, icon: "🆔", placeholder: "005...", key: "b2Id" });
                                 fields.push({ label: "Application Key", ref: b2KeyRef, icon: "🔑", placeholder: "K005...", key: "b2Key" });
                             } else if (provider === "sftp") {
-                                fields.push({ label: "Host", ref: urlRef, icon: "🌐", placeholder: "sftp.example.com", key: "url" });
+                                fields.push({ label: "Host", ref: urlRef, icon: "🌐", placeholder: "sftp.example.com:22", key: "url" });
                                 fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "username", key: "user" });
                                 fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password", key: "pass" });
                             } else if (provider === "pcloud") {
                                 fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "email@example.com", key: "user" });
                                 fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password", key: "pass" });
-                            } else if (provider === "onedrive") {
-                                fields.push({ label: "Client ID", ref: userRef, icon: "🆔", placeholder: "client-id", key: "user" });
-                                fields.push({ label: "Client Secret", ref: passRef, icon: "🔑", placeholder: "client-secret", key: "pass" });
-                            } else if (provider === "dropbox") {
-                                fields.push({ label: "App Key", ref: userRef, icon: "🆔", placeholder: "app-key", key: "user" });
-                                fields.push({ label: "App Secret", ref: passRef, icon: "🔑", placeholder: "app-secret", key: "pass" });
+                            } else if (provider === "onedrive" || provider === "dropbox") {
+                                // No fields needed - OAuth handled by rclone authorize
                             } else if (provider === "mega") {
                                 fields.push({ label: "User", ref: userRef, icon: "👤", placeholder: "email@example.com", key: "user" });
                                 fields.push({ label: "Password", ref: passRef, icon: "🔑", placeholder: "password", key: "pass" });
@@ -1080,8 +1078,20 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                             const isConnectFocused = direct_entry_index === fields.length && focusArea === "body";
 
                             const handleAction = () => {
+                                // Skip validation for OAuth providers (no manual fields)
+                                if (provider === "onedrive" || provider === "dropbox") {
+                                    startGenericAuth(provider);
+                                    return;
+                                }
+
+                                // Validate required fields
+                                const requiredFields = fields.filter(f => f.ref.current.trim() === "");
+                                if (requiredFields.length > 0) {
+                                    setAuthStatus(`⚠️ Required: ${requiredFields.map(f => f.label).join(", ")}`);
+                                    return;
+                                }
+
                                 if (provider === "gdrive") handleGdriveAuth(clientIdRef.current, clientSecretRef.current);
-                                else if (provider === "onedrive" || provider === "dropbox") startGenericAuth(provider);
                                 else {
                                     const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
                                     if (provider === "b2") updateGenericRemote(remoteName, "b2", { account: b2IdRef.current, key: b2KeyRef.current });
@@ -1257,7 +1267,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                     gap={1}
                                 >
                                     <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
-                                    <text fg={colors.primary}>{String(p?.icon || "\ueac2")}</text>
+                                    <ProviderIcon provider={opt.value as string} version={fontVersion} color={colors.primary} />
                                     <Hotkey
                                         keyLabel={(i + 1).toString()}
                                         label={p?.name || (opt.value as string)}
@@ -1274,7 +1284,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                 (step === "dest_cloud_select") && (
                     <box flexDirection="column" gap={1}>
                         <text attributes={TextAttributes.BOLD} fg={colors.fg}>
-                            Step 7: Backup Provider
+                            Step {getCurrentStepNumber()}: Backup Provider
                         </text>
                         <text fg={colors.fg}>☁️  Select your cloud storage provider:</text>
                         <box flexDirection="column" gap={0} marginTop={1}>
@@ -1307,7 +1317,7 @@ export const Wizard = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQ
                                         gap={1}
                                     >
                                         <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
-                                        <text fg={colors.primary}>{String(p?.icon || "\ueac2")}</text>
+                                        <ProviderIcon provider={opt.value} version={fontVersion} color={colors.primary} />
                                         <Hotkey
                                             keyLabel={(i + 1).toString()}
                                             label={p?.name || opt.value}
