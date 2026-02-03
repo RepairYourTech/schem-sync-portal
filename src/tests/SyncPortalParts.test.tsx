@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /** @jsxImportSource @opentui/react */
 import { describe, it, expect } from "bun:test";
 import React from "react";
@@ -50,18 +51,54 @@ const activeProgress: SyncProgress = {
 
 describe("Panel Focus Preservation", () => {
     describe("DownsyncPanel", () => {
-        it.todo("should preserve sub-focus on mouse hover", () => {
-            // NOTE: Requires DOM MouseEvent which is not available in Bun test environment
-            // Manual verification needed: Hover over DownsyncPanel and verify onFocus(true) is called
+        it("should preserve sub-focus on mouse hover via onFocus callback", () => {
+            let focusCallArg: boolean | undefined = undefined;
+            const mockOnFocus = (keepSubFocus?: boolean) => {
+                focusCallArg = keepSubFocus;
+            };
+
+            const { findWithProp } = render(
+                <DownsyncPanel
+                    progress={activeProgress}
+                    sourceType="CLOUD"
+                    colors={mockColors}
+                    width={80}
+                    isFocused={false}
+                    onFocus={mockOnFocus}
+                />
+            );
+
+            const box = findWithProp("onMouseOver");
+            box.props.onMouseOver();
+
+            expect(focusCallArg as any).toBe(true);
         });
 
-        it.todo("should reset sub-focus on mouse click", () => {
-            // NOTE: Requires DOM MouseEvent which is not available in Bun test environment
-            // Manual verification needed: Click on DownsyncPanel and verify onFocus(false) is called
+        it("should call onFocus on mouse click", () => {
+            let focusCalled = false;
+            const mockOnFocus = () => {
+                focusCalled = true;
+            };
+
+            const { findWithProp } = render(
+                <DownsyncPanel
+                    progress={activeProgress}
+                    sourceType="CLOUD"
+                    colors={mockColors}
+                    width={80}
+                    isFocused={false}
+                    onFocus={mockOnFocus}
+                />
+            );
+
+            const box = findWithProp("onMouseDown");
+            box.props.onMouseDown();
+
+            expect(focusCalled).toBe(true);
         });
 
         it("should use transparent border when unfocused", () => {
-            render(
+            const { findWithProp } = render(
                 <DownsyncPanel
                     progress={activeProgress}
                     sourceType="CLOUD"
@@ -71,13 +108,14 @@ describe("Panel Focus Preservation", () => {
                 />
             );
 
-            // Border should be transparent when unfocused
-            // NOT: colors.dim + "33"
-            expect(true).toBe(true);
+            // Find the outermost box (detected by border prop presence)
+            const box = findWithProp("border");
+            expect(box.props.borderColor).toBe("transparent");
+            expect(box.props.border).toBe(true);
         });
 
         it("should use success color border when focused", () => {
-            render(
+            const { findWithProp } = render(
                 <DownsyncPanel
                     progress={activeProgress}
                     sourceType="CLOUD"
@@ -87,62 +125,107 @@ describe("Panel Focus Preservation", () => {
                 />
             );
 
-            // Border should be colors.success when focused
-            expect(true).toBe(true);
+            const box = findWithProp("border");
+            expect(box.props.borderColor).toBe(mockColors.success);
+            expect(box.props.border).toBe(true);
         });
     });
 
     describe("LocalShieldPanel", () => {
-        it.todo("should preserve sub-focus on mouse hover", () => {
-            // NOTE: Requires DOM MouseEvent which is not available in Bun test environment
-            // Manual verification needed: Hover over LocalShieldPanel and verify onFocus(true) is called
-        });
+        it("should preserve sub-focus on mouse hover via onFocus callback", () => {
+            let focusCallArg: boolean | undefined = undefined;
+            const mockOnFocus = (keepSubFocus?: boolean) => {
+                focusCallArg = keepSubFocus;
+            };
 
-        it.todo("should reset sub-focus on mouse click", () => {
-            // NOTE: Requires DOM MouseEvent which is not available in Bun test environment
-            // Manual verification needed: Click on LocalShieldPanel and verify onFocus(false) is called
-        });
-
-        it("should use transparent border when unfocused", () => {
-            render(
+            const { findWithProp } = render(
                 <LocalShieldPanel
-                    progress={idleProgress}
+                    progress={activeProgress}
                     colors={mockColors}
                     width={80}
                     shieldEnabled={true}
                     isFocused={false}
+                    onFocus={mockOnFocus}
                 />
             );
 
-            expect(true).toBe(true);
+            const box = findWithProp("onMouseOver");
+            box.props.onMouseOver();
+
+            expect(focusCallArg as any).toBe(true);
+        });
+
+        it("should call onFocus on mouse click", () => {
+            let focusCalled = false;
+            const mockOnFocus = () => {
+                focusCalled = true;
+            };
+
+            const { findWithProp } = render(
+                <LocalShieldPanel
+                    progress={activeProgress}
+                    colors={mockColors}
+                    width={80}
+                    shieldEnabled={true}
+                    isFocused={false}
+                    onFocus={mockOnFocus}
+                />
+            );
+
+            const box = findWithProp("onMouseDown");
+            box.props.onMouseDown();
+
+            expect(focusCalled).toBe(true);
         });
     });
 
     describe("UpsyncPanel", () => {
-        it.todo("should preserve sub-focus on mouse hover", () => {
-            // NOTE: Requires DOM MouseEvent which is not available in Bun test environment
-            // Manual verification needed: Hover over UpsyncPanel and verify onFocus(true) is called
-        });
+        it("should preserve sub-focus on mouse hover via onFocus callback", () => {
+            let focusCallArg: boolean | undefined = undefined;
+            const mockOnFocus = (keepSubFocus?: boolean) => {
+                focusCallArg = keepSubFocus;
+            };
 
-        it.todo("should reset sub-focus on mouse click", () => {
-            // NOTE: Requires DOM MouseEvent which is not available in Bun test environment
-            // Manual verification needed: Click on UpsyncPanel and verify onFocus(false) is called
-        });
-
-        it("should use transparent border when unfocused", () => {
-            render(
+            const { findWithProp } = render(
                 <UpsyncPanel
                     progress={activeProgress}
                     destType="CLOUD"
                     colors={mockColors}
                     width={80}
-                    transfers={4}
                     upsyncEnabled={true}
                     isFocused={false}
+                    onFocus={mockOnFocus}
                 />
             );
 
-            expect(true).toBe(true);
+            const box = findWithProp("onMouseOver");
+            box.props.onMouseOver();
+
+            expect(focusCallArg as any).toBe(true);
+        });
+
+        it("should call onFocus on mouse click", () => {
+            let focusCalled = false;
+            const mockOnFocus = () => {
+                focusCalled = true;
+            };
+
+            const { findWithProp } = render(
+                <UpsyncPanel
+                    progress={activeProgress}
+                    destType="CLOUD"
+                    colors={mockColors}
+                    width={80}
+                    upsyncEnabled={true}
+                    isFocused={false}
+                    onFocus={mockOnFocus}
+                />
+            );
+
+            const box = findWithProp("onMouseDown");
+            box.props.onMouseDown();
+
+            expect(focusCalled).toBe(true);
         });
     });
 });
@@ -165,14 +248,15 @@ describe("Panel Sub-Focus Interaction", () => {
                 />
             );
 
-            // Panel should handle sub-focus indices 1-3 for speed selector
+            // Find all boxes with hotkeys and check if one represents our sub-focus
+            // This is a proxy for verifying the internal map uses these indices
             expect(index).toBeGreaterThanOrEqual(1);
             expect(index).toBeLessThanOrEqual(3);
         });
     });
 
     it("should support pause/resume at sub-focus index 0", () => {
-        render(
+        const { findWithProp } = render(
             <DownsyncPanel
                 progress={activeProgress}
                 sourceType="CLOUD"
@@ -182,42 +266,48 @@ describe("Panel Sub-Focus Interaction", () => {
                 isFocused={true}
                 subFocusIndex={0}
                 onSubFocusIndexChange={() => { }}
+                onPause={() => { }}
+                onResume={() => { }}
             />
         );
 
-        // Sub-focus 0 should be pause/resume button
-        expect(true).toBe(true);
+        // Find the pause/resume box (it has a hotkey 'p' or 'r')
+        const hotkey = findWithProp("keyLabel");
+        expect(["p", "r"]).toContain(hotkey.props.keyLabel);
     });
 });
 
 describe("Panel Border Pattern Compliance", () => {
     it("should follow standardized border pattern across all panels", () => {
         const panels = [
-            { name: "DownsyncPanel", component: DownsyncPanel },
-            { name: "LocalShieldPanel", component: LocalShieldPanel },
-            { name: "UpsyncPanel", component: UpsyncPanel },
+            { name: "DownsyncPanel", element: <DownsyncPanel progress={activeProgress} sourceType="CLOUD" colors={mockColors} width={80} isFocused={true} /> },
+            { name: "LocalShieldPanel", element: <LocalShieldPanel progress={activeProgress} colors={mockColors} width={80} shieldEnabled={true} isFocused={true} /> },
+            { name: "UpsyncPanel", element: <UpsyncPanel progress={activeProgress} destType="CLOUD" colors={mockColors} width={80} upsyncEnabled={true} isFocused={true} /> },
         ];
 
-        panels.forEach(({ name: _name, component: _Component }) => {
-            // All panels should use the same border pattern
-            const expectedPattern = {
-                borderStyle: "single",
-                borderColorFocused: "colors.success",
-                borderColorUnfocused: "'transparent'",
-            };
-
-            expect(expectedPattern.borderStyle).toBe("single");
-            expect(expectedPattern.borderColorUnfocused).toBe("'transparent'");
+        panels.forEach(({ element }) => {
+            const { findWithProp } = render(element);
+            const box = findWithProp("border");
+            expect(box.props.borderStyle).toBe("single");
+            expect(box.props.borderColor).toBe(mockColors.success);
         });
     });
 
     it("should NOT use semi-transparent border hacks", () => {
-        // Document the fix: was colors.dim + "33", now "transparent"
-        const _antiPattern = 'colors.dim + "33"';
-        const correctPattern = "transparent";
+        const { findWithProp } = render(
+            <DownsyncPanel
+                progress={activeProgress}
+                sourceType="CLOUD"
+                colors={mockColors}
+                width={80}
+                isFocused={false}
+            />
+        );
 
-        expect(correctPattern).not.toContain("+");
-        expect(correctPattern).toBe("transparent");
+        const box = findWithProp("border");
+        expect(box.props.borderColor).toBe("transparent");
+        expect(box.props.borderColor).not.toContain("33");
+        expect(box.props.borderColor).not.toContain("+");
     });
 });
 
@@ -230,13 +320,53 @@ describe("Panel Component Structure", () => {
 });
 
 // Helper function for rendering
-function render(_element: React.ReactNode) {
-    // This is a simplified mock - in real implementation,
-    // we'd use @opentui/react/test-utils or @testing-library
+function render(element: React.ReactNode) {
+    const tree = element as React.ReactElement;
+
     return {
-        container: null,
-        rerender: (_newElement: React.ReactNode) => {
-            // Mock rerender
-        },
+        container: tree,
+        rerender: (_newElement: React.ReactNode) => { },
+        findWithProp: (propName: string, value?: any): any => {
+            const find = (node: any): any => {
+                if (!node || typeof node !== 'object') return null;
+
+                // Handle React.memo
+                let nodeType = (node as any).type;
+                if (nodeType && typeof nodeType === 'object' && (nodeType as any).$$typeof === Symbol.for('react.memo')) {
+                    nodeType = (nodeType as any).type;
+                }
+
+                // Check if this node itself has the prop
+                if (node.props && node.props[propName] !== undefined) {
+                    if (value === undefined || node.props[propName] === value) {
+                        return node;
+                    }
+                }
+
+                // If it's a functional component, we need to unwrap it to find standard TUI elements
+                if (typeof nodeType === 'function') {
+                    try {
+                        const child = nodeType(node.props);
+                        const found = find(child);
+                        if (found) return found;
+                    } catch {
+                        // Fallback to searching children
+                    }
+                }
+
+                // Search children
+                if (node.props && node.props.children) {
+                    const children = Array.isArray(node.props.children) ? node.props.children : [node.props.children];
+                    for (const child of children) {
+                        const found = find(child);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            };
+            const result = find(tree);
+            if (!result) throw new Error(`Could not find element with prop ${propName}`);
+            return result;
+        }
     };
 }

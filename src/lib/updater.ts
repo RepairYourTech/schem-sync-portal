@@ -1,5 +1,6 @@
-import { execSync } from "child_process";
+import { spawnSync } from "child_process";
 import { Logger } from "./logger";
+import pkg from "../../package.json";
 
 export interface UpdateStatus {
     success: boolean;
@@ -7,21 +8,18 @@ export interface UpdateStatus {
 }
 
 export async function performUpdate(): Promise<UpdateStatus> {
-    Logger.info("SYSTEM", "Checking for system updates...");
+    Logger.info("SYSTEM", `Checking for system updates (Current: v${pkg.version})...`);
     try {
         // 1. Check if git is available
-        try {
-            execSync("git --version");
-        } catch {
+        const gitVersion = spawnSync("git", ["--version"]);
+        if (gitVersion.status !== 0) {
             Logger.warn("SYSTEM", "Git not found, skipping update check.");
             return { success: false, message: "Git is not installed on this system." };
         }
 
-        // 2. Check if remote origin exists
-        let remoteUrl = "";
-        try {
-            remoteUrl = execSync("git remote get-url origin").toString().trim();
-        } catch {
+        // 2. Check if remote origin exists and validate URL
+        const remoteResult = spawnSync("git", ["remote", "get-url", "origin"], { encoding: "utf8" });
+        if (remoteResult.status !== 0) {
             Logger.warn("SYSTEM", "No git origin found, cannot update.");
             return {
                 success: false,
@@ -29,29 +27,39 @@ export async function performUpdate(): Promise<UpdateStatus> {
             };
         }
 
-        // 3. Perform Non-Destructive Update
-        // Use git stash to protect any local uncommitted changes
-        // Use git pull --rebase to bring in remote changes and replay local commits on top
-        // Use git stash pop to restore local uncommitted changes
-
-        try {
-            Logger.info("SYSTEM", `Updating from ${remoteUrl}...`);
-            execSync("git stash");
-            execSync("git fetch origin");
-            execSync("git pull --rebase origin main");
-            try {
-                execSync("git stash pop");
-            } catch {
-                // If stash pop fails (e.g. nothing to pop), we ignore it
-            }
-
-            Logger.info("SYSTEM", "System updated successfully.");
-            return { success: true, message: `Updated successfully from ${remoteUrl}` };
-        } catch (err: unknown) {
-            const error = err as Error;
-            Logger.error("SYSTEM", "Update failed", error);
-            return { success: false, message: `Update failed: ${error.message}` };
+        const remoteUrl = remoteResult.stdout.trim();
+        // Basic injection guard: ensure it looks like a git URL
+        if (!/^(https?:\/\/|git@|ssh:\/\/).*/.test(remoteUrl)) {
+            Logger.error("SYSTEM", `Invalid or suspicious git remote: ${remoteUrl}`);
+            return { success: false, message: "Invalid git remote URL." };
         }
+
+        // 3. Perform Non-Destructive Update
+        Logger.info("SYSTEM", `Updating from ${remoteUrl}...`);
+
+        // Stash local changes
+        spawnSync("git", ["stash"]);
+
+        // Fetch
+        const fetchResult = spawnSync("git", ["fetch", "origin"]);
+        if (fetchResult.status !== 0) {
+            return { success: false, message: "Failed to fetch updates from remote." };
+        }
+
+        // Pull
+        const pullResult = spawnSync("git", ["pull", "--rebase", "origin", "main"]);
+
+        // Always try to pop stash if we stashed
+        spawnSync("git", ["stash", "pop"]);
+
+        if (pullResult.status !== 0) {
+            Logger.error("SYSTEM", "Pull failed", pullResult.stderr?.toString());
+            return { success: false, message: "Failed to pull updates. You may have local merge conflicts." };
+        }
+
+        Logger.info("SYSTEM", "System updated successfully.");
+        return { success: true, message: `Updated successfully from ${remoteUrl}` };
+
     } catch (err: unknown) {
         const error = err as Error;
         Logger.error("SYSTEM", "Unexpected update error", error);

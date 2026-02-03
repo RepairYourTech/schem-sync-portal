@@ -14,6 +14,7 @@ interface LogEntry {
 
 export class Logger {
     private static level: LogLevel = "NORMAL";
+    private static enableConsole: boolean = false;
     private static sensitivePatterns: RegExp[] = [
         /password/gi,
         /secret/gi,
@@ -42,6 +43,14 @@ export class Logger {
 
     static getLevel(): LogLevel {
         return this.level;
+    }
+
+    static setConsoleEnabled(enabled: boolean) {
+        this.enableConsole = enabled;
+    }
+
+    static isConsoleEnabled(): boolean {
+        return this.enableConsole;
     }
 
     static info(context: LogContext, message: string) {
@@ -80,7 +89,7 @@ export class Logger {
             const stats = statSync(logPath);
             if (stats.size > maxBytes) {
                 const oldPath = `${logPath}.old`;
-                try { if (existsSync(oldPath)) unlinkSync(oldPath); } catch { }
+                try { if (existsSync(oldPath)) unlinkSync(oldPath); } catch (err) { console.debug("Log rotation cleanup failed:", err); }
                 renameSync(logPath, oldPath);
 
                 const disclaimer = `[${new Date().toISOString()}] Log rotated. Previous logs in ${filename}.old\n`;
@@ -98,7 +107,8 @@ export class Logger {
 
             const content = readFileSync(logPath, "utf-8");
             return content.split("\n").filter((l: string) => l.trim() !== "").slice(-lines);
-        } catch {
+        } catch (err) {
+            console.debug("Failed to read logs:", err);
             return ["Failed to read logs."];
         }
     }
@@ -108,7 +118,8 @@ export class Logger {
             const logPath = Env.getLogPath(filename);
             if (!existsSync(logPath)) return "";
             return readFileSync(logPath, "utf-8");
-        } catch {
+        } catch (err) {
+            console.debug("Failed to read log content:", err);
             return "";
         }
     }
@@ -126,7 +137,7 @@ export class Logger {
             const files = readdirSync(logsDir);
             for (const file of files) {
                 if (file === "system.log") continue;
-                try { unlinkSync(join(logsDir, file)); } catch { }
+                try { unlinkSync(join(logsDir, file)); } catch (err) { console.debug("Failed to delete log file:", file, err); }
             }
         } catch (e) {
             console.error("Failed to clear logs:", e);
@@ -159,10 +170,12 @@ export class Logger {
         const formatted = `[${entry.timestamp}] [${entry.level}] [${entry.context}] ${entry.message}\n`;
 
         // Console output
-        if (level === "NORMAL") {
-            console.log(formatted.trim());
-        } else if (this.level === "DEBUG" || this.level === "VERBOSE") {
-            console.debug(formatted.trim());
+        if (this.enableConsole) {
+            if (level === "NORMAL") {
+                console.log(formatted.trim());
+            } else if (this.level === "DEBUG" || this.level === "VERBOSE") {
+                console.debug(formatted.trim());
+            }
         }
 
         // File output
@@ -193,8 +206,9 @@ export class Logger {
         try {
             const logPath = Env.getLogPath("system.log");
             appendFileSync(logPath, line);
-        } catch {
+        } catch (err) {
             // Silently fail if we can't write logs to file
+            console.debug("Failed to write to log file:", err);
         }
     }
 }

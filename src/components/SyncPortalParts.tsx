@@ -369,7 +369,7 @@ export const DownsyncPanel = React.memo(({
             gap={0}
             border
             borderStyle="single"
-            borderColor={isFocused ? colors.primary : (isActive ? colors.primary : colors.dim + "33")}
+            borderColor={isFocused ? colors.success : "transparent"}
             title={`[ ${String(sourceType).toUpperCase()} ]`}
             onMouseOver={() => onFocus?.(true)}
             onMouseDown={() => onFocus?.(true)}
@@ -482,7 +482,7 @@ export const LocalShieldPanel = React.memo(({
             gap={0}
             border
             borderStyle="single"
-            borderColor={isFocused ? colors.primary : (isActive ? colors.setup : colors.dim + "33")}
+            borderColor={isFocused ? colors.success : "transparent"}
             title="[ LOCAL SHIELD ]"
             onMouseOver={() => onFocus?.(true)}
             onMouseDown={() => onFocus?.(true)}
@@ -627,7 +627,7 @@ export const UpsyncPanel = React.memo(({
             gap={0}
             border
             borderStyle="single"
-            borderColor={isFocused ? colors.primary : (isActive ? colors.accent : colors.dim + "33")}
+            borderColor={isFocused ? colors.success : "transparent"}
             title={`[ ${String(destType).toUpperCase()} ]`}
             onMouseOver={() => onFocus?.(true)}
             onMouseDown={() => onFocus?.(true)}

@@ -86,28 +86,23 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
             _mkdirSync(tmpDir, { recursive: true });
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
+        if (signal?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
 
         const url = `https://github.com/ryanoasis/nerd-fonts/releases/latest/download/${font}.zip`;
         onProgress?.({ stage: 'downloading', percent: 20 });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const controller = new AbortController() as any;
+        const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
 
         if (signal) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (signal as any).addEventListener('abort', () => controller.abort());
+            signal.addEventListener('abort', () => controller.abort());
         }
 
         let response;
         try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            response = await _fetch(url, { signal: controller.signal as any });
+            response = await _fetch(url, { signal: controller.signal });
         } catch (err: unknown) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const isAborted = ((signal as any)?.aborted) || (err instanceof Error && err.name === 'AbortError');
+            const isAborted = (signal?.aborted) || (err instanceof Error && err.name === 'AbortError');
             if (isAborted) {
                 return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
             }
@@ -130,8 +125,7 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
         }
 
         const arrayBuffer = await response.arrayBuffer();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
+        if (signal?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
         _writeFileSync(zipPath, Buffer.from(arrayBuffer));
         onProgress?.({ stage: 'downloading', percent: 50 });
         Logger.info('SYSTEM', 'Downloaded font archive');
@@ -169,16 +163,14 @@ export async function installNerdFont(options: InstallOptions): Promise<InstallR
         Logger.debug('SYSTEM', 'Extracted font files');
 
         // 3. Install Phase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
+        if (signal?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
         onProgress?.({ stage: 'installing', percent: 80 });
         if (!_existsSync(targetDir)) {
             _mkdirSync(targetDir, { recursive: true });
         }
 
         for (const file of fontFiles) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if ((signal as any)?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
+            if (signal?.aborted) return { success: false, installedPath: '', installedFamily: font, error: 'Installation Canceled', requiresRestart: false };
             // Sanitize: ensure no path traversal (though readdirSync should be safe)
             const safeName = file.name.replace(/[\\/]/g, '_');
             _copyFileSync(join(tmpDir, file.name), join(targetDir, safeName));

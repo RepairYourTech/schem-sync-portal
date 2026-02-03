@@ -1,6 +1,7 @@
 import { expect, test, describe, mock } from "bun:test";
 import { __setSpawnSync, refreshFontCache } from "../lib/fontCache";
 import { Env } from "../lib/env";
+import { spawnSync } from "bun";
 
 describe("FontCache", () => {
     test("Windows Auto-Refresh", async () => {
@@ -39,8 +40,10 @@ describe("FontCache", () => {
         const mockSpawnSync = mock(() => ({
             success: true,
             stdout: Buffer.from(""),
-            stderr: Buffer.from("")
-        } as any)); // eslint-disable-line @typescript-eslint/no-explicit-any
+            stderr: Buffer.from(""),
+            exitCode: 0,
+            signalCode: null
+        } as unknown as ReturnType<typeof spawnSync>));
 
         __setSpawnSync(mockSpawnSync);
 
@@ -78,8 +81,10 @@ describe("FontCache", () => {
         const mockSpawnSync = mock(() => ({
             success: false,
             stdout: Buffer.from(""),
-            stderr: Buffer.from("Error")
-        } as any)); // eslint-disable-line @typescript-eslint/no-explicit-any
+            stderr: Buffer.from("Error"),
+            exitCode: 1,
+            signalCode: null
+        } as unknown as ReturnType<typeof spawnSync>));
 
         __setSpawnSync(mockSpawnSync);
 

@@ -22,8 +22,7 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
     const [progress, setProgress] = useState({ stage: '', percent: 0 });
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<InstallResult | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [abortController, setAbortController] = useState<any>(null);
+    const [abortController, setAbortController] = useState<AbortController | null>(null);
 
     const fonts: { name: NerdFontName; label: string; desc: string }[] = [
         { name: 'JetBrainsMono', label: 'JetBrains Mono', desc: 'Superior readability, great for code' },
@@ -34,8 +33,7 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
     ];
 
     const handleInstall = useCallback(async (font: NerdFontName) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const controller = new AbortController() as any;
+        const controller = new AbortController();
         setAbortController(controller);
         setInstallState('downloading');
 
