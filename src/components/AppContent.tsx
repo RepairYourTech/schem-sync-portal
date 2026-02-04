@@ -154,9 +154,17 @@ export function AppContent() {
             if (key.name === "4" || key.name === "6" || key.name === "8") {
                 const rate = parseInt(key.name) as 4 | 6 | 8;
                 let newConfig = { ...config };
-                if (syncFocusIndex === 0) { newConfig.downsync_transfers = rate; newConfig.upsync_transfers = rate; }
-                else if (syncFocusIndex === 1) { newConfig.downsync_transfers = rate; }
-                else if (syncFocusIndex === 3) { newConfig.upsync_transfers = rate; }
+
+                const visiblePanels: string[] = ["global"];
+                if (config.source_provider !== "none") visiblePanels.push("source");
+                if (config.enable_malware_shield) visiblePanels.push("shield");
+                if (config.upsync_enabled && config.backup_provider !== "none") visiblePanels.push("dest");
+
+                const panelType = visiblePanels[syncFocusIndex];
+                if (panelType === "global") { newConfig.downsync_transfers = rate; newConfig.upsync_transfers = rate; }
+                else if (panelType === "source") { newConfig.downsync_transfers = rate; }
+                else if (panelType === "dest") { newConfig.upsync_transfers = rate; }
+
                 setConfig(newConfig);
                 return;
             }
@@ -259,8 +267,8 @@ export function AppContent() {
             if (key.name === "left" || key.name === "up") { setFooterFocus(prev => (prev === null || prev === 0) ? actions.length - 1 : prev - 1); return; }
             else if (key.name === "right" || key.name === "down") { setFooterFocus(prev => (prev === null || prev === actions.length - 1) ? 0 : prev + 1); return; }
             else if (key.name === "return" && footerFocus !== null) { actions[footerFocus]?.action(); return; }
-            const quickAction = actions.find(a => a.key === key.name);
-            if (quickAction) { quickAction.action(); return; }
+            const quickActionIdx = actions.findIndex(a => a.key === key.name);
+            if (quickActionIdx !== -1) { setFooterFocus(quickActionIdx); return; }
         }
 
         if (focusArea === "body" && view === "dashboard") {
@@ -280,7 +288,12 @@ export function AppContent() {
 
         if (key.name === "escape") {
             const escIndex = actions.findIndex(a => a.key === "escape");
-            if (escIndex !== -1) { setFocusArea("footer"); setFooterFocus(escIndex); return; }
+            if (escIndex !== -1) {
+                setFocusArea("footer");
+                setFooterFocus(escIndex);
+                // We do NOT call actions[escIndex].action() here.
+                // The user must press ENTER to confirm the focused "Exit" action.
+            }
             return;
         }
     });

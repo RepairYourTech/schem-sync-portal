@@ -57,9 +57,9 @@ export async function runSync(
     const _showClean = config.enable_malware_shield; // Used for UI logic, clean integrated into pull
     const showCloud = config.upsync_enabled && config.backup_provider !== "none" && config.backup_provider !== "unconfigured";
 
-    // Clean phase is now integrated into pullPhase (final sweep)
-    const weights = { pull: showPull ? 50 : 0, clean: 0, cloud: showCloud ? 50 : 0 };
-    const totalWeight = weights.pull + weights.cloud;
+    // INTEGRATED CLEANING: Assign weight to clean phase for UI visibility
+    const weights = { pull: showPull ? 45 : 0, clean: 10, cloud: showCloud ? 45 : 0 };
+    const totalWeight = weights.pull + weights.clean + weights.cloud;
     const scale = totalWeight > 0 ? 100 / totalWeight : 1;
 
     let pullFinished = false;
@@ -81,15 +81,17 @@ export async function runSync(
         let baseWeight = 0;
 
         // Dynamic weight calculation based on the effective phase
-        if (effectivePhase === "pull" || effectivePhase === "clean") {
+        if (effectivePhase === "pull") {
             baseWeight = 0;
-        } else if (effectivePhase === "cloud") {
+        } else if (effectivePhase === "clean") {
             baseWeight = weights.pull;
+        } else if (effectivePhase === "cloud") {
+            baseWeight = weights.pull + weights.clean;
         } else if (effectivePhase === "done") {
             baseWeight = totalWeight;
         }
 
-        const currentPhaseWeight = (effectivePhase === "clean") ? 0 : (weights[effectivePhase as keyof typeof weights] || 0);
+        const currentPhaseWeight = (weights[effectivePhase as keyof typeof weights] || 0);
         const globalPercentage = Math.min(100, Math.round((baseWeight + (phasePct * currentPhaseWeight / 100)) * scale));
 
         const full: SyncProgress = {

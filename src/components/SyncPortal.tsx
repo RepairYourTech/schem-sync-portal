@@ -122,12 +122,73 @@ export const SyncPortal = React.memo(({
         }
     };
 
-    // Responsive layout: panels flow vertically when terminal is too narrow
-    // MIN_PANEL_WIDTH ensures panels never shrink below usable size
-    const MIN_PANEL_WIDTH = 50;
+    // Tiered Responsive Layout Logic
+    const MIN_PANEL_WIDTH = 40;
     const gapSize = 1;
-    const requiredWidth = visiblePanelCount * MIN_PANEL_WIDTH + (visiblePanelCount - 1) * gapSize + 6; // panels + gaps + padding/borders
-    const isWide = width >= requiredWidth;
+    const paddingOffset = 6; // Borders + Padding
+
+    const canFit3 = width >= (3 * MIN_PANEL_WIDTH + 2 * gapSize + paddingOffset);
+    const canFit2 = width >= (2 * MIN_PANEL_WIDTH + 1 * gapSize + paddingOffset);
+
+    // Calculate dynamic widths for the panels based on the current responsive tier
+    const getPanelWidth = (idx: number, total: number) => {
+        if (total === 1) return width - paddingOffset;
+        if (total === 2) {
+            return canFit2
+                ? Math.floor((width - paddingOffset - gapSize) / 2)
+                : width - paddingOffset;
+        }
+        if (total === 3) {
+            if (canFit3) return Math.floor((width - paddingOffset - 2 * gapSize) / 3);
+            if (canFit2) {
+                // Tier 2: First two panels side-by-side, third panel full-width below
+                return idx < 2
+                    ? Math.floor((width - paddingOffset - gapSize) / 2)
+                    : width - paddingOffset;
+            }
+            return width - paddingOffset;
+        }
+        return width - paddingOffset;
+    };
+
+    const panelWidth = (idx: number) => getPanelWidth(idx, visiblePanelCount);
+
+    // Adaptive height calculation to prevent overflow
+    const { height: termHeight } = useTerminalDimensions();
+    const headerHeight = 5;
+    const footerHeight = 2; // Approximate footer space
+    const spacing = (visiblePanelCount > 2 && !canFit3) ? (gapSize * 2) : gapSize;
+    const availableHeight = termHeight - headerHeight - footerHeight - (paddingOffset * 2) - spacing;
+
+    // In stage B (2+1), top panels share height, bottom is full. 
+    // In stage A (3 side-by-side), all share height.
+    const getDynamicHeight = (idx: number) => {
+        if (!isRunning) return 12; // Compact view when stopped
+        if (visiblePanelCount <= 1) return Math.max(12, availableHeight);
+        if (visiblePanelCount === 2) {
+            return canFit2 ? Math.max(12, availableHeight) : Math.max(10, Math.floor(availableHeight / 2));
+        }
+        if (visiblePanelCount === 3) {
+            if (canFit3) return Math.max(12, availableHeight);
+            if (canFit2) {
+                // Top row (0,1) share half height, bottom panel (2) gets other half
+                return idx < 2 ? Math.max(10, Math.floor(availableHeight / 2)) : Math.max(10, Math.floor(availableHeight / 2));
+            }
+            return Math.max(8, Math.floor(availableHeight / 3));
+        }
+        return 12;
+    };
+
+    // Dynamic Row Budgeting for Files
+    const PANEL_OVERHEAD = {
+        source: 8,  // Border(1) + Header(1) + Title(2) + Controls(2) + Footer(2)
+        shield: 9,  // Border(1) + Header(1) + Status(1) + Found(1) + Target(3) + Controls(2)
+        dest: 8     // Border(1) + Header(1) + Title(2) + Controls(2) + Footer(2)
+    };
+
+    const getMaxFiles = (panelHeight: number, type: keyof typeof PANEL_OVERHEAD) => {
+        return Math.max(2, panelHeight - PANEL_OVERHEAD[type]);
+    };
 
     return (
         <box flexDirection="column" gap={1} height="100%" border borderStyle="double" borderColor={colors.primary} title="[ SYNC PORTAL ]" padding={1}>
@@ -182,6 +243,7 @@ export const SyncPortal = React.memo(({
                                 label="STOP SYNC"
                                 isFocused={isGlobalFocused}
                                 bold
+                                hardened={true}
                                 color={isGlobalFocused ? colors.primary : colors.danger}
                             />
                         </box>
@@ -190,100 +252,40 @@ export const SyncPortal = React.memo(({
             </box>
 
             {/* === PANELS LAYOUT === */}
-            {isWide ? (
-                // Wide layout: columns side by side
-                <box
-                    flexDirection="row"
-                    gap={1}
-                    height={isRunning ? 22 : 12} // Standardize to max height to ensure alignment
-                >
-                    {showSource ? (
-                        <box flexGrow={1} minWidth={MIN_PANEL_WIDTH}>
-                            <DownsyncPanel
-                                progress={progress}
-                                sourceType={sourceType}
-                                colors={colors}
-                                width={Math.floor((width - 4 - (visiblePanelCount - 1)) / visiblePanelCount)}
-                                onPause={onPause}
-                                onResume={onResume}
-                                height={isRunning ? 22 : 12}
-                                maxFiles={(config.downsync_transfers || 4) >= 8 ? 12 : (isPull ? 10 : 5)}
-                                transfers={config.downsync_transfers}
-                                onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
-                                isFocused={getPanelFocus("source")}
-                                onFocus={(keep) => handleFocus("source", keep)}
-                                subFocusIndex={subFocusIndex}
-                                onSubFocusIndexChange={onSubFocusIndexChange}
-                            />
-                        </box>
-                    ) : null}
-
-                    {showShield ? (
-                        <box flexGrow={1} minWidth={MIN_PANEL_WIDTH}>
-                            <LocalShieldPanel
-                                progress={progress}
-                                colors={colors}
-                                width={Math.floor((width - 4 - (visiblePanelCount - 1)) / visiblePanelCount)}
-                                shieldEnabled={true}
-                                onPause={onPause}
-                                onResume={onResume}
-                                isFocused={getPanelFocus("shield")}
-                                onFocus={(keep) => handleFocus("shield", keep)}
-                                subFocusIndex={subFocusIndex}
-                                onSubFocusIndexChange={onSubFocusIndexChange}
-                                height={isRunning ? 22 : 12}
-                                isRunning={isRunning}
-                            />
-                        </box>
-                    ) : null}
-
-                    {showDest ? (
-                        <box flexGrow={1} minWidth={MIN_PANEL_WIDTH}>
-                            <UpsyncPanel
-                                progress={progress}
-                                destType={destType}
-                                colors={colors}
-                                width={Math.floor((width - 4 - (visiblePanelCount - 1)) / visiblePanelCount)}
-                                upsyncEnabled={true}
-                                onPause={onPause}
-                                onResume={onResume}
-                                height={isRunning ? 22 : 12}
-                                maxFiles={(config.upsync_transfers || 4) >= 8 ? 12 : (isCloud ? 10 : 5)}
-                                transfers={config.upsync_transfers}
-                                onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
-                                isFocused={getPanelFocus("dest")}
-                                onFocus={(keep) => handleFocus("dest", keep)}
-                                subFocusIndex={subFocusIndex}
-                                onSubFocusIndexChange={onSubFocusIndexChange}
-                            />
-                        </box>
-                    ) : null}
-                </box>
-            ) : (
-                // Narrow layout: single column
-                <box flexDirection="column" gap={1} flexGrow={1}>
-                    {showSource ? (
+            <box
+                flexDirection="row"
+                flexWrap="wrap"
+                gap={1}
+                flexGrow={1}
+                overflow="hidden"
+            >
+                {showSource ? (
+                    <box flexBasis={panelWidth(0)} minWidth={panelWidth(0)} flexShrink={0}>
                         <DownsyncPanel
                             progress={progress}
                             sourceType={sourceType}
                             colors={colors}
-                            width={width - 2}
+                            width={panelWidth(0) - 2}
                             onPause={onPause}
                             onResume={onResume}
+                            height={getDynamicHeight(0)}
+                            maxFiles={getMaxFiles(getDynamicHeight(0), "source")}
+                            transfers={config.downsync_transfers}
+                            onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
                             isFocused={getPanelFocus("source")}
                             onFocus={(keep) => handleFocus("source", keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
-                            height={isRunning ? 22 : 12}
-                            transfers={config.downsync_transfers}
-                            onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
                         />
-                    ) : null}
-                    {showShield ? (
+                    </box>
+                ) : null}
+
+                {showShield ? (
+                    <box flexBasis={panelWidth(showSource ? 1 : 0)} minWidth={panelWidth(showSource ? 1 : 0)} flexShrink={0}>
                         <LocalShieldPanel
                             progress={progress}
                             colors={colors}
-                            width={width - 2}
+                            width={panelWidth(showSource ? 1 : 0) - 2}
                             shieldEnabled={true}
                             onPause={onPause}
                             onResume={onResume}
@@ -291,30 +293,34 @@ export const SyncPortal = React.memo(({
                             onFocus={(keep) => handleFocus("shield", keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
-                            height={isRunning ? 22 : 12}
+                            height={getDynamicHeight(showSource ? 1 : 0)}
                             isRunning={isRunning}
                         />
-                    ) : null}
-                    {showDest ? (
+                    </box>
+                ) : null}
+
+                {showDest ? (
+                    <box flexBasis={panelWidth(visiblePanelCount - 1)} minWidth={panelWidth(visiblePanelCount - 1)} flexShrink={0}>
                         <UpsyncPanel
                             progress={progress}
                             destType={destType}
                             colors={colors}
-                            width={width - 2}
+                            width={panelWidth(visiblePanelCount - 1) - 2}
                             upsyncEnabled={true}
                             onPause={onPause}
                             onResume={onResume}
+                            height={getDynamicHeight(visiblePanelCount - 1)}
+                            maxFiles={getMaxFiles(getDynamicHeight(visiblePanelCount - 1), "dest")}
+                            transfers={config.upsync_transfers}
+                            onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
                             isFocused={getPanelFocus("dest")}
                             onFocus={(keep) => handleFocus("dest", keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
-                            height={isRunning ? 22 : 12}
-                            transfers={config.upsync_transfers}
-                            onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
                         />
-                    ) : null}
-                </box>
-            )}
+                    </box>
+                ) : null}
+            </box>
 
             {/* === GLOBAL PROGRESS === */}
             {/* Global progress removed - individual panel phase progress bars provide sufficient feedback */}

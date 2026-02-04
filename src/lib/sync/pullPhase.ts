@@ -146,8 +146,9 @@ export async function runPullPhase(
         }
     }
 
-    clearActiveTransfers();
-    resetSessionCompletions();
+    // REDUNDANT GLOBAL PULL REMOVED
+    // We now proceed directly to Tiered Pull (Risky -> Standard) or Discovery Pull
+    // to ensure the Shield is always in the critical path.
 
     const basePullArgs = [
         config.strict_mirror ? "sync" : "copy", sourceRemote, config.local_dir,
@@ -158,15 +159,8 @@ export async function runPullPhase(
         ...RETRY_FLAGS
     ];
 
-    await executeRclone(basePullArgs, (p) => {
-        onProgress({
-            ...p,
-            phase: "pull",
-            description: `Pulling from ${config.source_provider}...`,
-            manifestStats,
-            isPaused: getIsSyncPaused()
-        });
-    }, undefined, "download");
+    clearActiveTransfers();
+    resetSessionCompletions();
 
     // STAGE 1: Prioritized Pull (Known Threats) - ONLY when shield enabled
     if (config.enable_malware_shield && riskyItems.length > 0) {
@@ -222,9 +216,12 @@ export async function runPullPhase(
         const standardListFile = join(config.local_dir, "standard_missing.txt");
         writeFileSync(standardListFile, standardItems.join("\n"));
         standardArgs.push("--files-from", standardListFile);
-    } else {
-        // If not using --files-from, we can safely use normal filters
+    } else if (!localManifest) {
+        // DISCOVERY MODE: No manifest - use filters and exclusion list
         standardArgs.push("--exclude-from", excludeFile, "--exclude", "_risk_tools/**");
+    } else {
+        // Manifest exists but no missing files identified - nothing to do for standard
+        return;
     }
 
     await executeRclone(standardArgs, (stats) => {
@@ -244,8 +241,17 @@ export async function runPullPhase(
             ...stats,
             percentage: displayPct
         });
-    }, (filename) => {
-        if (cleanedQueue) {
+    }, async (filename) => {
+        // REAL-TIME CLEANING: Clean the file immediately after download
+        if (config.enable_malware_shield) {
+            const fullPath = join(config.local_dir, filename);
+            if (existsSync(fullPath)) {
+                await cleanFile(fullPath, config.local_dir, config.malware_policy || "purge");
+            }
+        }
+
+        // Only push to cleanedQueue if the file still exists (passed the filter/shield)
+        if (cleanedQueue && existsSync(join(config.local_dir, filename))) {
             cleanedQueue.push(filename);
         }
     });

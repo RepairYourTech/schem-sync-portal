@@ -45,7 +45,7 @@ export const UpsyncPanel = React.memo(({
     subFocusIndex = 0,
     onSubFocusIndexChange
 }: UpsyncPanelProps) => {
-    const isActive = progress.phase === "cloud" || progress.phase === "syncing" || (progress.uploadQueue && progress.uploadQueue.some(f => f.status === "active"));
+    const isActive = progress.phase !== "done" && progress.phase !== "error";
     const isGlobalPaused = progress.isPaused;
 
     const status: PanelStatus = !upsyncEnabled ? "idle" :
@@ -87,7 +87,7 @@ export const UpsyncPanel = React.memo(({
             {/* UPLOAD QUEUE */}
             <box flexDirection="column" gap={0} marginTop={1}>
                 <text fg={colors.dim} paddingLeft={1} attributes={TextAttributes.BOLD}>UPLOAD QUEUE</text>
-                <FileQueue files={uploadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} />
+                <FileQueue files={uploadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} isUpsync={true} />
             </box>
 
             {/* ACTION BAR (Bottom-docked) */}
