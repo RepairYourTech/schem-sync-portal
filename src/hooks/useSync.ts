@@ -46,11 +46,11 @@ export function useSync() {
     }, []);
 
     const pause = useCallback(() => {
-        pauseSync();
+        pauseSync(p => setProgress(prev => ({ ...prev, ...p })));
     }, []);
 
     const resume = useCallback(() => {
-        resumeSync();
+        resumeSync(p => setProgress(prev => ({ ...prev, ...p })));
     }, []);
 
     return {

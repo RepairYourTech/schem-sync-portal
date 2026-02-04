@@ -100,6 +100,7 @@ export async function runSync(
             phase: effectivePhase as SyncProgress["phase"],
             description: p.description || currentProgress.description,
             percentage: phasePct,
+            isPaused: p.isPaused !== undefined ? p.isPaused : currentProgress.isPaused,
             globalPercentage
         };
         currentProgress = full;
