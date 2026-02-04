@@ -15,34 +15,8 @@ import { PROVIDER_REGISTRY } from "../../lib/providers";
 import type { Step, WizardOption, WizardKeyEvent, WizardProps } from "./types";
 import type { WizardStepProps } from "./StepProps";
 
-// Steps
-import { ShortcutStep } from "./steps/ShortcutStep";
-import { CopypartyConfigStep } from "./steps/CopypartyConfigStep";
-import { DestCloudSelectStep } from "./steps/DestCloudSelectStep";
-import { BackupDirStep } from "./steps/BackupDirStep";
-import { SecurityStep } from "./steps/SecurityStep";
-import { CloudDirectEntryStep } from "./steps/CloudDirectEntryStep";
-import { EditMenuStep } from "./steps/EditMenuStep";
-import { DeployStep } from "./steps/DeployStep";
-
-// Shared/Extracted Components
-import { SourceChoice } from "./SourceChoice";
-import { DirectoryConfig } from "./DirectoryConfig";
-import { MirrorSettings } from "./MirrorSettings";
-import { UpsyncConfig } from "./UpsyncConfig";
 import { WizardFooter } from "./WizardFooter";
-
-// Specialized Providers
-import { GDriveSetup } from "./providers/GDriveSetup";
-import { B2Setup } from "./providers/B2Setup";
-import { SFTPSetup } from "./providers/SFTPSetup";
-import { OneDriveSetup } from "./providers/OneDriveSetup";
-import { DropboxSetup } from "./providers/DropboxSetup";
-import { MegaSetup } from "./providers/MegaSetup";
-import { PCloudSetup } from "./providers/PCloudSetup";
-import { R2Setup } from "./providers/R2Setup";
-import { S3Setup } from "./providers/S3Setup";
-
+import { WizardStepRenderer } from "./WizardStepRenderer";
 import { getStepContext, findNextStep } from "./wizard-utils";
 
 export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, backSignal }: WizardProps) => {
@@ -236,7 +210,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         if (step === "source_choice") return Object.keys(PROVIDER_REGISTRY).filter(k => !["none", "unconfigured"].includes(k)).map(v => ({ value: v, type: "source_select" }));
 
         if (step === "mirror") return [{ value: false, type: "mirror" }, { value: true, type: "mirror" }];
-        if (step === "dir" || step === "backup_dir") return [{ value: "confirm", type: "dir_confirm" }];
+        if (step === "dir" || step === "backup_dir") return [{ value: config.local_dir, type: "dir_input" }, { value: "confirm", type: "dir_confirm" }];
         if (step === "upsync_ask") return [{ value: "download_only", type: "sync_mode" }, { value: "sync_backup", type: "sync_mode" }];
         if (step === "security") {
             const opts = [{ value: "isolate", type: "sec_policy" }, { value: "purge", type: "sec_policy" }, { value: false, type: "sec_toggle" }];
@@ -337,6 +311,14 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
                         if (direct_entry_index === maxIdx) _onFocusChange("footer");
                         else set_direct_entry_index(prev => prev + 1);
                     }
+                } else if (step === "dir" || step === "backup_dir") {
+                    if (e.shift) {
+                        if (selectedIndex === 0) _onFocusChange("footer");
+                        else setSelectedIndex(prev => prev - 1);
+                    } else {
+                        if (selectedIndex === 1) _onFocusChange("footer");
+                        else setSelectedIndex(prev => prev + 1);
+                    }
                 } else {
                     const options = getOptions();
                     if (options.length > 0) {
@@ -413,71 +395,9 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         step
     };
 
-    const renderStep = () => {
-        switch (step) {
-            case "shortcut": return <ShortcutStep {...stepProps} />;
-            case "source_choice": return <SourceChoice {...stepProps} />;
-            case "copyparty_config": return <CopypartyConfigStep {...stepProps} />;
-            case "dir": return <DirectoryConfig {...stepProps} />;
-            case "mirror": return <MirrorSettings {...stepProps} />;
-            case "upsync_ask": return <UpsyncConfig {...stepProps} />;
-            case "dest_cloud_select": return <DestCloudSelectStep {...stepProps} />;
-            case "backup_dir": return <BackupDirStep {...stepProps} />;
-            case "security": return <SecurityStep {...stepProps} />;
-
-            // Specialized Providers
-            case "gdrive_intro":
-            case "gdrive_guide_1":
-            case "gdrive_guide_2":
-            case "gdrive_guide_3":
-            case "gdrive_guide_4":
-                return <GDriveSetup {...stepProps} />;
-            case "b2_intro":
-            case "b2_guide_1":
-            case "b2_guide_2":
-                return <B2Setup {...stepProps} />;
-            case "sftp_intro":
-            case "sftp_guide_1":
-                return <SFTPSetup {...stepProps} />;
-
-            case "onedrive_intro":
-            case "onedrive_guide_1":
-            case "onedrive_guide_2":
-                return <OneDriveSetup {...stepProps} />;
-
-            case "dropbox_intro":
-            case "dropbox_guide_1":
-            case "dropbox_guide_2":
-                return <DropboxSetup {...stepProps} />;
-
-            case "mega_intro":
-            case "mega_guide_1":
-                return <MegaSetup {...stepProps} />;
-
-            case "pcloud_intro":
-            case "pcloud_guide_1":
-                return <PCloudSetup {...stepProps} />;
-
-            case "r2_intro":
-            case "r2_guide_1":
-            case "r2_guide_2":
-                return <R2Setup {...stepProps} />;
-
-            case "s3_intro":
-            case "s3_guide_1":
-            case "s3_guide_2":
-                return <S3Setup {...stepProps} />;
-
-            case "cloud_direct_entry": return <CloudDirectEntryStep {...stepProps} />;
-            case "edit_menu": return <EditMenuStep {...stepProps} />;
-            case "deploy": return <DeployStep {...stepProps} />;
-            default: return null;
-        }
-    };
-
     return (
         <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ SYSTEM CONFIGURATION WIZARD ]" gap={1}>
-            {renderStep()}
+            <WizardStepRenderer step={step} stepProps={stepProps} />
             <WizardFooter />
             {!!(config.debug_mode) && (
                 <box marginTop={1} border borderStyle="single" borderColor={colors.border} padding={1} flexDirection="row">
