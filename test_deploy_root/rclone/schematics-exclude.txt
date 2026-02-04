@@ -4,3 +4,6 @@ Schematic and boardview/AMD/07 580/GV-RX580GAMING-4GD-1.0-1.01 Boardview.zip
 Schematic and boardview/AMD/07 580/GV-RX580GAMING-8GD-1.0-1.01 Boardview.zip
 malware.zip
 malware_isolate.zip
+activator.exe
+patch.exe
+subdir/keygen.exe
