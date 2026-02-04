@@ -21,8 +21,6 @@ import { CopypartyConfigStep } from "./steps/CopypartyConfigStep";
 import { DestCloudSelectStep } from "./steps/DestCloudSelectStep";
 import { BackupDirStep } from "./steps/BackupDirStep";
 import { SecurityStep } from "./steps/SecurityStep";
-import { CloudIntroStep } from "./steps/CloudIntroStep";
-import { CloudGuideStep } from "./steps/CloudGuideStep";
 import { CloudDirectEntryStep } from "./steps/CloudDirectEntryStep";
 import { EditMenuStep } from "./steps/EditMenuStep";
 import { DeployStep } from "./steps/DeployStep";
@@ -38,18 +36,14 @@ import { WizardFooter } from "./WizardFooter";
 import { GDriveSetup } from "./providers/GDriveSetup";
 import { B2Setup } from "./providers/B2Setup";
 import { SFTPSetup } from "./providers/SFTPSetup";
+import { OneDriveSetup } from "./providers/OneDriveSetup";
+import { DropboxSetup } from "./providers/DropboxSetup";
+import { MegaSetup } from "./providers/MegaSetup";
+import { PCloudSetup } from "./providers/PCloudSetup";
+import { R2Setup } from "./providers/R2Setup";
+import { S3Setup } from "./providers/S3Setup";
 
-const getStepContext = (s: Step, history: Step[]): "source" | "dest" | null => {
-    if (s === "source_choice" || s === "copyparty_config") return "source";
-    if (s === "dest_cloud_select" || s === "backup_dir" || s === "security") return "dest";
-    if (s === "cloud_direct_entry" || Object.values(PROVIDER_REGISTRY).some(p => (p.steps as string[]).includes(s))) {
-        for (let i = history.length - 1; i >= 0; i--) {
-            if (history[i] === "source_choice") return "source";
-            if (history[i] === "dest_cloud_select") return "dest";
-        }
-    }
-    return null;
-};
+import { getStepContext, findNextStep } from "./wizard-utils";
 
 export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, backSignal }: WizardProps) => {
     const { colors } = useTheme();
@@ -67,22 +61,8 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         setWizardContextState(newCtx);
     }, []);
 
-    const findNextStep = (c: PortalConfig): Step => {
-        if (mode === "edit") return "edit_menu";
-        if (mode === "restart") return "shortcut";
-        const skipShort = isSystemBootstrapped() || c.desktop_shortcut === 2;
-        if (!skipShort) return "shortcut";
-        if (c.source_provider === "unconfigured") return "source_choice";
-        if (!c.local_dir || c.local_dir === "" || c.local_dir === "none") return "dir";
-        if (c.strict_mirror === undefined) return "mirror";
-        if (c.upsync_enabled === undefined) return "upsync_ask";
-        if (c.upsync_enabled && (c.backup_provider === "unconfigured")) return "dest_cloud_select";
-        if (c.upsync_enabled && !c.backup_dir) return "backup_dir";
-        return "deploy";
-    };
-
     const isShortcutMissing = savedShortcutState === 1 && !isBootstrapped;
-    const initialStep = findNextStep(initialConfig);
+    const initialStep = findNextStep(initialConfig, mode);
     const [step, setStep] = useState<Step>(initialStep);
     const [isMenuMode] = useState(initialStep === "edit_menu");
     const [config, setConfig] = useState<PortalConfig>({
@@ -278,6 +258,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
     const { handleAuth, handleGdriveAuth, startGenericAuth, dispatchDirectAuth } = useWizardAuth({
         next,
         updateConfig,
+        config,
         setAuthStatus,
         setIsAuthLoading,
         urlRef,
@@ -410,6 +391,8 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         const selectableSteps: Step[] = ["shortcut", "source_choice", "dir", "mirror", "upsync_ask", "dest_cloud_select", "backup_dir", "security", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "s3_intro", "deploy", "cloud_direct_entry"];
         if (selectableSteps.includes(step)) {
             const options = getOptions();
+            if (options.length === 0) return;
+
             if (e.name === "down") setSelectedIndex(prev => (prev + 1) % options.length);
             else if (e.name === "up") setSelectedIndex(prev => (prev - 1 + options.length) % options.length);
             else if (e.name >= "1" && e.name <= "9") {
@@ -457,25 +440,33 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             case "sftp_guide_1":
                 return <SFTPSetup {...stepProps} />;
 
-            // Fallback for others
-            case "pcloud_intro":
             case "onedrive_intro":
-            case "dropbox_intro":
-            case "mega_intro":
-            case "r2_intro":
-            case "s3_intro":
-                return <CloudIntroStep {...stepProps} provider={step.split("_")[0] as PortalProvider} />;
-            case "pcloud_guide_1":
             case "onedrive_guide_1":
             case "onedrive_guide_2":
+                return <OneDriveSetup {...stepProps} />;
+
+            case "dropbox_intro":
             case "dropbox_guide_1":
             case "dropbox_guide_2":
+                return <DropboxSetup {...stepProps} />;
+
+            case "mega_intro":
             case "mega_guide_1":
+                return <MegaSetup {...stepProps} />;
+
+            case "pcloud_intro":
+            case "pcloud_guide_1":
+                return <PCloudSetup {...stepProps} />;
+
+            case "r2_intro":
             case "r2_guide_1":
             case "r2_guide_2":
+                return <R2Setup {...stepProps} />;
+
+            case "s3_intro":
             case "s3_guide_1":
             case "s3_guide_2":
-                return <CloudGuideStep {...stepProps} step={step} />;
+                return <S3Setup {...stepProps} />;
 
             case "cloud_direct_entry": return <CloudDirectEntryStep {...stepProps} />;
             case "edit_menu": return <EditMenuStep {...stepProps} />;

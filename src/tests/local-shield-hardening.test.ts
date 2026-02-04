@@ -1,8 +1,7 @@
-import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
-import { existsSync, writeFileSync, mkdirSync, readFileSync, unlinkSync } from "fs";
-import { cleanFile, ShieldManager, __setSpawnSync } from "../lib/cleanup";
-import { Env } from "../lib/env";
+import { writeFileSync, existsSync, mkdirSync } from "fs";
+import { ShieldManager, cleanFile } from "../lib/cleanup";
 
 describe("Local Shield Hardening", () => {
     const testDir = join(process.cwd(), "test_shield_cleanup");

@@ -67,6 +67,5 @@ export interface WizardAuthContext {
     next: () => void;
     handleGdriveAuth: (clientId: string, clientSecret: string) => void;
     startGenericAuth: (provider: string) => void;
-    updateGenericRemote: (remoteName: string, provider: PortalProvider, options: Record<string, unknown>) => void;
+    updateGenericRemote: (remoteName: string, provider: PortalProvider, options: Record<string, string>) => void;
 }
-

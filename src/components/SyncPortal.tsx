@@ -5,7 +5,9 @@ import { useTerminalDimensions } from "@opentui/react";
 import type { SyncProgress } from "../lib/sync";
 import type { PortalConfig } from "../lib/config";
 import { useTheme } from "../lib/theme";
-import { DownsyncPanel, LocalShieldPanel, UpsyncPanel } from "./SyncPortalParts";
+import { DownsyncPanel } from "./panels/DownsyncPanel";
+import { LocalShieldPanel } from "./panels/LocalShieldPanel";
+import { UpsyncPanel } from "./panels/UpsyncPanel";
 import { Hotkey } from "./Hotkey";
 
 interface SyncPortalProps {

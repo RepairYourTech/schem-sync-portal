@@ -8,6 +8,7 @@ import { getProviderMetadata } from "../lib/providers";
 interface WizardAuthProps {
     next: () => void;
     updateConfig: (fn: (prev: PortalConfig) => PortalConfig) => void;
+    config: PortalConfig;
     setAuthStatus: (status: string) => void;
     setIsAuthLoading: (loading: boolean) => void;
     urlRef: React.RefObject<string>;
@@ -26,7 +27,7 @@ interface WizardAuthProps {
 }
 
 export function useWizardAuth({
-    next, updateConfig, setAuthStatus, setIsAuthLoading,
+    next, updateConfig, config, setAuthStatus, setIsAuthLoading,
     urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef,
     authAbortControllerRef, oauthTokenRef,
     wizardContext, pendingSourceProviderRef, pendingBackupProviderRef, abortAuth
@@ -42,10 +43,9 @@ export function useWizardAuth({
         try {
             if (!url) { setAuthStatus("⚠️ URL is required."); setIsAuthLoading(false); return; }
 
-            // Hardcoded method check for now, can be improved
-            const isWebDav = true; // Placeholder, should be dynamic if needed
+            const method = config.copyparty_method || "webdav";
 
-            if (isWebDav) {
+            if (method === "webdav") {
                 const { createWebDavRemote } = await import("../lib/rclone");
                 await createWebDavRemote(Env.REMOTE_PORTAL_SOURCE, url, user || "", pass || "");
                 updateConfig(prev => ({ ...prev, source_provider: "copyparty", copyparty_method: "webdav", webdav_user: user, webdav_pass: pass }));
@@ -65,7 +65,7 @@ export function useWizardAuth({
         } finally {
             setIsAuthLoading(false);
         }
-    }, [next, updateConfig, setAuthStatus, setIsAuthLoading, urlRef, userRef, passRef]);
+    }, [next, updateConfig, config.copyparty_method, setAuthStatus, setIsAuthLoading, urlRef, userRef, passRef]);
 
     const handleGdriveAuth = useCallback(async (clientId: string, clientSecret: string) => {
         abortAuth(); setIsAuthLoading(true); setAuthStatus("🔄 Launching Google Handshake...");
@@ -125,7 +125,7 @@ export function useWizardAuth({
                 next,
                 handleGdriveAuth,
                 startGenericAuth,
-                updateGenericRemote
+                updateGenericRemote: updateGenericRemote as (remoteName: string, provider: PortalProvider, options: Record<string, string>) => void
             });
         }
     }, [wizardContext, urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef, updateConfig, next, handleGdriveAuth, startGenericAuth]);
