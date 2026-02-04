@@ -256,6 +256,7 @@ export const SyncPortal = React.memo(({
                 flexWrap="wrap"
                 gap={1}
                 flexGrow={1}
+                alignItems="flex-start"
                 overflow="hidden"
             >
                 {showSource ? (

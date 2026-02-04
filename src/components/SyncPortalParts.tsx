@@ -214,7 +214,7 @@ export const PanelControls = React.memo(({
     const isActionFocused = isFocused && subFocusIndex === 0;
 
     return (
-        <box flexDirection="column" gap={0} border borderStyle="single" borderColor={isFocused ? colors.primary : colors.dim + "33"} padding={0} marginTop={0} flexShrink={1}>
+        <box flexDirection="column" gap={0} border={isFocused} borderStyle="single" borderColor={isFocused ? colors.success : "transparent"} padding={0} marginTop={0} flexShrink={1} alignSelf="flex-start" width="auto">
             <box flexDirection="row" justifyContent="space-between" alignItems="center" flexWrap="wrap">
                 {/* Pause/Resume Action */}
                 <box

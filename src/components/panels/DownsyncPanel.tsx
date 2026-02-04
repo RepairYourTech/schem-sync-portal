@@ -68,6 +68,8 @@ export const DownsyncPanel = React.memo(({
                 }
             }}
             width={width}
+            height={_height}
+            overflow="hidden"
         >
             <PanelHeader
                 title={`DOWNSYNC: ${sourceType}`}
@@ -78,7 +80,7 @@ export const DownsyncPanel = React.memo(({
             />
 
             {/* DOWNLOAD QUEUE */}
-            <box flexDirection="column" gap={0} marginTop={1}>
+            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1}>
                 <text fg={colors.dim} paddingLeft={1} attributes={TextAttributes.BOLD}>DOWNLOAD QUEUE</text>
                 <FileQueue files={downloadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} isUpsync={false} />
             </box>
