@@ -158,7 +158,8 @@ describe("E2E: Wizard Completion", () => {
         runAction("return");
         runAction("return");
 
-        // 4. Dir confirmed
+        // 4. Dir confirmed (input -> button -> confirm)
+        runAction("return");
         runAction("return");
         // 5. Mirror confirmed
         runAction("return");
@@ -180,7 +181,8 @@ describe("E2E: Wizard Completion", () => {
         runAction("return");
 
 
-        // 10. Backup Dir confirmed
+        // 10. Backup Dir confirmed (input -> button -> confirm)
+        runAction("return");
         runAction("return");
         // 11. Security confirmed
         runAction("return");
