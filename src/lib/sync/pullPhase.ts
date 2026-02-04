@@ -9,7 +9,7 @@ import {
     setTransferQueueType,
     clearActiveTransfers
 } from "./progress";
-import { runCleanupSweep, GARBAGE_PATTERNS } from "../cleanup";
+import { runCleanupSweep, GARBAGE_PATTERNS, cleanFile } from "../cleanup";
 import type { PortalConfig } from "../config";
 import type { SyncProgress, ManifestStats } from "./types";
 
@@ -169,15 +169,23 @@ export async function runPullPhase(
             });
         });
 
+        // Neutralize through both archive sweep AND direct file cleanup
         await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
             onProgress({
                 phase: "pull",
-                description: `Shield: Neutralizing... ${cStats.flaggedArchives} threats purged.`,
+                description: `Shield: Neutralizing archives... ${cStats.flaggedArchives} threats purged.`,
                 manifestStats,
                 cleanupStats: cStats,
                 percentage: Math.min(100, Math.round((getSessionCompletionsSize() / (riskyItems.length + standardItems.length)) * 100))
             });
         });
+
+        for (const item of riskyItems) {
+            const fullPath = join(config.local_dir, item);
+            if (existsSync(fullPath)) {
+                await cleanFile(fullPath, config.local_dir, config.malware_policy || "purge");
+            }
+        }
     }
 
     // STAGE 2: Standard Pull
@@ -187,6 +195,9 @@ export async function runPullPhase(
         const standardListFile = join(config.local_dir, "standard_missing.txt");
         writeFileSync(standardListFile, standardItems.join("\n"));
         standardArgs.push("--files-from", standardListFile);
+    } else if (riskyItems.length > 0 && standardFilesCount === 0) {
+        // If we ONLY had risky items, and they are already handled, we might skip stage 2
+        // but rclone needs to handle potential metadata/orphans if strict_mirror is on.
     }
 
     await executeRclone(standardArgs, (stats) => {
@@ -207,4 +218,16 @@ export async function runPullPhase(
             percentage: displayPct
         });
     });
+
+    // FINAL SWEEP: Catch any archives identified after download during standard pull
+    if (config.enable_malware_shield) {
+        onProgress({ phase: "clean", description: "Shield: Final security sweep..." });
+        await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
+            onProgress({
+                phase: "clean",
+                description: `Shield: Final sweep... ${cStats.scannedArchives}/${cStats.totalArchives} archives checked.`,
+                cleanupStats: cStats
+            });
+        });
+    }
 }

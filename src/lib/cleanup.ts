@@ -20,7 +20,7 @@ interface ArchiveEngine {
 export const KEEP_EXTS = [
     ".tvw", ".brd", ".fz", ".cad", ".asc", ".pdf", ".bvr", ".pcb",
     ".sqlite3", ".obdata", ".obdlocal", ".obdlog", ".obdq",
-    ".bin", ".rom", ".cap", ".fd", ".wph", ".hex", ".txt"
+    ".bin", ".rom", ".cap", ".fd", ".wph", ".hex", ".txt", ".json"
 ];
 
 export const SAFE_PATTERNS = ["flash", "afud", "insyde", "h2o", "utility", "update", "phlash", "ami", "phoenix", "dell", "hp", "lenovo", "bios"];
@@ -227,17 +227,14 @@ async function cleanArchive(
 
         Logger.info("SYNC", `Cleaning flagged archive: ${relPath}`);
 
-        // 2. Extract safe extensions
+        // 2. Extract safe extensions (using 'x' to preserve full paths)
         for (const ext of KEEP_EXTS) {
             const extractCmd = ENGINE?.type === "7z"
-                ? [ENGINE.bin, "e", archivePath, `*${ext}`, `-o${dirPath}`, "-r", "-y"]
-                : [ENGINE!.bin, "e", "-r", "-y", archivePath, `*${ext}`, dirPath];
+                ? [ENGINE.bin, "x", archivePath, `*${ext}`, `-o${dirPath}`, "-r", "-y"]
+                : [ENGINE!.bin, "x", "-r", "-y", archivePath, `*${ext}`, dirPath];
 
             const result = _spawnSync(extractCmd);
             if (result.success) {
-                // Heuristic to check if something was actually extracted
-                // 7z/unrar output can be parsed if we need exact counts, 
-                // but for now we increment if the command ran.
                 extractedCount++;
             }
         }
@@ -255,8 +252,8 @@ async function cleanArchive(
 
             for (const pattern of GARBAGE_PATTERNS) {
                 const riskExtractCmd = ENGINE?.type === "7z"
-                    ? [ENGINE.bin, "e", archivePath, `*${pattern}*`, `-o${riskDir}`, "-r", "-y"]
-                    : [ENGINE!.bin, "e", "-r", "-y", archivePath, `*${pattern}*`, riskDir];
+                    ? [ENGINE.bin, "x", archivePath, `*${pattern}*`, `-o${riskDir}`, "-r", "-y"]
+                    : [ENGINE!.bin, "x", "-r", "-y", archivePath, `*${pattern}*`, riskDir];
 
                 _spawnSync(riskExtractCmd);
                 stats.isolatedFiles++;
@@ -280,6 +277,62 @@ async function cleanArchive(
     }
 
     return { flagged: false, extractedCount: 0 };
+}
+
+/**
+ * Handle non-archive risky files.
+ */
+export async function cleanFile(
+    filePath: string,
+    baseDir: string,
+    policy: "purge" | "isolate",
+    stats?: CleanupStats
+): Promise<boolean> {
+    const relPath = relative(baseDir, filePath);
+    const fileName = relPath.split(/[/\\]/).pop() || "";
+
+    // Safety check: Don't touch files that are explicitly in KEEP_EXTS
+    const ext = "." + (fileName.split(".").pop() || "").toLowerCase();
+    if (KEEP_EXTS.includes(ext)) {
+        Logger.debug("SYNC", `Skipping cleanup for useful file: ${relPath}`);
+        return false;
+    }
+
+    const isGarbage = GARBAGE_PATTERNS.some(p => fileName.toLowerCase().includes(p.toLowerCase()));
+
+    if (isGarbage) {
+        Logger.info("SYNC", `Shield: Identified independent threat: ${relPath}`);
+        if (stats) stats.riskyPatternCount++;
+
+        if (policy === "isolate") {
+            const riskDir = join(baseDir, "_risk_tools");
+            if (!existsSync(riskDir)) mkdirSync(riskDir, { recursive: true });
+            const dest = join(riskDir, fileName);
+            try {
+                // Bun's native move or rename
+                const content = readFileSync(filePath);
+                writeFileSync(dest, content);
+                unlinkSync(filePath);
+                if (stats) stats.isolatedFiles++;
+                Logger.debug("SYNC", `Isolated file to ${riskDir}`);
+            } catch (e) {
+                Logger.error("SYNC", `Failed to isolate file: ${relPath}`, e);
+            }
+        } else {
+            try {
+                unlinkSync(filePath);
+                if (stats) stats.purgedFiles++;
+                Logger.debug("SYNC", `Purged file: ${relPath}`);
+            } catch (e) {
+                Logger.error("SYNC", `Failed to purge file: ${relPath}`, e);
+            }
+        }
+
+        ShieldManager.addOffender(relPath);
+        return true;
+    }
+
+    return false;
 }
 
 /**
