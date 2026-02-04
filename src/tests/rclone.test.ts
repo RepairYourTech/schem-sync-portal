@@ -1,19 +1,24 @@
 import { mock, expect, test, describe, beforeEach, spyOn } from "bun:test";
 
 // 1. Setup spies on Bun globals
-// Using any for the implementation to satisfy Bun's complex overloads for spawnSync/spawn
-const mockSpawnSync = spyOn(Bun, "spawnSync").mockImplementation((..._args: any[]): any => ({
-    success: true,
-    stdout: Buffer.from(""),
-    stderr: Buffer.from("")
-}));
+// We use unknown cast to satisfy the complex overloads of Bun.spawnSync/spawn without using 'any'
+const mockSpawnSync = spyOn(Bun, "spawnSync").mockImplementation((..._args: unknown[]) => {
+    return {
+        success: true,
+        stdout: Buffer.from(""),
+        stderr: Buffer.from(""),
+        exitCode: 0,
+    } as unknown as ReturnType<typeof Bun.spawnSync>;
+});
 
-const mockSpawn = spyOn(Bun, "spawn").mockImplementation((..._args: any[]): any => ({
-    exited: Promise.resolve(0),
-    stdout: new ReadableStream(),
-    stderr: new ReadableStream(),
-    kill: () => { }
-}));
+const mockSpawn = spyOn(Bun, "spawn").mockImplementation((..._args: unknown[]) => {
+    return {
+        exited: Promise.resolve(0),
+        stdout: new ReadableStream(),
+        stderr: new ReadableStream(),
+        kill: () => { }
+    } as unknown as ReturnType<typeof Bun.spawn>;
+});
 
 const mockWhich = spyOn(Bun, "which").mockImplementation((name: string) => `/mock/bin/${name}`);
 
