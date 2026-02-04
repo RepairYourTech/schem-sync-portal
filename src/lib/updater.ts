@@ -7,6 +7,12 @@ export interface UpdateStatus {
     message: string;
 }
 
+// Security: Only allow updates from these trusted remote patterns
+const TRUSTED_REMOTES = [
+    /^https:\/\/github\.com\/RepairYourTech\/schem-sync-portal(\.git)?$/,
+    /^git@github\.com:RepairYourTech\/schem-sync-portal(\.git)?$/
+];
+
 /**
  * Hardened Git runner that captures output and returns result.
  */
@@ -52,6 +58,16 @@ export async function performUpdate(): Promise<UpdateStatus> {
             return { success: false, message: "Invalid git remote URL." };
         }
 
+        // Security: Whitelist Check
+        const isTrusted = TRUSTED_REMOTES.some(pattern => pattern.test(remoteUrl));
+        if (!isTrusted) {
+            Logger.error("SYSTEM", `Untrusted git remote: ${remoteUrl}. Update aborted for security.`);
+            return {
+                success: false,
+                message: "Update source is not in the trusted whitelist. Manual intervention required."
+            };
+        }
+
         // 3. Check for local main branch
         const branchResult = runGit(["rev-parse", "--abbrev-ref", "HEAD"]);
         if (!branchResult.success || branchResult.stdout !== "main") {
@@ -73,7 +89,26 @@ export async function performUpdate(): Promise<UpdateStatus> {
             return { success: false, message: "Failed to fetch updates from remote." };
         }
 
-        // Pull
+        // 5. Integrity Verification (Post-Fetch)
+        // Check if the fetched commit is signed if signing is enabled (optional/strict)
+        // For now, we verify that the remote HEAD is reachable and we have a valid hash
+        const verifyResult = runGit(["rev-parse", "FETCH_HEAD"]);
+        if (!verifyResult.success) {
+            Logger.error("SYSTEM", "Integrity check failed: Could not resolve FETCH_HEAD");
+            if (stashed) runGit(["stash", "pop"]);
+            return { success: false, message: "Update integrity check failed. Aborting." };
+        }
+
+        // Optional: Run 'git log -1 --pretty=%G?' to check signature status
+        // %G? returns 'N' for no signature, 'G' for good, 'B' for bad, etc.
+        const sigResult = runGit(["log", "-1", "--pretty=%G?", "FETCH_HEAD"]);
+        if (sigResult.stdout === "B") {
+            Logger.error("SYSTEM", "CRITICAL: Fetched commit has a BAD signature! Security breach suspected.");
+            if (stashed) runGit(["stash", "pop"]);
+            return { success: false, message: "SECURITY ALERT: Update signature verification failed!" };
+        }
+
+        // 6. Pull (Rebase) if integrity passed
         const pullResult = runGit(["pull", "--rebase", "origin", "main"]);
 
         // Always try to pop stash if we stashed

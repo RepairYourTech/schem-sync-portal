@@ -91,14 +91,14 @@ export class Logger {
             const stats = statSync(logPath);
             if (stats.size > maxBytes) {
                 const oldPath = `${logPath}.old`;
-                try { if (existsSync(oldPath)) unlinkSync(oldPath); } catch (err) { console.debug("Log rotation cleanup failed:", err); }
+                try { if (existsSync(oldPath)) unlinkSync(oldPath); } catch (err) { this.debug("SYSTEM", "Log rotation cleanup failed:", err); }
                 renameSync(logPath, oldPath);
 
                 const disclaimer = `[${new Date().toISOString()}] Log rotated. Previous logs in ${filename}.old\n`;
                 appendFileSync(logPath, disclaimer);
             }
         } catch (e) {
-            console.error("Failed to rotate logs:", e);
+            this.error("SYSTEM", "Failed to rotate logs:", e);
         }
     }
 
@@ -110,7 +110,7 @@ export class Logger {
             const content = readFileSync(logPath, "utf-8");
             return content.split("\n").filter((l: string) => l.trim() !== "").slice(-lines);
         } catch (err) {
-            console.debug("Failed to read logs:", err);
+            this.debug("SYSTEM", "Failed to read logs:", err);
             return ["Failed to read logs."];
         }
     }
@@ -121,7 +121,7 @@ export class Logger {
             if (!existsSync(logPath)) return "";
             return readFileSync(logPath, "utf-8");
         } catch (err) {
-            console.debug("Failed to read log content:", err);
+            this.debug("SYSTEM", "Failed to read log content:", err);
             return "";
         }
     }
@@ -139,10 +139,10 @@ export class Logger {
             const files = readdirSync(logsDir);
             for (const file of files) {
                 if (file === "system.log") continue;
-                try { unlinkSync(join(logsDir, file)); } catch (err) { console.debug("Failed to delete log file:", file, err); }
+                try { unlinkSync(join(logsDir, file)); } catch (err) { this.debug("SYSTEM", `Failed to delete log file: ${file}`, err); }
             }
         } catch (e) {
-            console.error("Failed to clear logs:", e);
+            this.error("SYSTEM", "Failed to clear logs:", e);
         }
     }
 
@@ -210,7 +210,9 @@ export class Logger {
             appendFileSync(logPath, line);
         } catch (err) {
             // Silently fail if we can't write logs to file
-            console.debug("Failed to write to log file:", err);
+            if (this.enableConsole) {
+                console.debug("Failed to write to log file:", this.maskSensitive(String(err)));
+            }
         }
     }
 }
