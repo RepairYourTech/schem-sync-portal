@@ -70,7 +70,7 @@ describe("E2E: Sync Flow", () => {
         expect(mockSaveConfig).toHaveBeenCalled();
         const calls = mockSaveConfig.mock.calls;
         if (calls.length === 0) throw new Error("saveConfig not called");
-        const finalPersistedConfig = (calls[0] as any)[0] as PortalConfig;
+        const finalPersistedConfig = (calls[0] as unknown[])?.[0] as PortalConfig;
 
         expect(finalPersistedConfig.last_sync_stats).toBeDefined();
         expect(finalPersistedConfig.last_sync_stats?.status).toBe("success");
@@ -92,7 +92,7 @@ describe("E2E: Sync Flow", () => {
         });
 
         if (!errorProgress) throw new Error("Expected error progress");
-        expect((errorProgress as any).description ?? "").toContain("Sync Failed");
+        expect((errorProgress as SyncProgress).description || "").toContain("Sync Failed");
 
         // Reset failure probability
         process.env.MOCK_FAIL_PROBABILITY = "0";

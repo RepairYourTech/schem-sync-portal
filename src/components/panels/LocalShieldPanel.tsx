@@ -38,7 +38,7 @@ export const LocalShieldPanel = React.memo(({
     subFocusIndex = 0,
     onSubFocusIndexChange: _onSubFocusIndexChange
 }: LocalShieldPanelProps) => {
-    const isActive = progress.phase === "clean";
+    const isActive = progress.phase !== "done" && progress.phase !== "error";
     const isGlobalPaused = progress.isPaused;
 
     const status: PanelStatus = !shieldEnabled ? "idle" :
@@ -87,9 +87,17 @@ export const LocalShieldPanel = React.memo(({
                     </text>
                 </box>
 
-                <box flexDirection="row" justifyContent="space-between" height={1}>
-                    <text fg={colors.dim}>Found:</text>
-                    <text fg={colors.fg} attributes={TextAttributes.BOLD}>{String(stats?.totalArchives || 0)}</text>
+                <box flexDirection="row" justifyContent="space-between" height={1} marginBottom={0}>
+                    <box flexDirection="row" gap={1}>
+                        <text fg={colors.dim}>Found:</text>
+                        <text fg={colors.fg} attributes={TextAttributes.BOLD}>{String(stats?.totalArchives || 0)}</text>
+                    </box>
+                    <box flexDirection="row" gap={1}>
+                        <text fg={colors.dim}>Threats:</text>
+                        <text fg={!!(stats?.riskyPatternCount && stats.riskyPatternCount > 0) ? colors.danger : colors.success} attributes={TextAttributes.BOLD}>
+                            {String(stats?.riskyPatternCount || 0)}
+                        </text>
+                    </box>
                 </box>
 
                 <box flexDirection="column" gap={0} height={2} marginTop={1}>
@@ -99,23 +107,16 @@ export const LocalShieldPanel = React.memo(({
                     </text>
                 </box>
 
-                <box flexDirection="row" justifyContent="space-between" height={1} marginTop={1}>
-                    <text fg={colors.dim}>Risky Patterns:</text>
-                    <text fg={!!(stats?.riskyPatternCount && stats.riskyPatternCount > 0) ? colors.danger : colors.success} attributes={TextAttributes.BOLD}>
-                        {String(stats?.riskyPatternCount || 0)}
-                    </text>
-                </box>
-
-                <box flexDirection="row" justifyContent="space-between" height={1}>
-                    <text fg={colors.dim}>Safely Extracted:</text>
-                    <text fg={colors.success} attributes={TextAttributes.BOLD}>{String(stats?.extractedFiles || 0)}</text>
-                </box>
-
-                {(stats?.riskyPatternCount && stats.riskyPatternCount > 0) ? (
-                    <box marginTop={1} padding={1} border borderStyle="single" borderColor={colors.danger} alignItems="center">
-                        <text fg={colors.danger} attributes={TextAttributes.BOLD | TextAttributes.BLINK}>⚠️ {String(stats.riskyPatternCount)} THREATS NEUTRALIZED</text>
+                <box flexDirection="row" justifyContent="space-between" height={1} marginTop={0}>
+                    <box flexDirection="row" gap={1}>
+                        <text fg={colors.dim}>Cleaned:</text>
+                        <text fg={colors.success} attributes={TextAttributes.BOLD}>{String(stats?.extractedFiles || 0)}</text>
                     </box>
-                ) : null}
+                    {!!(stats?.riskyPatternCount && stats.riskyPatternCount > 0) ? (
+                        <text fg={colors.danger} attributes={TextAttributes.BOLD}>[ {String(stats.riskyPatternCount)} NEUTRALIZED ]</text>
+                    ) : null}
+                </box>
+
             </box>
 
             {/* ACTION BAR (Bottom-docked) */}

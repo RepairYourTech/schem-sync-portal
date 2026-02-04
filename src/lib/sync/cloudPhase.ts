@@ -101,7 +101,7 @@ export async function runStreamingCloudPhase(
             isPaused: getIsSyncPaused(),
             ...stats,
             percentage: stats.percentage ?? 0
-        }));
+        }), undefined, "upload");
 
         totalUploaded += batch.length;
     }

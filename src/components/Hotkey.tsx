@@ -10,6 +10,7 @@ interface HotkeyProps {
     isFocused?: boolean;
     layout?: "prefix" | "suffix" | "inline";
     bold?: boolean;
+    hardened?: boolean;
 }
 
 export function Hotkey({
@@ -18,7 +19,8 @@ export function Hotkey({
     color,
     isFocused = false,
     layout = "inline",
-    bold = false
+    bold = false,
+    hardened = false
 }: HotkeyProps) {
     const { colors } = useTheme();
 
@@ -32,22 +34,22 @@ export function Hotkey({
     const labelColor = isEsc ? colors.danger : colors.fg;
 
     const renderKey = () => (
-        <box flexDirection="row" flexShrink={0}>
-            <text fg={bracketColor} flexShrink={0}>[</text>
-            <text fg={keyColor} attributes={TextAttributes.BOLD} flexShrink={0}>{keyLabel.toUpperCase()}</text>
-            <text fg={bracketColor} flexShrink={0}>]</text>
+        <box flexDirection="row" flexShrink={hardened ? 0 : undefined}>
+            <text fg={bracketColor} flexShrink={hardened ? 0 : undefined}>[</text>
+            <text fg={keyColor} attributes={TextAttributes.BOLD} flexShrink={hardened ? 0 : undefined}>{keyLabel.toUpperCase()}</text>
+            <text fg={bracketColor} flexShrink={hardened ? 0 : undefined}>]</text>
         </box>
     );
 
     const renderLabel = () => label ? (
-        <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0} flexShrink={1}>{String(label)}</text>
+        <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0} flexShrink={hardened ? 1 : undefined}>{String(label)}</text>
     ) : null;
 
     if (layout === "prefix") {
         return (
-            <box flexDirection="row" alignItems="center">
+            <box flexDirection="row" alignItems={hardened ? "center" : undefined}>
                 {renderKey()}
-                {label ? <text fg={labelColor} flexShrink={0}> </text> : null}
+                {label ? <text fg={labelColor} flexShrink={hardened ? 0 : undefined}> </text> : null}
                 {renderLabel()}
             </box>
         );
@@ -55,9 +57,9 @@ export function Hotkey({
 
     if (layout === "suffix") {
         return (
-            <box flexDirection="row" alignItems="center">
+            <box flexDirection="row" alignItems={hardened ? "center" : undefined}>
                 {renderLabel()}
-                {label ? <text fg={labelColor} flexShrink={0}> </text> : null}
+                {label ? <text fg={labelColor} flexShrink={hardened ? 0 : undefined}> </text> : null}
                 {renderKey()}
             </box>
         );
@@ -75,14 +77,14 @@ export function Hotkey({
         const parts = label.split(manualMatch[0]);
         const innerKey = manualMatch[0].slice(1, -1);
         return (
-            <box flexDirection="row" alignItems="center">
-                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0} flexShrink={1}>{String(parts[0] || "")}</text>
-                <box flexDirection="row" flexShrink={0}>
-                    <text fg={bracketColor} flexShrink={0}>[</text>
-                    <text fg={keyColor} attributes={TextAttributes.BOLD} flexShrink={0}>{String(innerKey.toUpperCase())}</text>
-                    <text fg={bracketColor} flexShrink={0}>]</text>
+            <box flexDirection="row" alignItems={hardened ? "center" : undefined}>
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0} flexShrink={hardened ? 1 : undefined}>{String(parts[0] || "")}</text>
+                <box flexDirection="row" flexShrink={hardened ? 0 : undefined}>
+                    <text fg={bracketColor} flexShrink={hardened ? 0 : undefined}>[</text>
+                    <text fg={keyColor} attributes={TextAttributes.BOLD} flexShrink={hardened ? 0 : undefined}>{String(innerKey.toUpperCase())}</text>
+                    <text fg={bracketColor} flexShrink={hardened ? 0 : undefined}>]</text>
                 </box>
-                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0} flexShrink={1}>{String(parts[1] || "")}</text>
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0} flexShrink={hardened ? 1 : undefined}>{String(parts[1] || "")}</text>
             </box>
         );
     }
@@ -92,23 +94,23 @@ export function Hotkey({
     if (charIndex !== -1 && keyLabel.length === 1) {
         const char = label[charIndex] || "";
         return (
-            <box flexDirection="row" alignItems="center">
-                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0} flexShrink={1}>{String(label.substring(0, charIndex))}</text>
-                <box flexDirection="row" flexShrink={0}>
-                    <text fg={bracketColor} flexShrink={0}>[</text>
-                    <text fg={keyColor} attributes={TextAttributes.BOLD} flexShrink={0}>{String(char.toUpperCase())}</text>
-                    <text fg={bracketColor} flexShrink={0}>]</text>
+            <box flexDirection="row" alignItems={hardened ? "center" : undefined}>
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0} flexShrink={hardened ? 1 : undefined}>{String(label.substring(0, charIndex))}</text>
+                <box flexDirection="row" flexShrink={hardened ? 0 : undefined}>
+                    <text fg={bracketColor} flexShrink={hardened ? 0 : undefined}>[</text>
+                    <text fg={keyColor} attributes={TextAttributes.BOLD} flexShrink={hardened ? 0 : undefined}>{String(char.toUpperCase())}</text>
+                    <text fg={bracketColor} flexShrink={hardened ? 0 : undefined}>]</text>
                 </box>
-                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0} flexShrink={1}>{String(label.substring(charIndex + 1))}</text>
+                <text fg={labelColor} attributes={bold ? TextAttributes.BOLD : 0} flexShrink={hardened ? 1 : undefined}>{String(label.substring(charIndex + 1))}</text>
             </box>
         );
     }
 
     // 3. Fallback: Prefix layout if no match found
     return (
-        <box flexDirection="row" alignItems="center">
+        <box flexDirection="row" alignItems={hardened ? "center" : undefined}>
             {renderKey()}
-            <text fg={labelColor} flexShrink={0}> </text>
+            <text fg={labelColor} flexShrink={hardened ? 0 : undefined}> </text>
             {renderLabel()}
         </box>
     );

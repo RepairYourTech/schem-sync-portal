@@ -43,7 +43,7 @@ export const DownsyncPanel = React.memo(({
     subFocusIndex = 0,
     onSubFocusIndexChange: _onSubFocusIndexChange
 }: DownsyncPanelProps) => {
-    const isActive = progress.phase === "pull" || progress.phase === "syncing";
+    const isActive = progress.phase !== "done" && progress.phase !== "error";
     const isGlobalPaused = progress.isPaused;
 
     const status: PanelStatus = isGlobalPaused ? "paused" :
@@ -82,7 +82,7 @@ export const DownsyncPanel = React.memo(({
             {/* DOWNLOAD QUEUE */}
             <box flexDirection="column" gap={0} marginTop={1}>
                 <text fg={colors.dim} paddingLeft={1} attributes={TextAttributes.BOLD}>DOWNLOAD QUEUE</text>
-                <FileQueue files={downloadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} />
+                <FileQueue files={downloadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} isUpsync={false} />
             </box>
 
             {/* ACTION BAR (Bottom-docked) */}

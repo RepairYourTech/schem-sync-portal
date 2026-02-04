@@ -59,6 +59,7 @@ export const SourceChoiceStep = ({
                                 keyLabel={(i + 1).toString()}
                                 label={p?.name || (opt.value as string)}
                                 isFocused={isFocused}
+                                layout="prefix"
                             />
                         </box>
                     );

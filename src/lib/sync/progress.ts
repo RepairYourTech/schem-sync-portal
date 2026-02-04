@@ -148,8 +148,11 @@ export function parseJsonLog(
                     const filePercentage = size > 0 ? Math.round((bytes / size) * 100) : 0;
                     const existing = targetMap.get(name);
                     const status = filePercentage >= 100 ? "completed" : "active";
-
-                    if (status === "completed") sessionCompletions.add(name);
+                    if (status === "completed") {
+                        const alreadyDone = sessionCompletions.has(name);
+                        sessionCompletions.add(name);
+                        if (!alreadyDone && onFileComplete) onFileComplete(name);
+                    }
 
                     targetMap.set(name, {
                         filename: name,

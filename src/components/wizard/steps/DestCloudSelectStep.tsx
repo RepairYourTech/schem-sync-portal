@@ -52,6 +52,7 @@ export const DestCloudSelectStep = ({
                                 keyLabel={(i + 1).toString()}
                                 label={meta.label}
                                 isFocused={isFocused}
+                                layout="prefix"
                             />
                             {meta.description ? <text fg={isFocused ? colors.fg : colors.dim}> - {String(meta.description)}</text> : null}
                         </box>

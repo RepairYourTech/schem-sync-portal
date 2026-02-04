@@ -98,7 +98,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, isFocus
     });
 
     return (
-        <box flexDirection="row" gap={1} paddingLeft={1} paddingRight={1} alignItems="center" flexShrink={0} minWidth={25}>
+        <box flexDirection="row" gap={1} paddingLeft={1} paddingRight={1} alignItems="center" flexShrink={1} flexWrap="wrap">
             <box flexDirection="row" alignItems="center" flexShrink={0}>
                 <text fg={colors.fg}>SPEED: </text>
                 <text fg={colors.fg} marginLeft={1}>{String(current)}</text>
@@ -118,7 +118,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, isFocus
                 borderStyle="single"
                 borderColor={!!(isFocused && subFocusIndex === 1) ? colors.success : "transparent"}
             >
-                <Hotkey keyLabel="4" isFocused={!!(isFocused && subFocusIndex === 1)} />
+                <Hotkey keyLabel="4" isFocused={!!(isFocused && subFocusIndex === 1)} hardened={true} />
             </box>
             <box
                 onMouseOver={() => {
@@ -135,7 +135,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, isFocus
                 borderStyle="single"
                 borderColor={!!(isFocused && subFocusIndex === 2) ? colors.success : "transparent"}
             >
-                <Hotkey keyLabel="6" isFocused={!!(isFocused && subFocusIndex === 2)} />
+                <Hotkey keyLabel="6" isFocused={!!(isFocused && subFocusIndex === 2)} hardened={true} />
             </box>
             <box
                 onMouseOver={() => {
@@ -152,7 +152,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, isFocus
                 borderStyle="single"
                 borderColor={!!(isFocused && subFocusIndex === 3) ? colors.success : "transparent"}
             >
-                <Hotkey keyLabel="8" isFocused={!!(isFocused && subFocusIndex === 3)} />
+                <Hotkey keyLabel="8" isFocused={!!(isFocused && subFocusIndex === 3)} hardened={true} />
             </box>
         </box>
     );
@@ -209,7 +209,7 @@ export const PanelControls = React.memo(({
     const isActionFocused = isFocused && subFocusIndex === 0;
 
     return (
-        <box flexDirection="column" gap={0} border borderStyle="single" borderColor={isFocused ? colors.primary : colors.dim + "33"} padding={0} marginTop={1} minWidth={35}>
+        <box flexDirection="column" gap={0} border borderStyle="single" borderColor={isFocused ? colors.primary : colors.dim + "33"} padding={0} marginTop={0} flexShrink={1}>
             <box flexDirection="row" justifyContent="space-between" alignItems="center" height={1}>
                 {/* Pause/Resume Action */}
                 <box
@@ -226,8 +226,8 @@ export const PanelControls = React.memo(({
                     borderColor={isActionFocused ? colors.success : "transparent"}
                     height={1}
                 >
-                    {onPause ? <Hotkey keyLabel="p" label="PAUSE" isFocused={isActionFocused} /> : null}
-                    {onResume ? <Hotkey keyLabel="r" label="RESUME" isFocused={isActionFocused} color={colors.success} /> : null}
+                    {onPause ? <Hotkey keyLabel="p" label="PAUSE" isFocused={isActionFocused} hardened={true} /> : null}
+                    {onResume ? <Hotkey keyLabel="r" label="RESUME" isFocused={isActionFocused} color={colors.success} hardened={true} /> : null}
                     {!onPause && !onResume ? <text fg={colors.dim} flexShrink={0}>[ READY ]</text> : null}
                 </box>
 
@@ -280,17 +280,18 @@ interface FileQueueProps {
     maxHeight: number;
     width: number;
     phase?: SyncProgress["phase"];
+    isUpsync?: boolean;
 }
 
-export const FileQueue = React.memo(({ files, colors, maxHeight, width, phase }: FileQueueProps) => {
+export const FileQueue = React.memo(({ files, colors, maxHeight, width, phase, isUpsync }: FileQueueProps) => {
     if (files.length === 0) {
         // Show initializing state during active pull phase
-        if (phase === "pull") {
+        if (phase === "pull" || phase === "syncing" || phase === "clean") {
+            const msg = (phase === "pull") ? "Waiting for rclone data..." :
+                (isUpsync ? "Waiting for shield..." : "Waiting for rclone...");
             return (
                 <box paddingLeft={2} paddingTop={1} height={maxHeight}>
-                    <text fg={colors.dim}>
-                        {phase === "pull" ? "Waiting for rclone data..." : "Queue Empty"}
-                    </text>
+                    <text fg={colors.dim}>{String(msg)}</text>
                 </box>
             );
         }
