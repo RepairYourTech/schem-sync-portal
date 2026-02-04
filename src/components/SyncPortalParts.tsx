@@ -215,7 +215,7 @@ export const PanelControls = React.memo(({
 
     return (
         <box flexDirection="column" gap={0} padding={0} marginTop={0} flexShrink={1} alignSelf="flex-start" width="auto">
-            <box flexDirection="row" justifyContent="space-between" alignItems="center" flexWrap="wrap">
+            <box flexDirection="row" justifyContent="flex-start" alignItems="center" gap={1} flexWrap="wrap">
                 {/* Pause/Resume Action */}
                 <box
                     onMouseOver={() => onFocus?.(true)}
