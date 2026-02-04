@@ -553,19 +553,6 @@ export const LocalShieldPanel = React.memo(({
                 />
             </box>
 
-            {/* Footer Stats Row */}
-            <box flexDirection="column" gap={0} paddingLeft={1} paddingRight={1} marginTop={1}>
-                <box flexDirection="row" gap={2} height={1}>
-                    <box flexDirection="row">
-                        <text fg={colors.dim}>Spd: </text>
-                        <text fg={colors.accent}>{String(progress.transferSpeed || "0 B/s")}</text>
-                    </box>
-                    <box flexDirection="row">
-                        <text fg={colors.dim}>ETA: </text>
-                        <text fg={colors.accent}>{String(progress.eta || "--")}</text>
-                    </box>
-                </box>
-            </box>
         </box>
     );
 });
