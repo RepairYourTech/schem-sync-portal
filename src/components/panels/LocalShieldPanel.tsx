@@ -64,6 +64,8 @@ export const LocalShieldPanel = React.memo(({
                 }
             }}
             width={width}
+            height={_height}
+            overflow="hidden"
         >
             <PanelHeader
                 title="LOCAL SHIELD"

@@ -73,6 +73,8 @@ export const UpsyncPanel = React.memo(({
                 }
             }}
             width={width}
+            height={_height}
+            overflow="hidden"
         >
             <PanelHeader
                 title={`UPSYNC: ${destType}`}
@@ -83,7 +85,7 @@ export const UpsyncPanel = React.memo(({
             />
 
             {/* UPLOAD QUEUE */}
-            <box flexDirection="column" gap={0} marginTop={1}>
+            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1}>
                 <text fg={colors.dim} paddingLeft={1} attributes={TextAttributes.BOLD}>UPLOAD QUEUE</text>
                 <FileQueue files={uploadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} isUpsync={true} />
             </box>
