@@ -1,5 +1,5 @@
 import { existsSync } from "fs";
-import { spawnSync, spawn } from "bun";
+// Removed explicit 'bun' import to favor global Bun for better spyability in tests
 import { Env } from "./env";
 import { Logger } from "./logger";
 
@@ -41,7 +41,7 @@ export function createRcloneRemote(name: string, type: string, options: Record<s
         const finalArgs = [...rcloneCmd.slice(1), ...args];
 
         // Use Bun.spawnSync for consistency and performance
-        const result = spawnSync([rcloneCmd[0] as string, ...finalArgs], {
+        const result = Bun.spawnSync([rcloneCmd[0] as string, ...finalArgs], {
             stdout: "pipe",
             stderr: "pipe",
             env: process.env as Record<string, string>
@@ -87,7 +87,7 @@ export function removePortalConfig(remoteNames: string[]) {
             Logger.debug("CONFIG", `Surgically removing remote: ${name}`);
             const args = [...rcloneCmd.slice(1), "--config", rcloneConfig, "config", "delete", name];
 
-            const result = spawnSync([rcloneCmd[0] as string, ...args], {
+            const result = Bun.spawnSync([rcloneCmd[0] as string, ...args], {
                 stdout: "pipe", // Capture to log errors
                 stderr: "pipe",
                 env: process.env as Record<string, string>
@@ -171,7 +171,7 @@ export function authorizeRemote(provider: string, signal?: AbortSignal): Promise
 
             Logger.debug("AUTH", `Executing: rclone authorize ${provider}`);
 
-            const proc = spawn([rcloneCmd[0] as string, ...args], {
+            const proc = Bun.spawn([rcloneCmd[0] as string, ...args], {
                 stdout: "pipe",
                 stderr: "pipe",
                 env: process.env as Record<string, string>
