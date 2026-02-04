@@ -101,7 +101,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, width, 
     const isCompact = width < 38;
 
     return (
-        <box flexDirection="row" gap={isCompact ? 0 : 1} paddingLeft={1} paddingRight={1} alignItems="center" flexShrink={1} flexWrap="wrap">
+        <box flexDirection="row" gap={isCompact ? 0 : 1} paddingLeft={1} paddingRight={1} alignItems="center" flexShrink={0} flexWrap="wrap">
             <box flexDirection="row" alignItems="center" flexShrink={0}>
                 <text fg={colors.fg}>{isCompact ? "SPD:" : "SPEED:"} </text>
                 {!isCompact && <text fg={colors.fg} marginLeft={1}>{String(current)}</text>}
@@ -214,26 +214,28 @@ export const PanelControls = React.memo(({
     const isActionFocused = isFocused && subFocusIndex === 0;
 
     return (
-        <box flexDirection="column" gap={0} padding={0} marginTop={0} flexShrink={1} alignSelf="flex-start" width="auto">
+        <box flexDirection="column" gap={0} padding={0} marginTop={0} flexShrink={0} alignSelf="flex-start" width="auto">
             <box flexDirection="row" justifyContent="flex-start" alignItems="center" gap={1} flexWrap="wrap">
                 {/* Pause/Resume Action */}
-                <box
-                    onMouseOver={() => onFocus?.(true)}
-                    onMouseDown={() => {
-                        (onPause || onResume)?.();
-                        onFocus?.(true);
-                    }}
-                    paddingLeft={1}
-                    paddingRight={1}
-                    flexShrink={0}
-                    border={isActionFocused}
-                    borderStyle="single"
-                    borderColor={isActionFocused ? colors.success : "transparent"}
-                    height={1}
-                >
-                    {onPause ? <Hotkey keyLabel="p" label="PAUSE" isFocused={isActionFocused} hardened={true} /> : null}
-                    {onResume ? <Hotkey keyLabel="r" label="RESUME" isFocused={isActionFocused} color={colors.success} hardened={true} /> : null}
-                    {!onPause && !onResume ? <text fg={colors.dim} flexShrink={0}>[ READY ]</text> : null}
+                <box flexDirection="row" alignItems="center" flexShrink={0}>
+                    <text fg={colors.fg}>ACTION: </text>
+                    <box
+                        onMouseOver={() => onFocus?.(true)}
+                        onMouseDown={() => {
+                            (onPause || onResume)?.();
+                            onFocus?.(true);
+                        }}
+                        paddingLeft={1}
+                        paddingRight={1}
+                        flexShrink={0}
+                        border={isActionFocused}
+                        borderStyle="single"
+                        borderColor={isActionFocused ? colors.success : "transparent"}
+                    >
+                        {onPause ? <Hotkey keyLabel="p" label="PAUSE" isFocused={isActionFocused} hardened={true} /> : null}
+                        {onResume ? <Hotkey keyLabel="r" label="RESUME" isFocused={isActionFocused} color={colors.success} hardened={true} /> : null}
+                        {!onPause && !onResume ? <text fg={colors.dim} flexShrink={0}>[ READY ]</text> : null}
+                    </box>
                 </box>
 
                 {onRateChange ? (

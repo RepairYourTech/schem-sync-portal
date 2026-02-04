@@ -180,9 +180,9 @@ export const SyncPortal = React.memo(({
 
     // Dynamic Row Budgeting for Files
     const PANEL_OVERHEAD = {
-        source: 9,  // Border(1) + Header(1) + Title(2) + Controls(2-row max) + Footer(2) + Buffer(1)
-        shield: 10, // Border(1) + Header(1) + Status(1) + Stats(2) + Target(2) + Controls(2-row max) + Buffer(1)
-        dest: 9     // Border(1) + Header(1) + Title(2) + Controls(2-row max) + Footer(2) + Buffer(1)
+        source: width < 38 ? 10 : 9,  // Extra row for wrapped controls
+        shield: width < 38 ? 11 : 10,
+        dest: width < 38 ? 10 : 9
     };
 
     const getMaxFiles = (panelHeight: number, type: keyof typeof PANEL_OVERHEAD) => {
