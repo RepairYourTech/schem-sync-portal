@@ -64,7 +64,7 @@ export const DownsyncPanel = React.memo(({
             title={`[ ${String(sourceType).toUpperCase()} ]`}
             onMouseOver={() => onFocus?.(true)}
             onMouseDown={(e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-                if (e.currentTarget === e.target) {
+                if (!e || e.currentTarget === e.target) {
                     onFocus?.(false);
                 }
             }}

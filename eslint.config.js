@@ -2,6 +2,7 @@ import reactPlugin from "eslint-plugin-react";
 import typescriptPlugin from "@typescript-eslint/eslint-plugin";
 import typescriptParser from "@typescript-eslint/parser";
 import noRawText from "./eslint-rules/no-raw-text.js";
+import componentMaxLines from "./eslint-rules/component-max-lines.js";
 
 export default [
     {
@@ -12,6 +13,7 @@ export default [
             "tui-internal": {
                 rules: {
                     "no-raw-text": noRawText,
+                    "component-max-lines": componentMaxLines,
                 },
             },
         },
@@ -41,6 +43,7 @@ export default [
             }],
             "@typescript-eslint/no-require-imports": "warn",
             "tui-internal/no-raw-text": "error",
+            "tui-internal/component-max-lines": ["error", { "max": 500 }],
         },
         settings: {
             react: {

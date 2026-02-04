@@ -60,7 +60,7 @@ export const LocalShieldPanel = React.memo(({
             title="[ LOCAL SHIELD ]"
             onMouseOver={() => onFocus?.(true)}
             onMouseDown={(e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-                if (e.currentTarget === e.target) {
+                if (!e || e.currentTarget === e.target) {
                     onFocus?.(false);
                 }
             }}
