@@ -5,7 +5,8 @@ import type { SyncProgress } from "./types";
 import { runPullPhase } from "./pullPhase";
 import { runCleanPhase } from "./cleanPhase";
 import { runCloudPhase } from "./cloudPhase";
-import { resetSessionState, resetSessionCompletions } from "./progress";
+import { resetSessionState, resetSessionCompletions, parseJsonLog } from "./progress";
+
 import {
     stopSync,
     pauseSync,
@@ -22,7 +23,9 @@ export {
     getIsSyncPaused
 };
 
-export { resetSessionCompletions };
+export { resetSessionCompletions, resetSessionState, parseJsonLog };
+
+
 
 let currentProgress: SyncProgress = { phase: "done", description: "Ready to sync.", percentage: 0 };
 let lastProgressRef: { current: SyncProgress | null } = { current: null };
@@ -114,9 +117,11 @@ export async function runSync(
             updatedConfig.last_sync_stats = {
                 timestamp: Date.now(),
                 files_processed: finalStats.filesTransferred || 0,
-                bytes_transferred: parseInt(finalStats.bytesTransferred || "0"),
+                bytes_transferred: finalStats.rawBytesTransferred || 0,
                 status: "success" as const
             };
+
+
 
             if (finalStats.cleanupStats) {
                 updatedConfig.last_shield_stats = {

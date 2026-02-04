@@ -63,6 +63,8 @@ export interface SyncProgress {
     filesTransferred?: number;
     totalFiles?: number;
     bytesTransferred?: string;
+    rawBytesTransferred?: number;
+    rawTotalBytes?: number;
     errorCount?: number;
     isPaused?: boolean;
     manifestStats?: ManifestStats;

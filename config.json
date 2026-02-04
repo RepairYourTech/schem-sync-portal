@@ -10,11 +10,8 @@
   "desktop_shortcut": 0,
   "debug_mode": false,
   "log_level": "NORMAL",
-  "nerd_font_version": 3,
   "nerd_font_auto_install": false,
   "nerd_font_auto_install_dismissed": false,
-  "nerd_font_installed_family": "JetBrainsMono Nerd Font Propo,JetBrainsMono NFP",
-  "nerd_font_last_check": 1770150875211,
   "downsync_transfers": 4,
   "upsync_transfers": 4
 }

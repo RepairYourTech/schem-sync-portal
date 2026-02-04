@@ -70,9 +70,11 @@ export class Logger {
         }
     }
 
-    static debug(context: LogContext, message: string) {
-        this.log("DEBUG", context, message);
+    static debug(context: LogContext, message: string, error?: unknown) {
+        const errorMsg = error instanceof Error ? ` | ${error.message}` : error ? ` | ${String(error)}` : "";
+        this.log("DEBUG", context, `${message}${errorMsg}`);
     }
+
 
     static verbose(context: LogContext, message: string) {
         this.log("VERBOSE", context, message);

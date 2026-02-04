@@ -2,14 +2,14 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useKeyboard } from "@opentui/react";
 import type { PortalConfig, PortalProvider } from "../../lib/config.ts";
-import { getCopypartyCookie } from "../../lib/auth.ts";
 import { updateGdriveRemote, updateGenericRemote, authorizeRemote } from "../../lib/rclone.ts";
+import { useWizardAuth } from "../../hooks/useWizardAuth";
 import { TextAttributes } from "@opentui/core";
 import { bootstrapSystem, isSystemBootstrapped } from "../../lib/deploy.ts";
 import { join } from "path";
 import { useTheme } from "../../lib/theme";
-import { Env } from "../../lib/env";
 import { Logger } from "../../lib/logger";
+import { PROVIDER_REGISTRY } from "../../lib/providers";
 
 // Modular Imports
 import type { Step, WizardOption, WizardKeyEvent, WizardProps } from "./types";
@@ -40,35 +40,20 @@ import { B2Setup } from "./providers/B2Setup";
 import { SFTPSetup } from "./providers/SFTPSetup";
 
 const getStepContext = (s: Step, history: Step[]): "source" | "dest" | null => {
-    switch (s) {
-        case "source_choice":
-        case "copyparty_config":
-            return "source";
-        case "dest_cloud_select":
-        case "backup_dir":
-        case "security":
-            return "dest";
-        case "gdrive_intro": case "gdrive_guide_1": case "gdrive_guide_2": case "gdrive_guide_3": case "gdrive_guide_4":
-        case "b2_intro": case "b2_guide_1": case "b2_guide_2":
-        case "sftp_intro": case "sftp_guide_1":
-        case "pcloud_intro": case "pcloud_guide_1":
-        case "onedrive_intro": case "onedrive_guide_1": case "onedrive_guide_2":
-        case "dropbox_intro": case "dropbox_guide_1": case "dropbox_guide_2":
-        case "mega_intro": case "mega_guide_1":
-        case "r2_intro": case "r2_guide_1": case "r2_guide_2":
-        case "cloud_direct_entry":
-            for (let i = history.length - 1; i >= 0; i--) {
-                if (history[i] === "source_choice") return "source";
-                if (history[i] === "dest_cloud_select") return "dest";
-            }
-            return null;
-        default:
-            return null;
+    if (s === "source_choice" || s === "copyparty_config") return "source";
+    if (s === "dest_cloud_select" || s === "backup_dir" || s === "security") return "dest";
+    if (s === "cloud_direct_entry" || Object.values(PROVIDER_REGISTRY).some(p => (p.steps as string[]).includes(s))) {
+        for (let i = history.length - 1; i >= 0; i--) {
+            if (history[i] === "source_choice") return "source";
+            if (history[i] === "dest_cloud_select") return "dest";
+        }
     }
+    return null;
 };
 
 export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, backSignal }: WizardProps) => {
     const { colors } = useTheme();
+    const keyboardHandlerRef = useRef<(e: WizardKeyEvent) => void>(undefined);
     useKeyboard((e) => keyboardHandlerRef.current?.(e));
     const isBootstrapped = isSystemBootstrapped();
     const savedShortcutState = initialConfig.desktop_shortcut;
@@ -213,16 +198,8 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
                     } else if (currentSource === "none") {
                         nextStep = (isMenuMode ? "edit_menu" : "dir");
                     } else {
-                        const p = currentSource;
-                        if (p === "gdrive") nextStep = "gdrive_intro";
-                        else if (p === "b2") nextStep = "b2_intro";
-                        else if (p === "sftp") nextStep = "sftp_intro";
-                        else if (p === "pcloud") nextStep = "pcloud_intro";
-                        else if (p === "onedrive") nextStep = "onedrive_intro";
-                        else if (p === "dropbox") nextStep = "dropbox_intro";
-                        else if (p === "mega") nextStep = "mega_intro";
-                        else if (p === "r2") nextStep = "r2_intro";
-                        else nextStep = (isMenuMode ? "edit_menu" : "dir");
+                        const meta = PROVIDER_REGISTRY[currentSource];
+                        nextStep = meta ? (meta.id + "_intro") as Step : (isMenuMode ? "edit_menu" : "dir");
                     }
                     break;
                 case "copyparty_config": nextStep = (isMenuMode ? "edit_menu" : "dir"); break;
@@ -240,45 +217,33 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
                 case "dest_cloud_select":
                     if (currentBackup === "unconfigured") return prevStep;
                     {
-                        const p = currentBackup;
-                        if (p === "gdrive") nextStep = "gdrive_intro";
-                        else if (p === "b2") nextStep = "b2_intro";
-                        else if (p === "sftp") nextStep = "sftp_intro";
-                        else if (p === "pcloud") nextStep = "pcloud_intro";
-                        else if (p === "onedrive") nextStep = "onedrive_intro";
-                        else if (p === "dropbox") nextStep = "dropbox_intro";
-                        else if (p === "mega") nextStep = "mega_intro";
-                        else if (p === "r2") nextStep = "r2_intro";
-                        else nextStep = (isMenuMode ? "edit_menu" : "backup_dir");
+                        const meta = PROVIDER_REGISTRY[currentBackup];
+                        nextStep = meta?.hasGuidedPath || meta?.hasDirectPath ? (meta.id + "_intro") as Step : (isMenuMode ? "edit_menu" : "backup_dir");
                     }
                     break;
                 case "backup_dir": nextStep = (isMenuMode ? "edit_menu" : "security"); break;
                 case "security": nextStep = (isMenuMode ? "edit_menu" : "deploy"); break;
-                case "gdrive_intro": nextStep = pendingCloudPathRef.current === "guided" ? "gdrive_guide_1" : "cloud_direct_entry"; break;
-                case "gdrive_guide_1": nextStep = "gdrive_guide_2"; break;
-                case "gdrive_guide_2": nextStep = "gdrive_guide_3"; break;
-                case "gdrive_guide_3": nextStep = "gdrive_guide_4"; break;
-                case "gdrive_guide_4": nextStep = "cloud_direct_entry"; break;
-                case "b2_intro": nextStep = pendingCloudPathRef.current === "guided" ? "b2_guide_1" : "cloud_direct_entry"; break;
-                case "sftp_intro": nextStep = pendingCloudPathRef.current === "guided" ? "sftp_guide_1" : "cloud_direct_entry"; break;
-                case "pcloud_intro": nextStep = pendingCloudPathRef.current === "guided" ? "pcloud_guide_1" : "cloud_direct_entry"; break;
-                case "onedrive_intro": nextStep = pendingCloudPathRef.current === "guided" ? "onedrive_guide_1" : "cloud_direct_entry"; break;
-                case "dropbox_intro": nextStep = pendingCloudPathRef.current === "guided" ? "dropbox_guide_1" : "cloud_direct_entry"; break;
-                case "mega_intro": nextStep = pendingCloudPathRef.current === "guided" ? "mega_guide_1" : "cloud_direct_entry"; break;
-                case "r2_intro": nextStep = pendingCloudPathRef.current === "guided" ? "r2_guide_1" : "cloud_direct_entry"; break;
                 case "cloud_direct_entry": nextStep = (isMenuMode ? "edit_menu" : (wizardContextRef.current === "source" ? "dir" : "backup_dir")); break;
-                case "b2_guide_1": nextStep = "b2_guide_2"; break;
-                case "b2_guide_2": nextStep = "cloud_direct_entry"; break;
-                case "r2_guide_1": nextStep = "r2_guide_2"; break;
-                case "r2_guide_2": nextStep = "cloud_direct_entry"; break;
-                case "sftp_guide_1": nextStep = "cloud_direct_entry"; break;
-                case "onedrive_guide_1": nextStep = "onedrive_guide_2"; break;
-                case "onedrive_guide_2": nextStep = "cloud_direct_entry"; break;
-                case "dropbox_guide_1": nextStep = "dropbox_guide_2"; break;
-                case "dropbox_guide_2": nextStep = "cloud_direct_entry"; break;
-                case "mega_guide_1": nextStep = "cloud_direct_entry"; break;
-                case "pcloud_guide_1": nextStep = "cloud_direct_entry"; break;
                 case "deploy": onComplete(c); break;
+                default:
+                    // Generic Provider Step Handling
+                    const provider = Object.values(PROVIDER_REGISTRY).find(p => prevStep.startsWith(p.id + "_"));
+                    if (provider) {
+                        if (prevStep.endsWith("_intro")) {
+                            if (pendingCloudPathRef.current === "guided" && provider.steps.length > 0) {
+                                // Jump to first guide step (skipping intro if it's steps[0])
+                                const guideIdx = provider.steps.findIndex(s => s.includes("_guide_"));
+                                nextStep = (guideIdx !== -1 ? provider.steps[guideIdx] : (provider.steps[1] || provider.steps[0])) as Step;
+                            } else {
+                                nextStep = "cloud_direct_entry";
+                            }
+                        } else if (prevStep.includes("_guide_")) {
+                            const idx = provider.steps.indexOf(prevStep);
+                            nextStep = (idx !== -1 && idx < provider.steps.length - 1) ? provider.steps[idx + 1] as Step : "cloud_direct_entry";
+                        }
+                    }
+
+                    break;
             }
             stepStartTime.current = Date.now();
             return nextStep;
@@ -288,7 +253,8 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
     const getOptions = useCallback(() => {
         if (step === "shortcut") return isShortcutMissing ? [{ value: 1, type: "bootstrap" }, { value: 2, type: "shortcut" }, { value: 0, type: "skip" }] : [{ value: 1, type: "desktop_shortcut" }, { value: 0, type: "desktop_shortcut" }];
         if (step === "edit_menu") return [{ value: "shortcut", type: "jump" }, { value: "source_choice", type: "jump" }, { value: "dir", type: "jump" }, { value: "mirror", type: "jump" }, { value: "upsync_ask", type: "jump" }, { value: "security", type: "jump" }, { value: "deploy", type: "jump" }];
-        if (step === "source_choice") return ["copyparty", "gdrive", "b2", "pcloud", "sftp", "onedrive", "dropbox", "mega", "r2"].map(v => ({ value: v, type: "source_select" }));
+        if (step === "source_choice") return Object.keys(PROVIDER_REGISTRY).filter(k => !["none", "unconfigured"].includes(k)).map(v => ({ value: v, type: "source_select" }));
+
         if (step === "mirror") return [{ value: false, type: "mirror" }, { value: true, type: "mirror" }];
         if (step === "dir" || step === "backup_dir") return [{ value: "confirm", type: "dir_confirm" }];
         if (step === "upsync_ask") return [{ value: "download_only", type: "sync_mode" }, { value: "sync_backup", type: "sync_mode" }];
@@ -296,77 +262,44 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             const opts = [{ value: "isolate", type: "sec_policy" }, { value: "purge", type: "sec_policy" }, { value: false, type: "sec_toggle" }];
             return config.backup_provider === "gdrive" ? opts.filter(o => o.value !== false) : opts;
         }
-        if (step === "dest_cloud_select") return ["gdrive", "b2", "pcloud", "sftp", "onedrive", "dropbox", "mega", "r2"].map(v => ({ value: v, type: "backup_provider" }));
-        if (step?.endsWith("_intro")) return [{ value: "guided", type: "intro_path" }, { value: "direct", type: "intro_path" }];
+        if (step === "dest_cloud_select") return Object.keys(PROVIDER_REGISTRY).filter(k => !["none", "unconfigured", "copyparty"].includes(k)).map(v => ({ value: v, type: "backup_provider" }));
+        if (step?.endsWith("_intro")) {
+            const provider = Object.values(PROVIDER_REGISTRY).find(p => step.startsWith(p.id + "_"));
+            const opts = [];
+            if (provider?.hasGuidedPath) opts.push({ value: "guided", type: "intro_path" });
+            if (provider?.hasDirectPath) opts.push({ value: "direct", type: "intro_path" });
+            return opts;
+        }
         if (step?.includes("_guide_")) return [{ value: true, type: "guide_next" }];
         if (step === "deploy") return [{ value: true, type: "deploy" }, { value: false, type: "deploy" }];
         return [];
     }, [step, isShortcutMissing, config.backup_provider]);
 
-    const handleAuth = useCallback(async () => {
-        setIsAuthLoading(true);
-        const method = configRef.current.copyparty_method || "webdav";
-        setAuthStatus(method === "webdav" ? "🔄 Verifying WebDAV Access..." : "🔄 Authenticating with CopyParty (HTTP)...");
-        const url = urlRef.current.trim();
-        const user = userRef.current.trim();
-        const pass = passRef.current.trim();
-        try {
-            if (!url) { setAuthStatus("⚠️ URL is required."); setIsAuthLoading(false); return; }
-            if (method === "webdav") {
-                const { createWebDavRemote } = await import("../../lib/rclone");
-                await createWebDavRemote(Env.REMOTE_PORTAL_SOURCE, url, user, pass);
-                updateConfig(prev => ({ ...prev, source_provider: "copyparty", copyparty_method: "webdav", webdav_user: user, webdav_pass: pass }));
-                next();
-            } else {
-                if (!pass) { setAuthStatus("⚠️ Password required."); setIsAuthLoading(false); return; }
-                const cookie = await getCopypartyCookie(url, user, pass);
-                if (cookie) {
-                    const { createHttpRemote } = await import("../../lib/rclone");
-                    await createHttpRemote(Env.REMOTE_PORTAL_SOURCE, url, cookie);
-                    updateConfig(prev => ({ ...prev, source_provider: "copyparty", copyparty_method: "http", cookie }));
-                    next();
-                } else setAuthStatus("❌ Auth failed.");
-            }
-        } catch (err) { setAuthStatus(`💥 Error: ${(err as Error).message}`); } finally { setIsAuthLoading(false); }
-    }, [next, updateConfig]);
-
-    const handleGdriveAuth = useCallback(async (clientId: string, clientSecret: string) => {
-        abortAuth(); setIsAuthLoading(true); setAuthStatus("🔄 Launching Google Handshake...");
-        const controller = new AbortController(); authAbortControllerRef.current = controller;
-        try {
-            const token = await authorizeRemote("drive", controller.signal);
-            if (token) {
-                oauthTokenRef.current = token;
-                const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                updateGdriveRemote(remoteName, clientId, clientSecret, token);
-                const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                const pending = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
-                updateConfig(prev => ({ ...prev, [field]: pending }));
-                next();
-            }
-        } catch (err) { if (!controller.signal.aborted) setAuthStatus(`❌ Error: ${(err as Error).message}`); } finally { if (authAbortControllerRef.current === controller) { authAbortControllerRef.current = null; setIsAuthLoading(false); } }
-    }, [wizardContext, next, updateConfig, abortAuth]);
-
-    const startGenericAuth = useCallback(async (provider: string) => {
-        abortAuth(); setIsAuthLoading(true); setAuthStatus(`🚀 Launching ${provider.toUpperCase()} Auth...`);
-        const controller = new AbortController(); authAbortControllerRef.current = controller;
-        try {
-            const token = await authorizeRemote(provider, controller.signal);
-            if (token) {
-                oauthTokenRef.current = token;
-                const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                updateGenericRemote(remoteName, provider as PortalProvider, { token });
-                const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                const pending = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
-                updateConfig(prev => ({ ...prev, [field]: pending }));
-                next();
-            }
-        } catch (err) { if (!controller.signal.aborted) setAuthStatus(`❌ Error: ${(err as Error).message}`); } finally { if (authAbortControllerRef.current === controller) { authAbortControllerRef.current = null; setIsAuthLoading(false); } }
-    }, [wizardContext, next, updateConfig, abortAuth]);
+    const { handleAuth, handleGdriveAuth, startGenericAuth, dispatchDirectAuth } = useWizardAuth({
+        next,
+        updateConfig,
+        setAuthStatus,
+        setIsAuthLoading,
+        urlRef,
+        userRef,
+        passRef,
+        clientIdRef,
+        clientSecretRef,
+        b2IdRef,
+        b2KeyRef,
+        authAbortControllerRef,
+        oauthTokenRef,
+        wizardContext,
+        pendingSourceProviderRef,
+        pendingBackupProviderRef,
+        abortAuth
+    });
 
     const confirmSelection = useCallback((opt: WizardOption) => {
         if (!opt) return;
         if (opt.type === "deploy") { if (opt.value) onComplete(config); else onCancel(); return; }
+
+
         if (opt.type === "intro_path") { pendingCloudPathRef.current = opt.value as "guided" | "direct"; next(); return; }
         if (opt.type === "guide_next") { next(); return; }
         if (opt.type === "desktop_shortcut") { if (opt.value === 1) bootstrapSystem(join(process.cwd(), "src/index.tsx")); updateConfig(prev => ({ ...prev, desktop_shortcut: opt.value as number })); next(); return; }
@@ -374,14 +307,27 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         if (opt.type === "dir_confirm") { if (config.local_dir && config.local_dir !== "" && config.local_dir !== "none") next(); return; }
         if (opt.type === "sec_policy") { updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.value as "purge" | "isolate" })); next(); }
         else if (opt.type === "sec_toggle") { updateConfig(prev => ({ ...prev, enable_malware_shield: opt.value as boolean })); next(); }
-        else if (opt.type === "source_select") { pendingSourceProviderRef.current = opt.value as PortalProvider; next(); }
-        else if (opt.type === "backup_provider") { pendingBackupProviderRef.current = opt.value as PortalProvider; setWizardContext("dest"); next(); }
+        else if (opt.type === "source_select") {
+            const provider = opt.value as PortalProvider;
+            pendingSourceProviderRef.current = provider;
+            updateConfig(prev => ({ ...prev, source_provider: provider }));
+            next();
+        }
+        else if (opt.type === "backup_provider") {
+            const provider = opt.value as PortalProvider;
+            pendingBackupProviderRef.current = provider;
+            updateConfig(prev => ({ ...prev, backup_provider: provider }));
+            setWizardContext("dest");
+            next();
+        }
         else if (opt.type === "sync_mode") {
             const newVal = opt.value === "sync_backup";
             updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
             if (newVal) { setWizardContext("dest"); setStep("dest_cloud_select"); }
             else setStep("deploy");
+            setSelectedIndex(0);
         } else {
+
             const fieldMap: Record<string, keyof PortalConfig> = { mirror: "strict_mirror" };
             const field = fieldMap[opt.type as string];
             if (field) updateConfig(prev => ({ ...prev, [field]: opt.value }));
@@ -389,7 +335,6 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         }
     }, [config, mode, next, updateConfig, onComplete, onCancel]);
 
-    const keyboardHandlerRef = useRef<(e: WizardKeyEvent) => void>(undefined);
     keyboardHandlerRef.current = (e: WizardKeyEvent) => {
         if (focusArea === "body") {
             if (e.name === "tab") {
@@ -453,27 +398,16 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
                     const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
                     if (direct_entry_index === maxIdx) {
                         if (!isAuthLoading) {
-                            if (provider === "gdrive") handleGdriveAuth(clientIdRef.current, clientSecretRef.current);
-                            else if (provider === "onedrive" || provider === "dropbox") startGenericAuth(provider);
-                            else {
-                                const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                                if (provider === "b2") updateGenericRemote(remoteName, "b2", { account: b2IdRef.current, key: b2KeyRef.current });
-                                else if (provider === "sftp") updateGenericRemote(remoteName, "sftp", { host: urlRef.current, user: userRef.current, pass: passRef.current });
-                                else if (provider === "pcloud") updateGenericRemote(remoteName, "pcloud", { user: userRef.current, pass: passRef.current });
-                                else if (provider === "mega") updateGenericRemote(remoteName, "mega", { user: userRef.current, pass: passRef.current });
-                                else if (provider === "r2") updateGenericRemote(remoteName, "s3", { access_key_id: userRef.current, secret_access_key: passRef.current, endpoint: urlRef.current });
-                                const field = wizardContext === "source" ? "source_provider" : "backup_provider";
-                                updateConfig(prev => ({ ...prev, [field]: provider }));
-                                next();
-                            }
+                            dispatchDirectAuth(provider);
                         }
                     } else set_direct_entry_index(prev => prev + 1);
+
                     return;
                 }
             }
         }
 
-        const selectableSteps: Step[] = ["shortcut", "source_choice", "mirror", "upsync_ask", "security", "dest_cloud_select", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "deploy", "cloud_direct_entry"];
+        const selectableSteps: Step[] = ["shortcut", "source_choice", "dir", "mirror", "upsync_ask", "dest_cloud_select", "backup_dir", "security", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "s3_intro", "deploy", "cloud_direct_entry"];
         if (selectableSteps.includes(step)) {
             const options = getOptions();
             if (e.name === "down") setSelectedIndex(prev => (prev + 1) % options.length);
@@ -529,6 +463,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             case "dropbox_intro":
             case "mega_intro":
             case "r2_intro":
+            case "s3_intro":
                 return <CloudIntroStep {...stepProps} provider={step.split("_")[0] as PortalProvider} />;
             case "pcloud_guide_1":
             case "onedrive_guide_1":
@@ -538,6 +473,8 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             case "mega_guide_1":
             case "r2_guide_1":
             case "r2_guide_2":
+            case "s3_guide_1":
+            case "s3_guide_2":
                 return <CloudGuideStep {...stepProps} step={step} />;
 
             case "cloud_direct_entry": return <CloudDirectEntryStep {...stepProps} />;

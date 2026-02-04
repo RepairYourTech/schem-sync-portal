@@ -1,56 +1,73 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect, test, describe, mock, beforeEach } from "bun:test";
 import { __setSpawnSync, __setFetch, __setFilesystem, installNerdFont } from "../lib/fontInstaller";
 import { __setDetectNerdFonts, detectNerdFonts } from "../lib/doctor";
 import { Env } from "../lib/env";
-import { readdirSync, existsSync, mkdirSync, writeFileSync, rmSync, copyFileSync } from "fs";
+import { type Dirent, type mkdirSync, type existsSync, type writeFileSync, type rmSync, type readdirSync, type copyFileSync } from "fs";
+import type { spawnSync } from "bun";
+
+type SpawnSyncReturn = ReturnType<typeof spawnSync>;
+type DetectResult = Awaited<ReturnType<typeof detectNerdFonts>>;
 
 describe("FontInstaller", () => {
-    // Default filesystem mocks
-    let fsMocks: Parameters<typeof __setFilesystem>[0];
+    // Top-level mocks to be reuseable and clearable
+    const mockMkdirSync = mock((_path: string, _options?: { recursive?: boolean }) => { return undefined; });
+    const mockExistsSync = mock((_path: string) => true);
+    const mockWriteFileSync = mock((_path: string, _data: string | Buffer) => undefined);
+    const mockRmSync = mock((_path: string, _options?: { recursive?: boolean; force?: boolean }) => undefined);
+    const mockReaddirSync = mock((_path: string, _options?: { withFileTypes: boolean }) => [
+        { name: 'font.ttf', isFile: () => true, isDirectory: () => false }
+    ] as unknown as Dirent[]);
+    const mockCopyFileSync = mock((_src: string, _dest: string) => undefined);
+
+    const getFsMocks = () => ({
+        mkdirSync: mockMkdirSync as unknown as typeof mkdirSync,
+        existsSync: mockExistsSync as unknown as typeof existsSync,
+        writeFileSync: mockWriteFileSync as unknown as typeof writeFileSync,
+        rmSync: mockRmSync as unknown as typeof rmSync,
+        readdirSync: mockReaddirSync as unknown as typeof readdirSync,
+        copyFileSync: mockCopyFileSync as unknown as typeof copyFileSync
+    });
 
     beforeEach(() => {
-        fsMocks = {
-            mkdirSync: mock(() => undefined) as unknown as typeof mkdirSync,
-            existsSync: mock(() => true) as unknown as typeof existsSync,
-            writeFileSync: mock(() => undefined) as unknown as typeof writeFileSync,
-            rmSync: mock(() => undefined) as unknown as typeof rmSync,
-            readdirSync: mock(() => [{ name: 'font.ttf', isFile: () => true, isDirectory: () => false }] as unknown as ReturnType<typeof readdirSync>) as unknown as typeof readdirSync,
-            copyFileSync: mock(() => undefined) as unknown as typeof copyFileSync
-        };
-        __setFilesystem(fsMocks);
+        mockMkdirSync.mockClear();
+        mockExistsSync.mockClear();
+        mockWriteFileSync.mockClear();
+        mockRmSync.mockClear();
+        mockReaddirSync.mockClear();
+        mockCopyFileSync.mockClear();
+
+        __setFilesystem(getFsMocks());
     });
 
     test("Successful Installation", async () => {
         const mockFetch = mock(async () => {
-            const res = {
+            return {
                 ok: true,
                 headers: new Map([['Content-Length', '1000']]),
                 arrayBuffer: async () => new ArrayBuffer(1000)
-            };
-            return res as unknown as Response;
+            } as unknown as Response;
         });
 
         const mockSpawnSync = mock(() => ({
             success: true,
             stdout: Buffer.from(""),
             stderr: Buffer.from("")
-        } as unknown as ReturnType<typeof __setSpawnSync>));
+        } as SpawnSyncReturn));
 
         const mockDetect = mock(async () => ({
             isInstalled: true,
-            version: 3 as const,
-            method: 'fc-list' as const,
-            confidence: 'high' as const,
+            version: 3,
+            method: 'fc-list',
+            confidence: 'high',
             installedFonts: ['JetBrainsMono Nerd Font']
-        }));
+        } as DetectResult));
 
         const originalFindBinary = Env.findBinary;
         Env.findBinary = mock(() => "/usr/bin/7z");
 
         __setFetch(mockFetch as unknown as typeof fetch);
-        __setSpawnSync(mockSpawnSync as unknown as typeof __setSpawnSync extends (arg: infer T) => void ? T : never);
-        __setDetectNerdFonts(mockDetect as unknown as typeof __setDetectNerdFonts extends (arg: infer T) => void ? T : never);
+        __setSpawnSync(mockSpawnSync as unknown as typeof spawnSync);
+        __setDetectNerdFonts(mockDetect as unknown as typeof detectNerdFonts);
 
         const result = await installNerdFont({ font: 'JetBrainsMono', version: 3 });
 
@@ -75,11 +92,10 @@ describe("FontInstaller", () => {
 
     test("File Size Validation", async () => {
         const mockFetch = mock(async () => {
-            const res = {
+            return {
                 ok: true,
                 headers: new Map([['Content-Length', (250 * 1024 * 1024).toString()]]),
-            };
-            return res as unknown as Response;
+            } as unknown as Response;
         });
 
         __setFetch(mockFetch as unknown as typeof fetch);
@@ -92,22 +108,21 @@ describe("FontInstaller", () => {
 
     test("Extraction Failure", async () => {
         const mockFetch = mock(async () => {
-            const res = {
+            return {
                 ok: true,
                 headers: new Map([['Content-Length', '1000']]),
                 arrayBuffer: async () => new ArrayBuffer(1000)
-            };
-            return res as unknown as Response;
+            } as unknown as Response;
         });
 
         const mockSpawnSync = mock(() => ({
             success: false,
             stdout: Buffer.from(""),
             stderr: Buffer.from("Unzip failed")
-        } as any));
+        } as SpawnSyncReturn));
 
-        __setFetch(mockFetch as any);
-        __setSpawnSync(mockSpawnSync as any);
+        __setFetch(mockFetch as unknown as typeof fetch);
+        __setSpawnSync(mockSpawnSync as unknown as typeof spawnSync);
 
         const result = await installNerdFont({ font: 'JetBrainsMono', version: 3 });
 
@@ -122,25 +137,41 @@ describe("FontInstaller", () => {
 
         Object.defineProperty(Env, 'isWin', { get: () => false, configurable: true });
         Object.defineProperty(Env, 'isMac', { get: () => false, configurable: true });
-        Env.getPaths = mock(() => ({ home: '/home/user', configDir: '/home/user/.config' } as ReturnType<typeof Env.getPaths>));
+        Env.getPaths = mock(() => ({
+            home: '/home/user',
+            configDir: '/home/user/.config',
+            logsDir: '/home/user/.config/logs',
+            rcloneConfigDir: '/home/user/.config/rclone',
+            appsDir: '/home/user/.local/share/applications',
+            desktopDir: '/home/user/Desktop',
+            binDir: '/home/user/.local/bin'
+        }));
+
 
         const mockFetch = mock(async () => {
-            const res = {
+            return {
                 ok: true,
                 headers: new Map([['Content-Length', '1000']]),
                 arrayBuffer: async () => new ArrayBuffer(1000)
-            };
-            return res as unknown as Response;
+            } as unknown as Response;
         });
 
-        const mockSpawnSync = mock(() => ({ success: true } as any));
-        const mockDetect = mock(async () => ({ isInstalled: true, version: 3 as const, installedFonts: [] } as unknown as Awaited<ReturnType<typeof detectNerdFonts>>));
+        const mockSpawnSync = mock(() => ({ success: true, stdout: Buffer.from(""), stderr: Buffer.from("") } as SpawnSyncReturn));
+        const mockDetect = mock(async () => ({
+            isInstalled: true,
+            version: 3,
+            installedFonts: [] as string[],
+            method: 'fc-list',
+            confidence: 'high'
+        } as DetectResult));
+
+
         const originalFindBinary = Env.findBinary;
         Env.findBinary = mock(() => "/usr/bin/7z");
 
-        __setFetch(mockFetch as any);
-        __setSpawnSync(mockSpawnSync as any);
-        __setDetectNerdFonts(mockDetect);
+        __setFetch(mockFetch as unknown as typeof fetch);
+        __setSpawnSync(mockSpawnSync as unknown as typeof spawnSync);
+        __setDetectNerdFonts(mockDetect as unknown as typeof detectNerdFonts);
 
         const result = await installNerdFont({ font: 'Hack', version: 3 });
         expect(result.success).toBe(true);
@@ -154,23 +185,24 @@ describe("FontInstaller", () => {
 
     test("Permission Error", async () => {
         const mockFetch = mock(async () => {
-            const res = {
+            return {
                 ok: true,
                 headers: new Map([['Content-Length', '1000']]),
                 arrayBuffer: async () => new ArrayBuffer(1000)
-            };
-            return res as unknown as Response;
+            } as unknown as Response;
         });
-        const mockSpawnSync = mock(() => ({ success: true } as unknown as ReturnType<typeof __setSpawnSync>));
+        const mockSpawnSync = mock(() => ({ success: true, stdout: Buffer.from(""), stderr: Buffer.from("") } as SpawnSyncReturn));
         const originalFindBinary = Env.findBinary;
         Env.findBinary = mock(() => "/usr/bin/7z");
 
         __setFetch(mockFetch as unknown as typeof fetch);
-        __setSpawnSync(mockSpawnSync as unknown as typeof __setSpawnSync extends (arg: infer T) => void ? T : never);
+        __setSpawnSync(mockSpawnSync as unknown as typeof spawnSync);
+
+        const mockCopyFail = mock((_src: string, _dest: string) => { throw new Error("EACCES: permission denied"); });
         __setFilesystem({
-            ...(fsMocks as unknown as Parameters<typeof __setFilesystem>[0]),
-            copyFileSync: mock(() => { throw new Error("EACCES: permission denied"); }) as unknown as typeof copyFileSync
-        } as unknown as Parameters<typeof __setFilesystem>[0]);
+            ...getFsMocks(),
+            copyFileSync: mockCopyFail as unknown as typeof copyFileSync
+        });
 
         const result = await installNerdFont({ font: 'Hack', version: 3 });
         expect(result.success).toBe(false);
@@ -179,23 +211,31 @@ describe("FontInstaller", () => {
         Env.findBinary = originalFindBinary;
     });
 
+
     test("Verification Failure", async () => {
         const mockFetch = mock(async () => {
-            const res = {
+            return {
                 ok: true,
                 headers: new Map([['Content-Length', '1000']]),
                 arrayBuffer: async () => new ArrayBuffer(1000)
-            };
-            return res as unknown as Response;
+            } as unknown as Response;
         });
-        const mockSpawnSync = mock(() => ({ success: true } as any));
-        const mockDetect = mock(async () => ({ isInstalled: false } as unknown as Awaited<ReturnType<typeof detectNerdFonts>>));
+        const mockSpawnSync = mock(() => ({ success: true, stdout: Buffer.from(""), stderr: Buffer.from("") } as SpawnSyncReturn));
+        const mockDetect = mock(async () => ({
+            isInstalled: false,
+            version: undefined as unknown as number,
+            method: 'none',
+            confidence: 'low',
+            installedFonts: [] as string[]
+        } as DetectResult));
+
         const originalFindBinary = Env.findBinary;
         Env.findBinary = mock(() => "/usr/bin/7z");
 
-        __setFetch(mockFetch as any);
-        __setSpawnSync(mockSpawnSync as any);
-        __setDetectNerdFonts(mockDetect);
+        __setFetch(mockFetch as unknown as typeof fetch);
+        __setSpawnSync(mockSpawnSync as unknown as typeof spawnSync);
+        __setDetectNerdFonts(mockDetect as unknown as typeof detectNerdFonts);
+
 
         const result = await installNerdFont({ font: 'Hack', version: 3 });
         expect(result.success).toBe(false);

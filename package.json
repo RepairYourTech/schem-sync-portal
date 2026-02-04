@@ -6,6 +6,8 @@
   "private": true,
   "scripts": {
     "dev": "bun run src/index.tsx",
+    "test": "bun test",
+    "test:e2e": "bun test src/tests/e2e",
     "lint": "bun run scripts/lint-tui.ts && eslint src",
     "lint:fix": "eslint src --fix"
   },

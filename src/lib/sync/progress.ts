@@ -176,9 +176,12 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
             transferSpeed: speed ? formatSpeed(speed) : undefined,
             eta: eta ? formatEta(eta) : undefined,
             bytesTransferred: total > 0 ? `${formatBytes(bytes)}/${formatBytes(total)}` : undefined,
+            rawBytesTransferred: bytes,
+            rawTotalBytes: total,
             filesTransferred: sessionCompletions.size,
             transferSlots: { active: queue.filter(t => t.status === "active").length, total: 8 },
         };
+
 
         if (transferQueueType === "download") {
             queueUpdate.downloadQueue = queue;
