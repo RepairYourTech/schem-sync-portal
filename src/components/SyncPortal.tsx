@@ -124,8 +124,9 @@ export const SyncPortal = React.memo(({
 
     // Responsive layout: panels flow vertically when terminal is too narrow
     // MIN_PANEL_WIDTH ensures panels never shrink below usable size
-    const MIN_PANEL_WIDTH = 45;
-    const requiredWidth = visiblePanelCount * MIN_PANEL_WIDTH + (visiblePanelCount - 1) * 1 + 4; // panels + gaps + padding
+    const MIN_PANEL_WIDTH = 50;
+    const gapSize = 1;
+    const requiredWidth = visiblePanelCount * MIN_PANEL_WIDTH + (visiblePanelCount - 1) * gapSize + 6; // panels + gaps + padding/borders
     const isWide = width >= requiredWidth;
 
     return (
@@ -197,12 +198,12 @@ export const SyncPortal = React.memo(({
                     height={isRunning ? 22 : 12} // Standardize to max height to ensure alignment
                 >
                     {showSource ? (
-                        <box flexGrow={1}>
+                        <box flexGrow={1} minWidth={MIN_PANEL_WIDTH}>
                             <DownsyncPanel
                                 progress={progress}
                                 sourceType={sourceType}
                                 colors={colors}
-                                width={Math.floor(width / visiblePanelCount) - 2}
+                                width={Math.floor((width - 4 - (visiblePanelCount - 1)) / visiblePanelCount)}
                                 onPause={onPause}
                                 onResume={onResume}
                                 height={isRunning ? 22 : 12}
@@ -218,11 +219,11 @@ export const SyncPortal = React.memo(({
                     ) : null}
 
                     {showShield ? (
-                        <box flexGrow={1}>
+                        <box flexGrow={1} minWidth={MIN_PANEL_WIDTH}>
                             <LocalShieldPanel
                                 progress={progress}
                                 colors={colors}
-                                width={Math.floor(width / visiblePanelCount) - 2}
+                                width={Math.floor((width - 4 - (visiblePanelCount - 1)) / visiblePanelCount)}
                                 shieldEnabled={true}
                                 onPause={onPause}
                                 onResume={onResume}
@@ -237,12 +238,12 @@ export const SyncPortal = React.memo(({
                     ) : null}
 
                     {showDest ? (
-                        <box flexGrow={1}>
+                        <box flexGrow={1} minWidth={MIN_PANEL_WIDTH}>
                             <UpsyncPanel
                                 progress={progress}
                                 destType={destType}
                                 colors={colors}
-                                width={Math.floor(width / visiblePanelCount) - 2}
+                                width={Math.floor((width - 4 - (visiblePanelCount - 1)) / visiblePanelCount)}
                                 upsyncEnabled={true}
                                 onPause={onPause}
                                 onResume={onResume}
