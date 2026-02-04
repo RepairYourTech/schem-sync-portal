@@ -98,8 +98,8 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, isFocus
     });
 
     return (
-        <box flexDirection="row" gap={1} paddingLeft={1} paddingRight={1} alignItems="center">
-            <box flexDirection="row" alignItems="center" onMouseOver={() => {/* Capture event, prevent bubbling to panel */ }}>
+        <box flexDirection="row" gap={1} paddingLeft={1} paddingRight={1} alignItems="center" flexShrink={0} minWidth={25}>
+            <box flexDirection="row" alignItems="center" flexShrink={0}>
                 <text fg={colors.fg}>SPEED: </text>
                 <text fg={colors.fg} marginLeft={1}>{String(current)}</text>
             </box>
@@ -113,6 +113,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, isFocus
                 }}
                 paddingLeft={1}
                 paddingRight={1}
+                flexShrink={0}
                 border={!!(isFocused && subFocusIndex === 1)}
                 borderStyle="single"
                 borderColor={!!(isFocused && subFocusIndex === 1) ? colors.success : "transparent"}
@@ -129,6 +130,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, isFocus
                 }}
                 paddingLeft={1}
                 paddingRight={1}
+                flexShrink={0}
                 border={!!(isFocused && subFocusIndex === 2)}
                 borderStyle="single"
                 borderColor={!!(isFocused && subFocusIndex === 2) ? colors.success : "transparent"}
@@ -145,6 +147,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, isFocus
                 }}
                 paddingLeft={1}
                 paddingRight={1}
+                flexShrink={0}
                 border={!!(isFocused && subFocusIndex === 3)}
                 borderStyle="single"
                 borderColor={!!(isFocused && subFocusIndex === 3) ? colors.success : "transparent"}
@@ -206,7 +209,7 @@ export const PanelControls = React.memo(({
     const isActionFocused = isFocused && subFocusIndex === 0;
 
     return (
-        <box flexDirection="column" gap={0} border borderStyle="single" borderColor={isFocused ? colors.primary : colors.dim + "33"} padding={0} marginTop={1}>
+        <box flexDirection="column" gap={0} border borderStyle="single" borderColor={isFocused ? colors.primary : colors.dim + "33"} padding={0} marginTop={1} minWidth={35}>
             <box flexDirection="row" justifyContent="space-between" alignItems="center" height={1}>
                 {/* Pause/Resume Action */}
                 <box
@@ -217,6 +220,7 @@ export const PanelControls = React.memo(({
                     }}
                     paddingLeft={1}
                     paddingRight={1}
+                    flexShrink={0}
                     border={isActionFocused}
                     borderStyle="single"
                     borderColor={isActionFocused ? colors.success : "transparent"}
@@ -224,10 +228,9 @@ export const PanelControls = React.memo(({
                 >
                     {onPause ? <Hotkey keyLabel="p" label="PAUSE" isFocused={isActionFocused} /> : null}
                     {onResume ? <Hotkey keyLabel="r" label="RESUME" isFocused={isActionFocused} color={colors.success} /> : null}
-                    {!onPause && !onResume ? <text fg={colors.dim}>[ READY ]</text> : null}
+                    {!onPause && !onResume ? <text fg={colors.dim} flexShrink={0}>[ READY ]</text> : null}
                 </box>
 
-                {/* Speed Selector */}
                 {onRateChange ? (
                     <PerformanceSelector
                         current={transfers || 4}
@@ -256,13 +259,13 @@ export const PanelHeader = React.memo(({
 
     return (
         <box flexDirection="row" justifyContent="space-between" alignItems="center" paddingLeft={1} paddingRight={1} height={1}>
-            <box flexDirection="row" gap={1}>
-                <text fg={isFocused ? colors!.primary : colors!.dim}>{String(isFocused ? "▶" : " ")}</text>
-                <text fg={isFocused ? colors!.primary : accentColor!} attributes={TextAttributes.BOLD}>
+            <box flexDirection="row" gap={1} flexShrink={1}>
+                <text fg={isFocused ? colors!.primary : colors!.dim} flexShrink={0}>{String(isFocused ? "▶" : " ")}</text>
+                <text fg={isFocused ? colors!.primary : accentColor!} attributes={TextAttributes.BOLD} flexShrink={1}>
                     {String(title)}
                 </text>
             </box>
-            <text fg={statusDisplay.color} attributes={TextAttributes.BOLD}>
+            <text fg={statusDisplay.color} attributes={TextAttributes.BOLD} flexShrink={0}>
                 {String(statusDisplay.icon)} {String(statusDisplay.text)}
             </text>
         </box>
@@ -309,9 +312,11 @@ export const FileQueue = React.memo(({ files, colors, maxHeight, width, phase }:
 
                 return (
                     <box key={`${f.filename}-${i}`} flexDirection="row" justifyContent="space-between" height={1}>
-                        <text fg={isItemDone ? colors.success : colors.dim}>{String(isItemDone ? "✓" : "→")}</text>
+                        <text fg={isItemDone ? colors.success : colors.dim} flexShrink={0}>{String(isItemDone ? "✓" : "→")}</text>
                         <text fg={colors.fg} flexShrink={1}> {String(displayName)}</text>
-                        <text fg={colors.dim}>{String(f.percentage || 0)}%</text>
+                        <box flexShrink={0} marginLeft={1}>
+                            <text fg={colors.dim}>{String(f.percentage || 0)}%</text>
+                        </box>
                     </box>
                 );
             })}
