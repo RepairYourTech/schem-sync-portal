@@ -1,37 +1,40 @@
-import { mock } from "bun:test";
+import { mock, expect, test, describe, beforeEach, spyOn } from "bun:test";
 
-// 1. Define the mock function with a default implementation
-const mockSpawnSync = mock((args: string[], options?: any) => ({
+// 1. Setup spies on Bun globals
+// Using any for the implementation to satisfy Bun's complex overloads for spawnSync/spawn
+const mockSpawnSync = spyOn(Bun, "spawnSync").mockImplementation((..._args: any[]): any => ({
     success: true,
     stdout: Buffer.from(""),
     stderr: Buffer.from("")
 }));
 
-// 2. Mock the 'bun' module
-mock.module("bun", () => ({
-    spawnSync: mockSpawnSync,
-    spawn: mock(() => ({
-        exited: Promise.resolve(0),
-        stdout: new ReadableStream(),
-        stderr: new ReadableStream(),
-        kill: () => { }
-    })),
-    which: mock((name: string) => `/mock/bin/${name}`)
+const mockSpawn = spyOn(Bun, "spawn").mockImplementation((..._args: any[]): any => ({
+    exited: Promise.resolve(0),
+    stdout: new ReadableStream(),
+    stderr: new ReadableStream(),
+    kill: () => { }
 }));
 
-// 3. Import dependencies that use the mocked module dynamically
-import { expect, test, describe, beforeEach } from "bun:test";
+const mockWhich = spyOn(Bun, "which").mockImplementation((name: string) => `/mock/bin/${name}`);
+
+// 2. Mock 'fs'
+mock.module("fs", () => ({
+    existsSync: mock(() => true),
+    mkdirSync: mock(() => { }),
+    writeFileSync: mock(() => { }),
+    readFileSync: mock(() => Buffer.from(""))
+}));
+
+// 3. Import system under test
+import { createRcloneRemote } from "../lib/rclone";
 import { Logger } from "../lib/logger";
 
 describe("Rclone Config Sanitization", () => {
-    let createRcloneRemote: any;
-
-    beforeEach(async () => {
+    beforeEach(() => {
         mockSpawnSync.mockClear();
+        mockSpawn.mockClear();
+        mockWhich.mockClear();
         Logger.setLevel("DEBUG");
-        // Dynamically import to ensure mock is applied
-        const rclone = await import("../lib/rclone");
-        createRcloneRemote = rclone.createRcloneRemote;
     });
 
     test("should sanitize newlines in option values", () => {
@@ -43,15 +46,22 @@ describe("Rclone Config Sanitization", () => {
 
         createRcloneRemote(name, type, options);
 
-        // Check the arguments passed to spawnSync
+        // Verify that spawnSync was called
         expect(mockSpawnSync).toHaveBeenCalled();
-        const callArgs = mockSpawnSync.mock.calls.find(c => c[0][0] === "rclone")?.[0];
-        expect(callArgs).toBeDefined();
 
-        // Find the index of "token" and check the next element
-        const tokenIdx = callArgs.indexOf("token");
+        // Find the call for 'config create'
+        const rcloneCall = mockSpawnSync.mock.calls.find(call => {
+            const cmd = call[0];
+            return Array.isArray(cmd) && cmd.includes("create") && (cmd as string[]).includes(name);
+        });
+
+        expect(rcloneCall).toBeDefined();
+        if (!rcloneCall) throw new Error("rcloneCall undefined");
+
+        const args = rcloneCall[0] as string[];
+        const tokenIdx = args.indexOf("token");
         expect(tokenIdx).not.toBe(-1);
-        const sanitizedValue = callArgs[tokenIdx + 1];
+        const sanitizedValue = args[tokenIdx + 1];
 
         expect(sanitizedValue).toBe('{"refresh_token":"abc def"}');
         expect(sanitizedValue).not.toContain("\n");
@@ -59,19 +69,26 @@ describe("Rclone Config Sanitization", () => {
     });
 
     test("should trim values and skip empty ones", () => {
+        const name = "test-trim";
         const options = {
             key1: "  value1  ",
             key2: "\n\r",
             key3: ""
         };
 
-        createRcloneRemote("test", "dummy", options);
+        createRcloneRemote(name, "dummy", options);
 
-        const callArgs = mockSpawnSync.mock.calls.find(c => c[0][0] === "rclone")?.[0];
-        expect(callArgs).toBeDefined();
+        const rcloneCall = mockSpawnSync.mock.calls.find(call => {
+            const cmd = call[0];
+            return Array.isArray(cmd) && cmd.includes("create") && (cmd as string[]).includes(name);
+        });
 
-        expect(callArgs).toContain("value1");
-        expect(callArgs).not.toContain("key2");
-        expect(callArgs).not.toContain("key3");
+        expect(rcloneCall).toBeDefined();
+        if (!rcloneCall) throw new Error("rcloneCall undefined");
+
+        const args = rcloneCall[0] as string[];
+        expect(args).toContain("value1");
+        expect(args).not.toContain("key2");
+        expect(args).not.toContain("key3");
     });
 });
