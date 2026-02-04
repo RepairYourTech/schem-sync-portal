@@ -84,12 +84,13 @@ interface PerformanceSelectorProps {
     current: 4 | 6 | 8;
     onRateChange: (rate: 4 | 6 | 8) => void;
     colors: ThemeColors;
+    width: number;
     isFocused?: boolean;
     subFocusIndex?: number;
     onSubFocusIndexChange?: (index: number) => void;
 }
 
-const PerformanceSelector = React.memo(({ current, onRateChange, colors, isFocused, subFocusIndex, onSubFocusIndexChange, onFocus }: PerformanceSelectorProps & { onFocus?: (keepSubFocus?: boolean) => void }) => {
+const PerformanceSelector = React.memo(({ current, onRateChange, colors, width, isFocused, subFocusIndex, onSubFocusIndexChange, onFocus }: PerformanceSelectorProps & { onFocus?: (keepSubFocus?: boolean) => void }) => {
     useKeyboard((key) => {
         if (!isFocused) return;
         if (key.name === "4") onRateChange(4);
@@ -97,11 +98,13 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, isFocus
         if (key.name === "8") onRateChange(8);
     });
 
+    const isCompact = width < 38;
+
     return (
-        <box flexDirection="row" gap={1} paddingLeft={1} paddingRight={1} alignItems="center" flexShrink={1} flexWrap="wrap">
+        <box flexDirection="row" gap={isCompact ? 0 : 1} paddingLeft={1} paddingRight={1} alignItems="center" flexShrink={1} flexWrap="wrap">
             <box flexDirection="row" alignItems="center" flexShrink={0}>
-                <text fg={colors.fg}>SPEED: </text>
-                <text fg={colors.fg} marginLeft={1}>{String(current)}</text>
+                <text fg={colors.fg}>{isCompact ? "SPD:" : "SPEED:"} </text>
+                {!isCompact && <text fg={colors.fg} marginLeft={1}>{String(current)}</text>}
             </box>
             <box
                 onMouseOver={() => {
@@ -193,6 +196,7 @@ interface PanelControlsProps {
     subFocusIndex: number;
     onSubFocusIndexChange?: (index: number) => void;
     onFocus?: (keepSubFocus?: boolean) => void;
+    width: number;
 }
 
 export const PanelControls = React.memo(({
@@ -204,13 +208,14 @@ export const PanelControls = React.memo(({
     isFocused,
     subFocusIndex,
     onSubFocusIndexChange,
-    onFocus
+    onFocus,
+    width
 }: PanelControlsProps) => {
     const isActionFocused = isFocused && subFocusIndex === 0;
 
     return (
         <box flexDirection="column" gap={0} border borderStyle="single" borderColor={isFocused ? colors.primary : colors.dim + "33"} padding={0} marginTop={0} flexShrink={1}>
-            <box flexDirection="row" justifyContent="space-between" alignItems="center" height={1}>
+            <box flexDirection="row" justifyContent="space-between" alignItems="center" flexWrap="wrap">
                 {/* Pause/Resume Action */}
                 <box
                     onMouseOver={() => onFocus?.(true)}
@@ -236,6 +241,7 @@ export const PanelControls = React.memo(({
                         current={transfers || 4}
                         onRateChange={onRateChange}
                         colors={colors}
+                        width={width}
                         isFocused={isFocused}
                         subFocusIndex={subFocusIndex}
                         onSubFocusIndexChange={onSubFocusIndexChange}

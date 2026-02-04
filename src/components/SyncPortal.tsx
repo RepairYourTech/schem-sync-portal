@@ -163,7 +163,6 @@ export const SyncPortal = React.memo(({
     // In stage B (2+1), top panels share height, bottom is full. 
     // In stage A (3 side-by-side), all share height.
     const getDynamicHeight = (idx: number) => {
-        if (!isRunning) return 12; // Compact view when stopped
         if (visiblePanelCount <= 1) return Math.max(12, availableHeight);
         if (visiblePanelCount === 2) {
             return canFit2 ? Math.max(12, availableHeight) : Math.max(10, Math.floor(availableHeight / 2));
@@ -181,9 +180,9 @@ export const SyncPortal = React.memo(({
 
     // Dynamic Row Budgeting for Files
     const PANEL_OVERHEAD = {
-        source: 8,  // Border(1) + Header(1) + Title(2) + Controls(2) + Footer(2)
-        shield: 9,  // Border(1) + Header(1) + Status(1) + Found(1) + Target(3) + Controls(2)
-        dest: 8     // Border(1) + Header(1) + Title(2) + Controls(2) + Footer(2)
+        source: 9,  // Border(1) + Header(1) + Title(2) + Controls(2-row max) + Footer(2) + Buffer(1)
+        shield: 10, // Border(1) + Header(1) + Status(1) + Stats(2) + Target(2) + Controls(2-row max) + Buffer(1)
+        dest: 9     // Border(1) + Header(1) + Title(2) + Controls(2-row max) + Footer(2) + Buffer(1)
     };
 
     const getMaxFiles = (panelHeight: number, type: keyof typeof PANEL_OVERHEAD) => {
@@ -268,7 +267,7 @@ export const SyncPortal = React.memo(({
                             width={panelWidth(0) - 2}
                             onPause={onPause}
                             onResume={onResume}
-                            height={getDynamicHeight(0)}
+                            height={isRunning ? getDynamicHeight(0) : 12}
                             maxFiles={getMaxFiles(getDynamicHeight(0), "source")}
                             transfers={config.downsync_transfers}
                             onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
@@ -293,7 +292,7 @@ export const SyncPortal = React.memo(({
                             onFocus={(keep) => handleFocus("shield", keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
-                            height={getDynamicHeight(showSource ? 1 : 0)}
+                            height={isRunning ? getDynamicHeight(showSource ? 1 : 0) : 12}
                             isRunning={isRunning}
                         />
                     </box>
@@ -309,7 +308,7 @@ export const SyncPortal = React.memo(({
                             upsyncEnabled={true}
                             onPause={onPause}
                             onResume={onResume}
-                            height={getDynamicHeight(visiblePanelCount - 1)}
+                            height={isRunning ? getDynamicHeight(visiblePanelCount - 1) : 12}
                             maxFiles={getMaxFiles(getDynamicHeight(visiblePanelCount - 1), "dest")}
                             transfers={config.upsync_transfers}
                             onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
