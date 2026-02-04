@@ -36,7 +36,7 @@ export const UpsyncPanel = React.memo(({
     upsyncEnabled,
     onPause,
     onResume,
-    height = 10,
+    height: _height = 10,
     maxFiles = 5,
     transfers = 4,
     onRateChange,
@@ -55,7 +55,6 @@ export const UpsyncPanel = React.memo(({
                     progress.phase === "done" ? "complete" : "idle";
 
     const uploadQueue = progress.uploadQueue || [];
-    const panelHeight = height;
     const maxFilesToShow = maxFiles;
     const stats = progress.cloudStats;
 
@@ -73,7 +72,6 @@ export const UpsyncPanel = React.memo(({
                     onFocus?.(false);
                 }
             }}
-            height={panelHeight}
             width={width}
         >
             <PanelHeader
@@ -98,6 +96,7 @@ export const UpsyncPanel = React.memo(({
                     transfers={transfers}
                     onRateChange={onRateChange}
                     colors={colors}
+                    width={width}
                     isFocused={isFocused}
                     subFocusIndex={subFocusIndex}
                     onSubFocusIndexChange={onSubFocusIndexChange}

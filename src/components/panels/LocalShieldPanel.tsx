@@ -48,7 +48,6 @@ export const LocalShieldPanel = React.memo(({
                     (progress.phase === "cloud" || progress.phase === "done") ? "complete" : "idle";
 
     const stats = progress.cleanupStats;
-    const panelHeight = _height;
 
     return (
         <box
@@ -64,7 +63,6 @@ export const LocalShieldPanel = React.memo(({
                     onFocus?.(false);
                 }
             }}
-            height={panelHeight}
             width={width}
         >
             <PanelHeader
@@ -76,9 +74,9 @@ export const LocalShieldPanel = React.memo(({
             />
 
             {/* Shield Stats Body */}
-            <box flexDirection="column" gap={0} marginTop={1} paddingLeft={1} paddingRight={1} flexGrow={1}>
+            <box flexDirection="column" gap={0} marginTop={0} paddingLeft={1} paddingRight={1} flexGrow={1}>
                 {/* Visual Status Indicator */}
-                <box flexDirection="row" alignItems="center" gap={1} height={1} marginBottom={1}>
+                <box flexDirection="row" alignItems="center" gap={1} marginBottom={0}>
                     <text fg={status === 'active' ? colors.setup : (status === 'complete' ? colors.success : colors.dim)}>
                         {String(status === 'active' ? '\ueb72' : (status === 'complete' ? '\uf058' : '\ueb9c'))}
                     </text>
@@ -100,7 +98,7 @@ export const LocalShieldPanel = React.memo(({
                     </box>
                 </box>
 
-                <box flexDirection="column" gap={0} height={2} marginTop={1}>
+                <box flexDirection="column" gap={0} marginTop={0}>
                     <text fg={colors.dim}>Current Target:</text>
                     <text fg={status === 'active' ? colors.setup : colors.dim} attributes={status === 'active' ? TextAttributes.BOLD : 0}>
                         {String(stats?.currentArchive ? (stats.currentArchive.length > width - 4 ? '...' + stats.currentArchive.substring(stats.currentArchive.length - (width - 7)) : stats.currentArchive) : (status === 'complete' ? '--- ALL SYSTEMS CLEAN ---' : 'IDLE'))}
@@ -125,6 +123,7 @@ export const LocalShieldPanel = React.memo(({
                     onPause={(isActive && !isGlobalPaused) ? onPause : undefined}
                     onResume={isGlobalPaused ? onResume : undefined}
                     colors={colors}
+                    width={width}
                     isFocused={isFocused}
                     subFocusIndex={subFocusIndex}
                     onSubFocusIndexChange={_onSubFocusIndexChange}

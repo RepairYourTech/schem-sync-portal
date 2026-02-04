@@ -34,7 +34,7 @@ export const DownsyncPanel = React.memo(({
     width,
     onPause,
     onResume,
-    height = 10,
+    height: _height = 10,
     maxFiles = 5,
     transfers = 4,
     onRateChange,
@@ -51,7 +51,6 @@ export const DownsyncPanel = React.memo(({
             (progress.phase === "cloud" || progress.phase === "done" || progress.phase === "clean") ? "complete" : "idle";
 
     const downloadQueue = progress.downloadQueue || [];
-    const panelHeight = height;
     const maxFilesToShow = maxFiles;
 
     return (
@@ -68,7 +67,6 @@ export const DownsyncPanel = React.memo(({
                     onFocus?.(false);
                 }
             }}
-            height={panelHeight}
             width={width}
         >
             <PanelHeader
@@ -93,6 +91,7 @@ export const DownsyncPanel = React.memo(({
                     transfers={transfers}
                     onRateChange={onRateChange}
                     colors={colors}
+                    width={width}
                     isFocused={isFocused}
                     subFocusIndex={subFocusIndex}
                     onSubFocusIndexChange={_onSubFocusIndexChange}
