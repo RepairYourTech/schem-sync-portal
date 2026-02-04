@@ -45,7 +45,7 @@ export const UpsyncPanel = React.memo(({
     subFocusIndex = 0,
     onSubFocusIndexChange
 }: UpsyncPanelProps) => {
-    const isActive = progress.phase === "cloud";
+    const isActive = progress.phase === "cloud" || progress.phase === "syncing" || (progress.uploadQueue && progress.uploadQueue.some(f => f.status === "active"));
     const isGlobalPaused = progress.isPaused;
 
     const status: PanelStatus = !upsyncEnabled ? "idle" :

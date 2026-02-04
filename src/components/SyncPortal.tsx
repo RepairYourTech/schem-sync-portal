@@ -76,20 +76,22 @@ export const SyncPortal = React.memo(({
         if (isError) return "❌ ERROR";
         if (isDone && progress.percentage === 100) return "✓ SYNC COMPLETE";
         if (isDone) return "● STOPPED";
+        if (progress.phase === "syncing") return "🔄 SYNCING (PULL + CLOUD)...";
         if (isCloud) return "☁️ UPLOADING TO CLOUD...";
         if (isClean) return "🛡️ MALWARE SHIELD ACTIVE";
         if (isPull) return "⬇️ DOWNLOADING...";
         return "● READY";
-    }, [isError, isDone, isCloud, isClean, isPull, progress.percentage]);
+    }, [isError, isDone, isCloud, isClean, isPull, progress.phase, progress.percentage]);
 
     const statusColor = useMemo(() => {
         if (isError) return colors.danger;
         if (isDone) return colors.success;
+        if (progress.phase === "syncing") return colors.accent;
         if (isCloud) return colors.accent;
         if (isClean) return colors.setup;
         if (isPull) return colors.primary;
         return colors.dim;
-    }, [isError, isDone, isCloud, isClean, isPull, colors]);
+    }, [isError, isDone, isCloud, isClean, isPull, progress.phase, colors]);
 
     // Focus Management
     const isBodyFocused = focusArea === "body";
@@ -120,7 +122,11 @@ export const SyncPortal = React.memo(({
         }
     };
 
-    const isWide = width >= 80;
+    // Responsive layout: panels flow vertically when terminal is too narrow
+    // MIN_PANEL_WIDTH ensures panels never shrink below usable size
+    const MIN_PANEL_WIDTH = 45;
+    const requiredWidth = visiblePanelCount * MIN_PANEL_WIDTH + (visiblePanelCount - 1) * 1 + 4; // panels + gaps + padding
+    const isWide = width >= requiredWidth;
 
     return (
         <box flexDirection="column" gap={1} height="100%" border borderStyle="double" borderColor={colors.primary} title="[ SYNC PORTAL ]" padding={1}>

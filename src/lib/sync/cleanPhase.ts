@@ -10,7 +10,7 @@ export async function runCleanPhase(
     config: PortalConfig,
     onProgress: (p: Partial<SyncProgress>) => void
 ): Promise<void> {
-    const excludeFile = Env.getExcludeFilePath();
+    const excludeFile = Env.getExcludeFilePath(config.local_dir);
     onProgress({ phase: "clean", description: "Surgical Malware Shield...", percentage: 0 });
 
     await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (stats) => {

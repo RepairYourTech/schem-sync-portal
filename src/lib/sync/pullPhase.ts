@@ -6,12 +6,12 @@ import { executeRclone, RETRY_FLAGS, getIsSyncPaused } from "./utils";
 import {
     resetSessionCompletions,
     getSessionCompletionsSize,
-    setTransferQueueType,
     clearActiveTransfers
 } from "./progress";
-import { runCleanupSweep, GARBAGE_PATTERNS, cleanFile } from "../cleanup";
+import { runCleanupSweep, cleanFile, ShieldManager } from "../cleanup";
 import type { PortalConfig } from "../config";
 import type { SyncProgress, ManifestStats } from "./types";
+import type { StreamingFileQueue } from "./streamingQueue";
 
 /**
  * Discovers the manifest file from source or backup.
@@ -26,7 +26,7 @@ async function discoverManifest(config: PortalConfig, sourceRemote: string): Pro
             "copyto", `${sourceRemote}manifest.txt`, localManifest,
             ...sourceFlags,
             ...RETRY_FLAGS
-        ], () => { });
+        ], () => { }, undefined, "download");
         return localManifest;
     } catch (err) {
         Logger.debug("SYNC", `Failed to fetch manifest from source: ${err instanceof Error ? err.message : String(err)}`);
@@ -36,7 +36,7 @@ async function discoverManifest(config: PortalConfig, sourceRemote: string): Pro
                 await executeRclone([
                     "copyto", `${destRemote}manifest.txt`, localManifest,
                     ...RETRY_FLAGS
-                ], () => { });
+                ], () => { }, undefined, "download");
                 return localManifest;
             } catch (err) {
                 Logger.debug("SYNC", `Failed to fetch manifest from backup: ${err instanceof Error ? err.message : String(err)}`);
@@ -87,9 +87,10 @@ function processManifest(localManifest: string, localDir: string): { remoteFiles
  */
 export async function runPullPhase(
     config: PortalConfig,
-    onProgress: (p: Partial<SyncProgress>) => void
+    onProgress: (p: Partial<SyncProgress>) => void,
+    cleanedQueue?: StreamingFileQueue
 ): Promise<void> {
-    const excludeFile = Env.getExcludeFilePath();
+    const excludeFile = Env.getExcludeFilePath(config.local_dir);
     const sourceRemote = `${Env.REMOTE_PORTAL_SOURCE}:/`;
 
     onProgress({ phase: "pull", description: "Analyzing Source...", percentage: 0 });
@@ -115,9 +116,23 @@ export async function runPullPhase(
             }
 
             const missingFiltered = manifestData.missing.filter(f => !alreadyExcluded.has(f));
-            riskyItems = missingFiltered.filter(f =>
-                GARBAGE_PATTERNS.some(p => f.toLowerCase().includes(p.toLowerCase()))
-            );
+
+            // Combine priority filenames (static) with saved offenders (dynamic)
+            const savedOffenders = ShieldManager.getOffenders(config.local_dir);
+            const priorityFilenames = ShieldManager.getPriorityFilenames();
+
+            // Extract filenames for path-agnostic matching
+            // Remote structure is dynamic - we can only match on filenames
+            const knownOffenderFilenames = new Set([
+                ...savedOffenders.map(path => path.split('/').pop() || path),
+                ...priorityFilenames  // Already just filenames
+            ]);
+
+            // Use ONLY exact filename matching - works with any remote directory structure
+            riskyItems = missingFiltered.filter(f => {
+                const filename = f.split('/').pop() || f;
+                return knownOffenderFilenames.has(filename);
+            });
             standardItems = missingFiltered.filter(f => !riskyItems.includes(f));
 
             manifestStats = {
@@ -131,7 +146,6 @@ export async function runPullPhase(
         }
     }
 
-    setTransferQueueType("download");
     clearActiveTransfers();
     resetSessionCompletions();
 
@@ -144,8 +158,18 @@ export async function runPullPhase(
         ...RETRY_FLAGS
     ];
 
-    // STAGE 1: Prioritized Pull (Known Threats)
-    if (riskyItems.length > 0) {
+    await executeRclone(basePullArgs, (p) => {
+        onProgress({
+            ...p,
+            phase: "pull",
+            description: `Pulling from ${config.source_provider}...`,
+            manifestStats,
+            isPaused: getIsSyncPaused()
+        });
+    }, undefined, "download");
+
+    // STAGE 1: Prioritized Pull (Known Threats) - ONLY when shield enabled
+    if (config.enable_malware_shield && riskyItems.length > 0) {
         const riskyListFile = join(config.local_dir, "prioritized_risky.txt");
         writeFileSync(riskyListFile, riskyItems.join("\n"));
 
@@ -170,7 +194,7 @@ export async function runPullPhase(
         // Neutralize through both archive sweep AND direct file cleanup
         await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
             onProgress({
-                phase: "pull",
+                phase: "clean",
                 description: `Shield: Neutralizing archives... ${cStats.flaggedArchives} threats purged.`,
                 manifestStats,
                 cleanupStats: cStats,
@@ -182,6 +206,11 @@ export async function runPullPhase(
             const fullPath = join(config.local_dir, item);
             if (existsSync(fullPath)) {
                 await cleanFile(fullPath, config.local_dir, config.malware_policy || "purge");
+
+                // If it survives cleaning and we have a queue, push it to allow upsync
+                if (existsSync(fullPath) && cleanedQueue) {
+                    cleanedQueue.push(item);
+                }
             }
         }
     }
@@ -215,6 +244,10 @@ export async function runPullPhase(
             ...stats,
             percentage: displayPct
         });
+    }, (filename) => {
+        if (cleanedQueue) {
+            cleanedQueue.push(filename);
+        }
     });
 
     // FINAL SWEEP: Catch any archives identified after download during standard pull

@@ -27,11 +27,23 @@ export function createRcloneRemote(name: string, type: string, options: Record<s
 
         const args = ["--config", rcloneConfig, "config", "create", name, type];
         for (const [key, value] of Object.entries(options)) {
-            // [ROBUST] Sanitize value: remove newlines/CR and trim to avoid rclone config failures
-            const sanitizedValue = (value || "").replace(/[\r\n]+/g, " ").trim();
-            if (sanitizedValue !== "") {
-                args.push(key, sanitizedValue);
+            // Skip truly null/undefined values
+            if (value === null || value === undefined) continue;
+
+            // For token fields, preserve the JSON structure but trim whitespace
+            // For other fields, sanitize newlines which can break rclone config
+            let sanitizedValue: string;
+            if (key === "token") {
+                // Token is JSON - only trim outer whitespace, preserve internal structure
+                sanitizedValue = value.trim();
+            } else {
+                // Other fields: remove newlines/CR which break rclone CLI parsing
+                sanitizedValue = (value || "").replace(/[\r\n]+/g, " ").trim();
             }
+
+            // Push even empty strings - rclone needs to know about the field
+            // (e.g., empty team_drive is valid)
+            args.push(key, sanitizedValue);
         }
 
         // Use non-interactive mode
@@ -61,13 +73,14 @@ export function createRcloneRemote(name: string, type: string, options: Record<s
 
 /**
  * Surgically updates or inserts a specific Google Drive remote in rclone.conf.
+ * The token parameter should be the full OAuth token JSON from rclone authorize.
  */
-export function updateGdriveRemote(name: string, clientId: string, secret: string, refreshToken: string) {
+export function updateGdriveRemote(name: string, clientId: string, secret: string, token: string) {
     createRcloneRemote(name, "drive", {
         scope: "drive",
         client_id: clientId,
         client_secret: secret,
-        token: `{"refresh_token":"${refreshToken}"}`,
+        token: token, // Use the full token JSON directly - rclone authorize returns complete token
         team_drive: ""
     });
 }
@@ -160,16 +173,30 @@ export function createHttpRemote(name: string, url: string, cookie?: string) {
 /**
  * Runs 'rclone authorize' asynchronously to capture the token.
  * This launches the user's browser for OAuth flows.
+ * Supports custom OAuth credentials (clientId, clientSecret) for providers like Google Drive.
  * Supports AbortSignal for cancellation.
  */
-export function authorizeRemote(provider: string, signal?: AbortSignal): Promise<string> {
+export function authorizeRemote(
+    provider: string,
+    signal?: AbortSignal,
+    clientId?: string,
+    clientSecret?: string
+): Promise<string> {
     return new Promise(async (resolve, reject) => {
         try {
             const rcloneCmd = getRcloneCmd();
             const rcloneConfig = Env.getRcloneConfigPath();
+
+            // Build authorize command: rclone authorize <provider> [client_id] [client_secret]
             const args = [...rcloneCmd.slice(1), "--config", rcloneConfig, "authorize", provider];
 
-            Logger.debug("AUTH", `Executing: rclone authorize ${provider}`);
+            // Add custom OAuth credentials if provided (required for Google Drive, etc.)
+            if (clientId && clientSecret) {
+                args.push(clientId, clientSecret);
+                Logger.debug("AUTH", `Executing: rclone authorize ${provider} <client_id> <client_secret>`);
+            } else {
+                Logger.debug("AUTH", `Executing: rclone authorize ${provider} (using built-in credentials)`);
+            }
 
             const proc = Bun.spawn([rcloneCmd[0] as string, ...args], {
                 stdout: "pipe",
@@ -195,10 +222,34 @@ export function authorizeRemote(provider: string, signal?: AbortSignal): Promise
             if (exitCode !== 0) {
                 // If aborted, the promise might have already rejected
                 if (signal?.aborted) return;
-                reject(stderr || `rclone authorize failed with exit code ${exitCode}`);
+                reject(new Error(stderr || `rclone authorize failed with exit code ${exitCode}`));
                 return;
             }
 
+            // rclone authorize outputs the token in stdout 
+            // Format: "Paste the following into your remote machine --->\n{...token JSON...}\n<---End paste"
+            // We need to extract just the JSON token
+            const combined = stdout + "\n" + stderr;
+
+            // Try to find JSON token pattern (looks for object with access_token or refresh_token)
+            const tokenMatch = combined.match(/\{[^{}]*"(?:access_token|refresh_token)"[^{}]*\}/s);
+            if (tokenMatch) {
+                const token = tokenMatch[0];
+                Logger.debug("AUTH", `Successfully extracted OAuth token (${token.length} chars)`);
+                resolve(token);
+                return;
+            }
+
+            // Fallback: try to find any JSON object that looks like a token
+            const jsonMatch = combined.match(/\{[^{}]*"token_type"[^{}]*\}/s);
+            if (jsonMatch) {
+                Logger.debug("AUTH", `Extracted token via fallback pattern`);
+                resolve(jsonMatch[0]);
+                return;
+            }
+
+            // Last resort: return trimmed stdout and hope for the best
+            Logger.warn("AUTH", "Could not find token pattern in output, using raw stdout");
             resolve(stdout.trim());
         } catch (err) {
             reject(err instanceof Error ? err.message : String(err));

@@ -8,7 +8,7 @@ import type { SyncProgress } from "./types";
  * Core utility functions for the sync engine.
  */
 
-let currentProc: Subprocess | null = null;
+const activeProcs = new Set<Subprocess>();
 let isSyncPaused = false;
 
 /**
@@ -30,12 +30,12 @@ export function getRcloneCmd(): string[] {
 /**
  * Format bytes to human readable string.
  */
-export function formatBytes(bytes: number): string {
-    if (bytes === 0) return "0 B";
+export function formatBytes(number: number): string {
+    if (number === 0) return "0 B";
     const k = 1024;
     const sizes = ["B", "KiB", "MiB", "GiB", "TiB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    const i = Math.floor(Math.log(number) / Math.log(k));
+    return parseFloat((number / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
 /**
@@ -65,10 +65,13 @@ export const RETRY_FLAGS = [
 
 /**
  * Executes an rclone command and streams JSON logs to the update callback.
+ * Now supports an optional onFileComplete callback for streaming upsync.
  */
 export async function executeRclone(
     args: string[],
-    onUpdate: (stats: Partial<SyncProgress>) => void
+    onUpdate: (stats: Partial<SyncProgress>) => void,
+    onFileComplete?: (filename: string) => void,
+    type: "download" | "upload" = "download"
 ): Promise<void> {
     return new Promise((resolve, reject) => {
         const fullArgs = [
@@ -83,14 +86,16 @@ export async function executeRclone(
         const spawnArgs = rcloneCmd[0] === "bun" ? ["bun", ...rcloneCmd.slice(1), ...fullArgs] : ["rclone", ...fullArgs];
         Logger.debug("SYNC", `Spawning: ${spawnArgs.join(" ")}`);
 
-        currentProc = spawn(spawnArgs, {
+        const proc = spawn(spawnArgs, {
             stdout: "pipe",
             stderr: "pipe",
             env: process.env as Record<string, string>
         });
 
+        activeProcs.add(proc);
+
         if (isSyncPaused) {
-            currentProc.kill("SIGSTOP");
+            proc.kill("SIGSTOP");
             onUpdate({ isPaused: true });
         }
 
@@ -113,7 +118,7 @@ export async function executeRclone(
 
                     try {
                         const json = JSON.parse(cleanedLine);
-                        parseJsonLog(json, onUpdate);
+                        parseJsonLog(json, onUpdate, onFileComplete, type);
                         if (json.msg) {
                             if (json.level === "error") Logger.error("SYNC", `[rclone] ${json.msg}`);
                             else if (json.level === "info") Logger.info("SYNC", `[rclone] ${json.msg}`);
@@ -126,13 +131,13 @@ export async function executeRclone(
             }
         };
 
-        const stdoutDone = currentProc.stdout ? handleOutput(currentProc.stdout as unknown as ReadableStream) : Promise.resolve();
-        const stderrDone = currentProc.stderr ? handleOutput(currentProc.stderr as unknown as ReadableStream) : Promise.resolve();
+        const stdoutDone = proc.stdout ? handleOutput(proc.stdout as unknown as ReadableStream) : Promise.resolve();
+        const stderrDone = proc.stderr ? handleOutput(proc.stderr as unknown as ReadableStream) : Promise.resolve();
 
         const checkExit = async () => {
-            const exitCode = await currentProc?.exited;
+            const exitCode = await proc.exited;
+            activeProcs.delete(proc);
             await Promise.all([stdoutDone, stderrDone]);
-            currentProc = null;
             if (exitCode === 0) {
                 onUpdate({ percentage: 100 });
                 resolve();
@@ -150,30 +155,35 @@ export function getIsSyncPaused(): boolean {
 }
 
 export function stopSync(): void {
-    if (currentProc) {
-        currentProc.kill();
-        currentProc = null;
+    for (const proc of activeProcs) {
+        proc.kill();
     }
+    activeProcs.clear();
 }
 
 export function pauseSync(onUpdate?: (p: Partial<SyncProgress>) => void): void {
-    if (currentProc && !isSyncPaused) {
-        currentProc.kill("SIGSTOP");
+    if (activeProcs.size > 0 && !isSyncPaused) {
+        for (const proc of activeProcs) {
+            proc.kill("SIGSTOP");
+        }
         isSyncPaused = true;
-        Logger.info("SYNC", "Sync process paused (SIGSTOP)");
+        Logger.info("SYNC", `Sync processes paused: ${activeProcs.size}`);
         if (onUpdate) onUpdate({ isPaused: true });
     }
 }
 
 export function resumeSync(onUpdate?: (p: Partial<SyncProgress>) => void): void {
-    if (currentProc && isSyncPaused) {
-        currentProc.kill("SIGCONT");
+    if (isSyncPaused) {
+        for (const proc of activeProcs) {
+            proc.kill("SIGCONT");
+        }
         isSyncPaused = false;
-        Logger.info("SYNC", "Sync process resumed (SIGCONT)");
+        Logger.info("SYNC", "Sync processes resumed");
         if (onUpdate) onUpdate({ isPaused: false });
     }
 }
 
 export function resetExecutorState(): void {
     isSyncPaused = false;
+    activeProcs.clear();
 }

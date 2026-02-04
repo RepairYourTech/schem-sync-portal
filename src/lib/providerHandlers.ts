@@ -2,7 +2,17 @@ import { Env } from "./env";
 import type { WizardAuthContext } from "../components/wizard/types";
 
 export const gdriveDirectAuth = (ctx: WizardAuthContext) => {
-    ctx.handleGdriveAuth(ctx.refs.clientIdRef.current || "", ctx.refs.clientSecretRef.current || "");
+    const clientId = ctx.refs.clientIdRef.current?.trim() || "";
+    const clientSecret = ctx.refs.clientSecretRef.current?.trim() || "";
+
+    // If user provides custom OAuth credentials, use them
+    // Otherwise, use rclone's built-in OAuth (simpler for users)
+    if (clientId && clientSecret) {
+        ctx.handleGdriveAuth(clientId, clientSecret);
+    } else {
+        // Use rclone's built-in Google Drive OAuth
+        ctx.startGenericAuth("drive");
+    }
 };
 
 export const genericAuthHandler = (provider: string) => (ctx: WizardAuthContext) => {

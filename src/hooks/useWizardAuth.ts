@@ -71,7 +71,8 @@ export function useWizardAuth({
         abortAuth(); setIsAuthLoading(true); setAuthStatus("🔄 Launching Google Handshake...");
         const controller = new AbortController(); authAbortControllerRef.current = controller;
         try {
-            const token = await authorizeRemote("drive", controller.signal);
+            // Pass user's OAuth credentials to rclone authorize
+            const token = await authorizeRemote("drive", controller.signal, clientId, clientSecret);
             if (token) {
                 oauthTokenRef.current = token;
                 const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;

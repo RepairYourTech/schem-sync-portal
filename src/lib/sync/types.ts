@@ -54,7 +54,7 @@ export interface CloudSyncStats {
 }
 
 export interface SyncProgress {
-    phase: "pull" | "clean" | "cloud" | "done" | "error";
+    phase: "pull" | "clean" | "cloud" | "syncing" | "done" | "error";
     description: string;
     percentage: number;
     globalPercentage?: number;

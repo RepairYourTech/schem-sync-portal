@@ -285,7 +285,9 @@ export const FileQueue = React.memo(({ files, colors, maxHeight, width, phase }:
         if (phase === "pull") {
             return (
                 <box paddingLeft={2} paddingTop={1} height={maxHeight}>
-                    <text fg={colors.dim} attributes={TextAttributes.ITALIC}>Waiting for rclone data...</text>
+                    <text fg={colors.dim}>
+                        {phase === "pull" ? "Waiting for rclone data..." : "Queue Empty"}
+                    </text>
                 </box>
             );
         }

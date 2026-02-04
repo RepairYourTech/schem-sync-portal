@@ -3,9 +3,10 @@ import { saveConfig } from "../config";
 import type { PortalConfig } from "../config";
 import type { SyncProgress } from "./types";
 import { runPullPhase } from "./pullPhase";
-import { runCleanPhase } from "./cleanPhase";
-import { runCloudPhase } from "./cloudPhase";
+// cleanPhase removed - now integrated into pullPhase final sweep
+import { runCloudPhase, runStreamingCloudPhase } from "./cloudPhase";
 import { resetSessionState, resetSessionCompletions, parseJsonLog } from "./progress";
+import { StreamingFileQueue } from "./streamingQueue";
 
 import {
     stopSync,
@@ -53,29 +54,49 @@ export async function runSync(
     }
 
     const showPull = config.source_provider !== "none" && config.source_provider !== "unconfigured";
-    const showClean = config.enable_malware_shield;
+    const _showClean = config.enable_malware_shield; // Used for UI logic, clean integrated into pull
     const showCloud = config.upsync_enabled && config.backup_provider !== "none" && config.backup_provider !== "unconfigured";
 
-    const weights = { pull: showPull ? 45 : 0, clean: showClean ? 10 : 0, cloud: showCloud ? 45 : 0 };
-    const totalWeight = weights.pull + weights.clean + weights.cloud;
+    // Clean phase is now integrated into pullPhase (final sweep)
+    const weights = { pull: showPull ? 50 : 0, clean: 0, cloud: showCloud ? 50 : 0 };
+    const totalWeight = weights.pull + weights.cloud;
     const scale = totalWeight > 0 ? 100 / totalWeight : 1;
 
+    let pullFinished = false;
+
     const wrapProgress = (p: Partial<SyncProgress>) => {
-        const phase = p.phase || "pull";
+        // Track phase completion in parallel mode
+        if (p.phase === "pull" && p.percentage === 100) pullFinished = true;
+
+        const incomingPhase = p.phase || currentProgress.phase;
+        let effectivePhase = incomingPhase;
+
+        // In parallel mode, use the "syncing" phase to indicate dual activity.
+        // This prevents flickering and provides a clean global state for panels.
+        if (showPull && showCloud && !pullFinished && (incomingPhase === "pull" || incomingPhase === "cloud")) {
+            effectivePhase = "syncing";
+        }
+
         const phasePct = p.percentage || 0;
         let baseWeight = 0;
-        if (phase === "clean") baseWeight = weights.pull;
-        if (phase === "cloud") baseWeight = weights.pull + weights.clean;
-        if (phase === "done") baseWeight = totalWeight;
 
-        const currentPhaseWeight = weights[phase as keyof typeof weights] || 0;
+        // Dynamic weight calculation based on the effective phase
+        if (effectivePhase === "pull" || effectivePhase === "clean") {
+            baseWeight = 0;
+        } else if (effectivePhase === "cloud") {
+            baseWeight = weights.pull;
+        } else if (effectivePhase === "done") {
+            baseWeight = totalWeight;
+        }
+
+        const currentPhaseWeight = (effectivePhase === "clean") ? 0 : (weights[effectivePhase as keyof typeof weights] || 0);
         const globalPercentage = Math.min(100, Math.round((baseWeight + (phasePct * currentPhaseWeight / 100)) * scale));
 
         const full: SyncProgress = {
             ...currentProgress,
             ...p,
-            phase: phase as SyncProgress["phase"],
-            description: p.description || "",
+            phase: effectivePhase as SyncProgress["phase"],
+            description: p.description || currentProgress.description,
             percentage: phasePct,
             globalPercentage
         };
@@ -88,19 +109,27 @@ export async function runSync(
         resetSessionState();
         resetExecutorState();
 
-        // --- PULL PHASE ---
-        if (showPull) {
-            await runPullPhase(config, wrapProgress);
-        }
+        if (showPull && showCloud) {
+            // ASYNC STREAMING MODE: Pull and Cloud run in parallel
+            Logger.info("SYNC", "Starting Parallel Sync (Streaming Mode)");
+            const queue = new StreamingFileQueue();
 
-        // --- CLEAN PHASE ---
-        if (showClean) {
-            await runCleanPhase(config, wrapProgress);
-        }
+            await Promise.all([
+                runPullPhase(config, wrapProgress, queue).then(() => {
+                    Logger.info("SYNC", "Pull phase finished, marking queue complete");
+                    queue.markComplete();
+                }),
+                runStreamingCloudPhase(config, wrapProgress, queue)
+            ]);
+        } else {
+            // SEQUENTIAL MODE: Either one or the other
+            if (showPull) {
+                await runPullPhase(config, wrapProgress);
+            }
 
-        // --- CLOUD PHASE ---
-        if (showCloud) {
-            await runCloudPhase(config, wrapProgress);
+            if (showCloud) {
+                await runCloudPhase(config, wrapProgress);
+            }
         }
 
         wrapProgress({
@@ -134,7 +163,7 @@ export async function runSync(
             await saveConfig(updatedConfig);
         }
     } catch (err) {
-        Logger.error("SYNC", "Sync failed", err);
+        Logger.error("SYNC", `Sync failed: ${err instanceof Error ? err.stack : String(err)}`);
         wrapProgress({
             phase: "error",
             description: `Sync Failed: ${err instanceof Error ? err.message : String(err)}`,

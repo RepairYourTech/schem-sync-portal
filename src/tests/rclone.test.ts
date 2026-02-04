@@ -42,7 +42,7 @@ describe("Rclone Config Sanitization", () => {
         Logger.setLevel("DEBUG");
     });
 
-    test("should sanitize newlines in option values", () => {
+    test("should preserve token JSON structure including newlines", () => {
         const name = "test-remote";
         const type = "drive";
         const options = {
@@ -66,14 +66,13 @@ describe("Rclone Config Sanitization", () => {
         const args = rcloneCall[0] as string[];
         const tokenIdx = args.indexOf("token");
         expect(tokenIdx).not.toBe(-1);
-        const sanitizedValue = args[tokenIdx + 1];
+        const tokenValue = args[tokenIdx + 1];
 
-        expect(sanitizedValue).toBe('{"refresh_token":"abc def"}');
-        expect(sanitizedValue).not.toContain("\n");
-        expect(sanitizedValue).not.toContain("\r");
+        // Token should preserve its JSON structure (newlines are valid in JSON values)
+        expect(tokenValue).toBe('{"refresh_token":"abc\ndef"}');
     });
 
-    test("should trim values and skip empty ones", () => {
+    test("should sanitize newlines in non-token fields and pass empty values", () => {
         const name = "test-trim";
         const options = {
             key1: "  value1  ",
@@ -92,8 +91,18 @@ describe("Rclone Config Sanitization", () => {
         if (!rcloneCall) throw new Error("rcloneCall undefined");
 
         const args = rcloneCall[0] as string[];
+
+        // key1 should be trimmed
         expect(args).toContain("value1");
-        expect(args).not.toContain("key2");
-        expect(args).not.toContain("key3");
+
+        // key2 and key3 should be passed as empty strings (rclone handles them)
+        // They're now included in the args, just with empty values
+        expect(args).toContain("key2");
+        expect(args).toContain("key3");
+
+        // Verify the key2 value is empty string (newlines stripped)
+        const key2Idx = args.indexOf("key2");
+        expect(args[key2Idx + 1]).toBe("");
     });
 });
+

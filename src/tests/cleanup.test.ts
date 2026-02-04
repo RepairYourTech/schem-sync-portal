@@ -9,7 +9,7 @@ import { mkdirSync, writeFileSync, existsSync, readFileSync } from "fs";
 
 describe("Malware Shield (Cleanup)", () => {
     const testDir = join(process.cwd(), "test_cleanup_dir");
-    const excludeFile = join(testDir, "exclude.txt");
+    const excludeFile = join(testDir, ".shield-exclude.txt");
 
     let runCleanupSweep: typeof import("../lib/cleanup").runCleanupSweep;
     let __setArchiveEngine: typeof import("../lib/cleanup").__setArchiveEngine;
@@ -115,5 +115,23 @@ describe("Malware Shield (Cleanup)", () => {
         // Should be in exclude file
         const excludeContent = readFileSync(excludeFile, "utf-8");
         expect(excludeContent).toContain("malware_isolate.zip");
+    });
+
+    test("should catch priority archives even if no internal patterns match", async () => {
+        // Clear previous state for a clean test
+        const cleanup = await import("../lib/cleanup");
+        cleanup.ShieldManager.resetShield(testDir);
+
+        const priorityPath = join(testDir, "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
+        writeFileSync(priorityPath, "fake zip content");
+
+        await runCleanupSweep(testDir, excludeFile, "purge");
+
+        // Should be removed because it matches PRIORITY_FILENAMES
+        expect(existsSync(priorityPath)).toBe(false);
+
+        // Should be in exclude file
+        const excludeContent = readFileSync(excludeFile, "utf-8");
+        expect(excludeContent).toContain("GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
     });
 });
