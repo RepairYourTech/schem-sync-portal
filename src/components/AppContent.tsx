@@ -328,7 +328,7 @@ export function AppContent() {
                 onAction={(key) => {
                     if (key === "s") { setView("wizard"); setWizardMode("restart"); }
                     else if (key === "c") { setView("wizard"); setWizardMode("continue"); }
-                    else if (key === "t") { setView("sync"); handleStartSync(); }
+                    else if (key === "t") { setView("sync"); }
                 }}
             />
         </box>
