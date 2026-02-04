@@ -8,11 +8,17 @@ describe("Local Shield Hardening", () => {
 
     beforeEach(() => {
         if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });
-        ShieldManager.resetShield(); // Start clean
+        ShieldManager.resetShield(testDir); // Start clean
     });
 
     afterEach(() => {
         // Cleanup would go here, but keep for manual check if needed
+    });
+
+    it("should start with an empty offender list but have priority filenames available", () => {
+        expect(ShieldManager.getOffenders(testDir)).toEqual([]);
+        expect(ShieldManager.getPriorityFilenames().length).toBeGreaterThan(0);
+        expect(ShieldManager.getPriorityFilenames()).toContain("GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
     });
 
     it("should purge a direct malware file", async () => {
@@ -23,7 +29,7 @@ describe("Local Shield Hardening", () => {
 
         expect(handled).toBe(true);
         expect(existsSync(file)).toBe(false);
-        expect(ShieldManager.getOffenders()).toContain("activator.exe");
+        expect(ShieldManager.getOffenders(testDir)).toContain("activator.exe");
     });
 
     it("should isolate a direct malware file", async () => {
@@ -36,7 +42,7 @@ describe("Local Shield Hardening", () => {
         expect(handled).toBe(true);
         expect(existsSync(file)).toBe(false);
         expect(existsSync(join(riskDir, "patch.exe"))).toBe(true);
-        expect(ShieldManager.getOffenders()).toContain("patch.exe");
+        expect(ShieldManager.getOffenders(testDir)).toContain("patch.exe");
     });
 
     it("should NOT purge useful files matching patterns", async () => {
@@ -58,6 +64,18 @@ describe("Local Shield Hardening", () => {
         await cleanFile(file, testDir, "purge");
 
         const relPath = join("subdir", "keygen.exe");
-        expect(ShieldManager.getOffenders()).toContain(relPath);
+        expect(ShieldManager.getOffenders(testDir)).toContain(relPath);
+    });
+
+    it("should catch a PRIORITY_FILENAME even without other malware patterns", async () => {
+        const file = join(testDir, "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
+        writeFileSync(file, "legit content but known bad filename");
+
+        const handled = await cleanFile(file, testDir, "isolate");
+
+        expect(handled).toBe(true);
+        expect(existsSync(file)).toBe(false);
+        expect(existsSync(join(testDir, "_risk_tools", "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip"))).toBe(true);
+        expect(ShieldManager.getOffenders(testDir)).toContain("GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
     });
 });

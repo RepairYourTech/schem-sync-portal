@@ -52,6 +52,16 @@ async function simulate() {
                     },
                     time: new Date().toISOString()
                 }));
+
+                // Emit individual file completion log to trigger onFileComplete
+                if (i > 0) {
+                    console.error(JSON.stringify({
+                        level: "info",
+                        msg: `Copied (new)`,
+                        object: `file_${i - 10}.bin`,
+                        time: new Date().toISOString()
+                    }));
+                }
             } else {
                 // Human readable fallback (Legacy)
                 console.log(`*        Transferred:   	   ${(i / 10).toFixed(3)} MiB / 10.000 MiB, ${i}%, 1.0 MiB/s, ETA ${10 - i / 10}s`);

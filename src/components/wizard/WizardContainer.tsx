@@ -165,7 +165,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
                         setWizardContext("dest");
                         nextStep = "dest_cloud_select";
                     } else {
-                        nextStep = (isMenuMode ? "edit_menu" : "deploy");
+                        nextStep = (isMenuMode ? "edit_menu" : "security");
                     }
                     break;
                 case "dest_cloud_select":

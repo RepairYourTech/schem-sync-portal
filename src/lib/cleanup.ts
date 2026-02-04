@@ -25,17 +25,50 @@ export const KEEP_EXTS = [
 
 export const SAFE_PATTERNS = ["flash", "afud", "insyde", "h2o", "utility", "update", "phlash", "ami", "phoenix", "dell", "hp", "lenovo", "bios"];
 export const GARBAGE_PATTERNS = [
-    "crack", "patch", "keygen", "loader", "bypass", "activator", "lpk.dll",
-    "loader.exe", "Chinafix", "TVW specific software", "medicine", "fixed",
-    "crack.exe", "patch.exe", "keygen.exe", "viewer", "viewer.exe", "Software",
-    "Open boardview", "boardview", "DOS4GW"
+    // === EXACT MALWARE INDICATORS (High Confidence) ===
+    "lpk.dll",                                           // DLL hijacking attack vector
+    "Open boardview using this TVW specific software",  // Exact cracked software package name
+    "Chinafix", "chinafix",                            // Known malware distributor signature
+    "程序_原厂_迅维版主分享",                              // Specific Chinese nested RAR pattern
+
+    // === EXECUTABLE PATTERNS (High Confidence) ===
+    "crack.exe", "Crack.exe",
+    "patch.exe", "Patch.exe",
+    "keygen.exe", "Keygen.exe",
+    "loader.exe", "Loader.exe",
+    ".exe.bak", ".exe.BAK",                            // Backup of cracked executables
+
+    // === GENERIC INDICATORS (Medium Confidence - need context) ===
+    "activator", "bypass", "medicine", "fixed",
+    "DOS4GW.EXE", "DOS4GW"                             // Suspicious in BIOS context
 ];
 
-const INITIAL_KNOWNS = [
-    "Schematic and boardview/AMD/07 580/GV-R580AORUS-8GD-1.0-1.01 Boardview.zip",
-    "Schematic and boardview/AMD/07 580/GV-R580GAMING-8GD-1.0-1.01 Boardview.zip",
-    "Schematic and boardview/AMD/07 580/GV-RX580GAMING-4GD-1.0-1.01 Boardview.zip",
-    "Schematic and boardview/AMD/07 580/GV-RX580GAMING-8GD-1.0-1.01 Boardview.zip"
+const PRIORITY_FILENAMES = [
+    // Static list of Google-flagged filenames for PRIORITY DOWNLOAD only
+    // These are used to identify risky files and download them first
+    // They are NOT automatically added to exclude file - only processed files are
+    "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip",
+    "GV-R580GAMING-8GD-1.0-1.01 Boardview.zip",
+    "GV-RX580GAMING-4GD-1.0-1.01 Boardview.zip",
+    "GV-RX580GAMING-8GD-1.0-1.01 Boardview.zip",
+    "GV-R939XG1 GAMING-8GD-1.0-1.01 Boardview.zip",
+    "GV-R938WF2-4GD-1.0 Boardview.zip",
+    "IOT73 V3.0 TG-B75.zip",
+    "GV-R938G1 GAMING-4GD-1.02 Boardview.zip",
+    "GV-RX470G1 GAMING-4GD-0.2 Boardview.zip",
+    "GV-RX480G1 GAMING-4GD-1.1 Boardview.zip",
+    "BIOS_K54C usb 3.0_factory-Chinafix.zip",
+    "BIOS_K54LY usb 3.0_factory-Chinafix.zip",
+    "GV-RX570AORUS-4GD-1.0 Boardview.zip",
+    "GV-RX580AORUS-4GD-0.2-1.1 Boardview.zip",
+    "GV-RX580GAMING-8GD-1.0 Boardview.zip",
+    "GV-RX590GAMING-8GD-1.0 Boardview.zip",
+    "BIOS_k53SJ usb 3.0 K53SJFW05300A_factory-Chinafix.zip",
+    "BIOS_k53sv usb 3.0 _factory-Chinafix.zip",
+    "BIOS_u310 U410_Chinafix.zip",
+    "GV-N3070EAGLE OC-8GD-1.0 Boardview.zip",
+    "DANL9MB18F0 (tvw).rar",
+    "GV-N4090GAMING-OC-24GD r1.0 boardview.zip"
 ];
 
 function getArchiveEngine(): ArchiveEngine | null {
@@ -206,7 +239,9 @@ async function cleanArchive(
         return { flagged: false, extractedCount: 0 };
     }
 
-    const hasGarbage = GARBAGE_PATTERNS.some(p => internalListing.toLowerCase().includes(p.toLowerCase()));
+    const fileName = relPath.split(/[/\\]/).pop() || "";
+    const isKnownBad = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase());
+    const hasGarbage = isKnownBad || GARBAGE_PATTERNS.some(p => internalListing.toLowerCase().includes(p.toLowerCase()));
     const hasSafeTools = SAFE_PATTERNS.some(p => internalListing.toLowerCase().includes(p.toLowerCase()));
 
     if (hasGarbage) {
@@ -227,7 +262,8 @@ async function cleanArchive(
 
         Logger.info("SYNC", `Cleaning flagged archive: ${relPath}`);
 
-        // 2. Extract safe extensions (using 'x' to preserve full paths)
+        // 2. FIRST: Extract safe extensions (using 'x' to preserve full paths)
+        Logger.info("SYNC", `Shield: Extracting safe files from ${relPath} before isolation...`);
         for (const ext of KEEP_EXTS) {
             const extractCmd = ENGINE?.type === "7z"
                 ? [ENGINE.bin, "x", archivePath, `*${ext}`, `-o${dirPath}`, "-r", "-y"]
@@ -236,10 +272,12 @@ async function cleanArchive(
             const result = _spawnSync(extractCmd);
             if (result.success) {
                 extractedCount++;
+                Logger.debug("SYNC", `Extracted ${ext} files from ${relPath}`);
             }
         }
 
         stats.extractedFiles += extractedCount;
+        Logger.info("SYNC", `Shield: Extracted ${extractedCount} safe file types from ${relPath}`);
 
         // 3. ISOLATE: Extract risky patterns to _risk_tools if policy is isolate
         if (policy === "isolate") {
@@ -261,15 +299,28 @@ async function cleanArchive(
         }
 
         // 4. Register as Offender
-        ShieldManager.addOffender(relPath);
+        ShieldManager.addOffender(relPath, baseDir);
         Logger.info("SYNC", `Shield: Neutralized & Blacklisted: ${relPath}`);
 
-        // 5. Remove original
+        // 5. Remove or Isolate original
         try {
-            unlinkSync(archivePath);
-            stats.purgedFiles++;
+            if (policy === "isolate") {
+                const riskDir = join(baseDir, "_risk_tools");
+                if (!existsSync(riskDir)) mkdirSync(riskDir, { recursive: true });
+                const dest = join(riskDir, fileName);
+
+                // Copy then delete (safest across partitions)
+                const content = readFileSync(archivePath);
+                writeFileSync(dest, content);
+                unlinkSync(archivePath);
+                stats.isolatedFiles++;
+                Logger.debug("SYNC", `Isolated archive to ${riskDir}`);
+            } else {
+                unlinkSync(archivePath);
+                stats.purgedFiles++;
+            }
         } catch (e) {
-            Logger.error("SYNC", "Failed to remove original malicious archive", e);
+            Logger.error("SYNC", `Failed to ${policy} original malicious archive`, e);
         }
 
         if (onProgress) onProgress(stats);
@@ -298,7 +349,7 @@ export async function cleanFile(
         return false;
     }
 
-    const isGarbage = GARBAGE_PATTERNS.some(p => fileName.toLowerCase().includes(p.toLowerCase()));
+    const isGarbage = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase()) || GARBAGE_PATTERNS.some(p => fileName.toLowerCase().includes(p.toLowerCase()));
 
     if (isGarbage) {
         Logger.info("SYNC", `Shield: Identified independent threat: ${relPath}`);
@@ -328,7 +379,7 @@ export async function cleanFile(
             }
         }
 
-        ShieldManager.addOffender(relPath);
+        ShieldManager.addOffender(relPath, baseDir);
         return true;
     }
 
@@ -341,44 +392,49 @@ export async function cleanFile(
 export const ShieldManager = {
     /**
      * Get the current set of offenders (relative paths).
+     * Returns ONLY files that have actually been processed by the shield.
      */
-    getOffenders(): string[] {
-        const path = Env.getOffenderListPath();
-        if (!existsSync(path)) return [...INITIAL_KNOWNS];
+    getOffenders(localDir: string): string[] {
+        const path = Env.getOffenderListPath(localDir);
+        if (!existsSync(path)) return [];  // Start empty - only processed files
         try {
             const data = readFileSync(path, "utf-8");
             const parsed = JSON.parse(data);
-            if (Array.isArray(parsed)) {
-                // Merge with initial knowns to ensure they are always present
-                const combined = new Set([...INITIAL_KNOWNS, ...parsed]);
-                return Array.from(combined);
-            }
+            return Array.isArray(parsed) ? parsed : [];
         } catch (e) {
             Logger.error("SHIELD", "Failed to load offender list", e);
         }
-        return [...INITIAL_KNOWNS];
+        return [];
+    },
+
+    /**
+     * Get the static priority filenames list (for download ordering).
+     * These are known risky files that should be downloaded and processed first.
+     */
+    getPriorityFilenames(): string[] {
+        return [...PRIORITY_FILENAMES];
     },
 
     /**
      * Add a path to the offender list persistently.
      */
-    addOffender(relPath: string) {
-        const offenders = this.getOffenders();
+    addOffender(relPath: string, localDir: string) {
+        const offenders = this.getOffenders(localDir);
         if (!offenders.includes(relPath)) {
             offenders.push(relPath);
-            this.saveOffenders(offenders);
-            this.syncWithRclone();
+            this.saveOffenders(offenders, localDir);
+            this.syncWithRclone(localDir);
         }
     },
 
     /**
      * Save the list to disk.
      */
-    saveOffenders(offenders: string[]) {
-        const path = Env.getOffenderListPath();
+    saveOffenders(offenders: string[], localDir: string) {
+        const path = Env.getOffenderListPath(localDir);
         try {
-            const dir = dirname(path);
-            if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+            // localD ir is the parent, just ensure it exists
+            if (!existsSync(localDir)) mkdirSync(localDir, { recursive: true });
             writeFileSync(path, JSON.stringify(offenders, null, 2));
         } catch (e) {
             Logger.error("SHIELD", "Failed to save offender list", e);
@@ -388,32 +444,30 @@ export const ShieldManager = {
     /**
      * Clear custom offenders and revert to defaults.
      */
-    resetShield() {
-        this.saveOffenders([]); // Empty array will be merged with INITIAL_KNOWNS in getOffenders()
-        this.syncWithRclone();
-        Logger.info("SHIELD", "Intelligence reset to defaults.");
+    resetShield(localDir: string) {
+        const offenderPath = Env.getOffenderListPath(localDir);
+        const excludePath = Env.getExcludeFilePath(localDir);
+
+        try { if (existsSync(offenderPath)) unlinkSync(offenderPath); } catch { /* ignore */ }
+        try { if (existsSync(excludePath)) unlinkSync(excludePath); } catch { /* ignore */ }
+
+        this.syncWithRclone(localDir);
+        Logger.info("SHIELD", "Intelligence reset to defaults. All history cleared.");
     },
 
     /**
      * Synchronize the offender list with rclone's exclusion file.
      */
-    syncWithRclone() {
-        const excludeFile = Env.getExcludeFilePath();
-        const offenders = this.getOffenders();
+    syncWithRclone(localDir: string) {
+        const excludeFile = Env.getExcludeFilePath(localDir);
+        const offenders = this.getOffenders(localDir);
+
         try {
-            const dir = dirname(excludeFile);
-            if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+            if (!existsSync(localDir)) mkdirSync(localDir, { recursive: true });
 
-            // Deduplicate with existing entries if any
-            let currentEntries = new Set<string>();
-            if (existsSync(excludeFile)) {
-                const lines = readFileSync(excludeFile, "utf-8").split("\n");
-                lines.forEach(l => { if (l.trim()) currentEntries.add(l.trim()); });
-            }
-
-            offenders.forEach(o => currentEntries.add(o));
-
-            writeFileSync(excludeFile, Array.from(currentEntries).join("\n") + "\n");
+            // Overwrite with current offenders + metadata path
+            const entries = [...offenders, "_risk_tools/**"];
+            writeFileSync(excludeFile, entries.join("\n") + "\n");
         } catch (e) {
             Logger.error("SHIELD", "Failed to sync exclusion file", e);
         }

@@ -43,7 +43,7 @@ export const DownsyncPanel = React.memo(({
     subFocusIndex = 0,
     onSubFocusIndexChange: _onSubFocusIndexChange
 }: DownsyncPanelProps) => {
-    const isActive = progress.phase === "pull";
+    const isActive = progress.phase === "pull" || progress.phase === "syncing";
     const isGlobalPaused = progress.isPaused;
 
     const status: PanelStatus = isGlobalPaused ? "paused" :

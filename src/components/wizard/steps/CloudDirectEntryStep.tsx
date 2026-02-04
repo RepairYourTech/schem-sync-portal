@@ -54,6 +54,8 @@ export const CloudDirectEntryStep = ({
     const isConnectFocused = direct_entry_index === fields.length && focusArea === "body";
 
     const handleAction = () => {
+        if (isAuthLoading) return; // Prevent double-trigger
+
         if (provider === "onedrive" || provider === "dropbox") {
             if (startGenericAuth) startGenericAuth(provider);
             return;

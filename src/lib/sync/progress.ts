@@ -1,32 +1,16 @@
 import { formatSpeed, formatEta, formatBytes } from "./utils";
 import type { FileTransferItem, SyncProgress } from "./types";
 
-// Track active file transfers for queue display
-const activeTransfers: Map<string, FileTransferItem> = new Map();
-let transferQueueType: "download" | "upload" = "download";
-
-// Deep Session Tracking
+// Queue Tracking: Separate maps for parallel phases
+const downloadTransfers = new Map<string, FileTransferItem>();
+const uploadTransfers = new Map<string, FileTransferItem>();
 const sessionCompletions = new Set<string>();
 
 /**
- * Reset the session completion tracker.
+ * Get a display queue for a specific map.
  */
-export function resetSessionCompletions(): void {
-    sessionCompletions.clear();
-}
-
-/**
- * Sets the current transfer queue type (download or upload).
- */
-export function setTransferQueueType(type: "download" | "upload"): void {
-    transferQueueType = type;
-}
-
-/**
- * Get the current display queue with a limit on completed transfers.
- */
-export function getDisplayQueue(limit = 10): FileTransferItem[] {
-    const all = Array.from(activeTransfers.values());
+function getQueueFromMap(map: Map<string, FileTransferItem>, limit = 10): FileTransferItem[] {
+    const all = Array.from(map.values());
     const active = all.filter(t => t.status === "active");
     const completed = all
         .filter(t => t.status === "completed")
@@ -34,9 +18,9 @@ export function getDisplayQueue(limit = 10): FileTransferItem[] {
         .slice(0, 10);
 
     const now = Date.now();
-    activeTransfers.forEach((item, name) => {
+    map.forEach((item, name) => {
         if (item.status === "completed" && item.completedAt && (now - item.completedAt > 60000)) {
-            activeTransfers.delete(name);
+            map.delete(name);
         }
     });
 
@@ -51,18 +35,16 @@ export function getDisplayQueue(limit = 10): FileTransferItem[] {
 }
 
 /**
- * Resets internal session state.
+ * Core log parser for rclone --use-json-log
  */
-export function resetSessionState(): void {
-    sessionCompletions.clear();
-    activeTransfers.clear();
-}
-
-/**
- * Parse rclone JSON log entry for transfer statistics.
- */
-export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgress>) => void): void {
+export function parseJsonLog(
+    json: unknown,
+    onUpdate: (stats: Partial<SyncProgress>) => void,
+    onFileComplete?: (filename: string) => void,
+    type: "download" | "upload" = "download"
+): void {
     const data = json as Record<string, unknown>;
+    const targetMap = type === "download" ? downloadTransfers : uploadTransfers;
 
     // Handle slog/v1.73.0 format where progress might be in 'msg' or 'stats'
     if (data.msg === "Transferred" || data.objectType === "file" || (data.msg?.toString().includes("Transferring:") && !data.stats)) {
@@ -93,12 +75,16 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
         }
 
         if (name) {
-            const existing = activeTransfers.get(name);
+            const existing = targetMap.get(name);
             const status = percentage >= 100 ? "completed" : "active";
 
-            if (status === "completed") sessionCompletions.add(name);
+            if (status === "completed") {
+                const alreadyDone = sessionCompletions.has(name);
+                sessionCompletions.add(name);
+                if (!alreadyDone && onFileComplete) onFileComplete(name);
+            }
 
-            activeTransfers.set(name, {
+            targetMap.set(name, {
                 filename: name,
                 size,
                 transferred: bytes,
@@ -114,20 +100,32 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
     if (data.msg?.toString().includes("Copied") || data.msg?.toString().includes("Moved")) {
         const name = data.object as string | undefined;
         if (name) {
+            const alreadyDone = sessionCompletions.has(name);
             sessionCompletions.add(name);
-            if (activeTransfers.has(name)) {
-                const item = activeTransfers.get(name)!;
-                if (item.status !== "completed") {
-                    item.status = "completed";
-                    item.percentage = 100;
-                    item.completedAt = Date.now();
-                }
+            if (!alreadyDone && onFileComplete) onFileComplete(name);
+
+            // Ensure file is in the target map
+            const existing = targetMap.get(name);
+            if (!existing || existing.status !== "completed") {
+                targetMap.set(name, {
+                    filename: name,
+                    size: existing?.size || 0,
+                    transferred: existing?.size || 0,
+                    percentage: 100,
+                    speed: existing?.speed || "0 B/s",
+                    status: "completed",
+                    completedAt: Date.now()
+                });
             }
-            onUpdate({
-                filesTransferred: sessionCompletions.size,
-                downloadQueue: transferQueueType === "download" ? getDisplayQueue(10) : undefined,
-                uploadQueue: transferQueueType === "upload" ? getDisplayQueue(10) : undefined
-            });
+            const update: Partial<SyncProgress> = {
+                filesTransferred: sessionCompletions.size
+            };
+            if (type === "download") {
+                update.downloadQueue = getQueueFromMap(downloadTransfers, 10);
+            } else {
+                update.uploadQueue = getQueueFromMap(uploadTransfers, 10);
+            }
+            onUpdate(update);
         }
     }
 
@@ -148,12 +146,12 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
 
                 if (name) {
                     const filePercentage = size > 0 ? Math.round((bytes / size) * 100) : 0;
-                    const existing = activeTransfers.get(name);
+                    const existing = targetMap.get(name);
                     const status = filePercentage >= 100 ? "completed" : "active";
 
                     if (status === "completed") sessionCompletions.add(name);
 
-                    activeTransfers.set(name, {
+                    targetMap.set(name, {
                         filename: name,
                         size,
                         transferred: bytes,
@@ -167,7 +165,7 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
             }
         }
 
-        const queue = getDisplayQueue(10);
+        const queue = getQueueFromMap(targetMap, 10);
         const bytes = (stats?.bytes as number) || 0;
         const total = (stats?.totalBytes as number) || 0;
 
@@ -182,8 +180,7 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
             transferSlots: { active: queue.filter(t => t.status === "active").length, total: 8 },
         };
 
-
-        if (transferQueueType === "download") {
+        if (type === "download") {
             queueUpdate.downloadQueue = queue;
         } else {
             queueUpdate.uploadQueue = queue;
@@ -191,11 +188,11 @@ export function parseJsonLog(json: unknown, onUpdate: (stats: Partial<SyncProgre
 
         onUpdate(queueUpdate);
     } else if (data.msg === "Transferred" || data.objectType === "file" || (data.msg?.toString().includes("Transferring:") && !data.stats)) {
-        const queue = getDisplayQueue(10);
+        const queue = getQueueFromMap(targetMap, 10);
         const queueUpdate: Partial<SyncProgress> = {
             filesTransferred: sessionCompletions.size
         };
-        if (transferQueueType === "download") {
+        if (type === "download") {
             queueUpdate.downloadQueue = queue;
         } else {
             queueUpdate.uploadQueue = queue;
@@ -208,10 +205,17 @@ export function getSessionCompletionsSize(): number {
     return sessionCompletions.size;
 }
 
-export function getActiveTransfersSize(): number {
-    return activeTransfers.size;
+export function resetSessionCompletions(): void {
+    sessionCompletions.clear();
+}
+
+export function resetSessionState(): void {
+    downloadTransfers.clear();
+    uploadTransfers.clear();
+    sessionCompletions.clear();
 }
 
 export function clearActiveTransfers(): void {
-    activeTransfers.clear();
+    downloadTransfers.clear();
+    uploadTransfers.clear();
 }

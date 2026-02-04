@@ -78,12 +78,18 @@ export class Env {
         }
     }
 
-    static getExcludeFilePath(): string {
-        return join(Env.getPaths().rcloneConfigDir, "schematics-exclude.txt");
+    /**
+     * Get path to rclone exclude file (stored in local sync directory).
+     */
+    static getExcludeFilePath(localDir: string): string {
+        return join(localDir, ".shield-exclude.txt");
     }
 
-    static getOffenderListPath(): string {
-        return join(Env.getPaths().configDir, "shield-offenders.json");
+    /**
+     * Get path to shield offenders list (stored in local sync directory).
+     */
+    static getOffenderListPath(localDir: string): string {
+        return join(localDir, ".shield-offenders.json");
     }
 
     static getRcloneConfigPath(): string {

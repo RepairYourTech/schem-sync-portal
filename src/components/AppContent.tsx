@@ -313,7 +313,7 @@ export function AppContent() {
         setWizardMode("restart"); setView("dashboard"); setFocusArea("body");
     }, [setConfig, setWizardMode, setView, setFocusArea]);
 
-    const onResetShield = useCallback(() => ShieldManager.resetShield(), []);
+    const onResetShield = useCallback(() => ShieldManager.resetShield(config.local_dir), [config.local_dir]);
 
     const activeFontVersion = config.nerd_font_version || 2;
 

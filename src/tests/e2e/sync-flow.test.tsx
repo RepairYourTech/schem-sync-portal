@@ -52,9 +52,8 @@ describe("E2E: Sync Flow", () => {
         });
 
         // Verify phase sequence
-        expect(phases).toContain("pull");
+        expect(phases).toContain("syncing");
         expect(phases).toContain("clean");
-        expect(phases).toContain("cloud");
         expect(phases).toContain("done");
 
         // Verify queue updates (presence of download/upload queue in some progress items)
@@ -71,8 +70,7 @@ describe("E2E: Sync Flow", () => {
         expect(mockSaveConfig).toHaveBeenCalled();
         const calls = mockSaveConfig.mock.calls;
         if (calls.length === 0) throw new Error("saveConfig not called");
-        const finalPersistedConfig = calls[0]![0] as unknown as PortalConfig;
-
+        const finalPersistedConfig = (calls[0] as any)[0] as PortalConfig;
 
         expect(finalPersistedConfig.last_sync_stats).toBeDefined();
         expect(finalPersistedConfig.last_sync_stats?.status).toBe("success");
@@ -94,7 +92,7 @@ describe("E2E: Sync Flow", () => {
         });
 
         if (!errorProgress) throw new Error("Expected error progress");
-        expect(errorProgress.description ?? "").toContain("Sync Failed");
+        expect((errorProgress as any).description ?? "").toContain("Sync Failed");
 
         // Reset failure probability
         process.env.MOCK_FAIL_PROBABILITY = "0";
