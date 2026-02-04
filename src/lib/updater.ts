@@ -10,7 +10,9 @@ export interface UpdateStatus {
 // Security: Only allow updates from these trusted remote patterns
 const TRUSTED_REMOTES = [
     /^https:\/\/github\.com\/RepairYourTech\/schem-sync-portal(\.git)?$/,
-    /^git@github\.com:RepairYourTech\/schem-sync-portal(\.git)?$/
+    /^git@github\.com:RepairYourTech\/schem-sync-portal(\.git)?$/,
+    /^https:\/\/github\.com\/opentui\/schem-sync-portal(\.git)?$/,
+    /^git@github\.com:opentui\/schem-sync-portal(\.git)?$/
 ];
 
 /**

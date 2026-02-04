@@ -7,7 +7,7 @@ mock.module("bun", () => ({
     spawnSync: (args: string[]) => {
         const cmd = args.join(" ");
         if (cmd.includes("git --version")) return { success: true, stdout: Buffer.from("git version 2.40.1") };
-        if (cmd.includes("git remote get-url origin")) return { success: true, stdout: Buffer.from("https://github.com/user/repo.git") };
+        if (cmd.includes("git remote get-url origin")) return { success: true, stdout: Buffer.from("https://github.com/opentui/schem-sync-portal.git") };
         if (cmd.includes("git rev-parse --abbrev-ref HEAD")) return { success: true, stdout: Buffer.from("main") };
         if (cmd.includes("git fetch")) return { success: true, stdout: Buffer.from("") };
         if (cmd.includes("git pull")) return { success: true, stdout: Buffer.from("") };
