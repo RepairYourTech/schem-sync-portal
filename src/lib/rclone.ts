@@ -27,9 +27,10 @@ export function createRcloneRemote(name: string, type: string, options: Record<s
 
         const args = ["--config", rcloneConfig, "config", "create", name, type];
         for (const [key, value] of Object.entries(options)) {
-            // Skip empty values to avoid confusing rclone
-            if (value && value.trim() !== "") {
-                args.push(key, value);
+            // [ROBUST] Sanitize value: remove newlines/CR and trim to avoid rclone config failures
+            const sanitizedValue = (value || "").replace(/[\r\n]+/g, " ").trim();
+            if (sanitizedValue !== "") {
+                args.push(key, sanitizedValue);
             }
         }
 

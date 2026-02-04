@@ -138,8 +138,6 @@ export async function runPullPhase(
     const basePullArgs = [
         config.strict_mirror ? "sync" : "copy", sourceRemote, config.local_dir,
         ...(config.source_provider === "copyparty" && config.cookie ? ["--header", config.cookie] : []),
-        "--exclude-from", excludeFile,
-        "--exclude", "_risk_tools/**",
         "--size-only", "--fast-list",
         "--transfers", String(config.downsync_transfers || 4),
         "--checkers", "16",
@@ -154,7 +152,7 @@ export async function runPullPhase(
         const riskyArgs = [
             "copy", sourceRemote, config.local_dir,
             "--files-from", riskyListFile,
-            ...basePullArgs.slice(3)
+            ...basePullArgs.slice(3) // Skip sync/copy, source, dest
         ];
 
         await executeRclone(riskyArgs, (stats) => {
@@ -195,9 +193,9 @@ export async function runPullPhase(
         const standardListFile = join(config.local_dir, "standard_missing.txt");
         writeFileSync(standardListFile, standardItems.join("\n"));
         standardArgs.push("--files-from", standardListFile);
-    } else if (riskyItems.length > 0 && standardFilesCount === 0) {
-        // If we ONLY had risky items, and they are already handled, we might skip stage 2
-        // but rclone needs to handle potential metadata/orphans if strict_mirror is on.
+    } else {
+        // If not using --files-from, we can safely use normal filters
+        standardArgs.push("--exclude-from", excludeFile, "--exclude", "_risk_tools/**");
     }
 
     await executeRclone(standardArgs, (stats) => {

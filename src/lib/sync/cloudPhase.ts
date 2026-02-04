@@ -20,15 +20,18 @@ export async function runCloudPhase(
 
     const cloudArgs = [
         "sync", config.local_dir, destRemote,
-        "--exclude-from", excludeFile,
-        "--exclude", "_risk_tools/**",
         "--size-only", "--fast-list",
         "--transfers", String(config.upsync_transfers || 4),
         "--checkers", "16",
         ...RETRY_FLAGS
     ];
 
-    if (existsSync(localManifest)) cloudArgs.push("--files-from", localManifest);
+    if (existsSync(localManifest)) {
+        cloudArgs.push("--files-from", localManifest);
+    } else {
+        cloudArgs.push("--exclude-from", excludeFile, "--exclude", "_risk_tools/**");
+    }
+
     if (config.backup_provider === "gdrive") cloudArgs.push("--drive-use-trash=false");
 
     setTransferQueueType("upload");
