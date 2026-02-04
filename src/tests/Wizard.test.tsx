@@ -1,274 +1,200 @@
-/** @jsxImportSource @opentui/react */
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect, mock, beforeEach } from "bun:test";
 import React from "react";
+import * as opentuiReact from "@opentui/react";
 import { Wizard } from "../components/Wizard";
-import { mockRender as render, createMockConfig } from "./ui-test-helpers";
-import { EMPTY_CONFIG, type PortalConfig } from "../lib/config";
+import { mockRender as render, mockThemeColors } from "./ui-test-helpers";
+import { EMPTY_CONFIG, type PortalConfig, type PortalProvider } from "../lib/config";
 
-/**
- * Basic Wizard Component Tests
- * 
- * These tests verify critical Wizard flows without requiring full DOM interaction.
- * Focus on happy path scenarios for provider selection and configuration validation.
- */
+// --- HOOK MOCKING ---
+let hookStateIndex = 0;
+let hookStateCells: unknown[] = [];
+let hookRefIndex = 0;
+let hookRefCells: { current: unknown }[] = [];
+let hookEffectIndex = 0;
+let hookEffectDeps: unknown[][] = [];
 
-describe("Wizard Component", () => {
-    const mockOnComplete = mock((_config: PortalConfig) => { });
-    const mockOnCancel = mock(() => { });
-    const mockOnQuit = mock(() => { });
-    const mockOnUpdate = mock((_config: PortalConfig) => { });
-    const mockOnFocusChange = mock((_area: "body" | "footer") => { });
+mock.module("react", () => ({
+    ...React,
+    useState: (initial: unknown) => {
+        const idx = hookStateIndex++;
+        if (hookStateCells[idx] === undefined) hookStateCells[idx] = initial;
+        const setState = (val: unknown) => {
+            hookStateCells[idx] = typeof val === 'function' ? (val as (prev: unknown) => unknown)(hookStateCells[idx]) : val;
+        };
+        return [hookStateCells[idx], setState];
+    },
+    useRef: (initial: unknown) => {
+        const idx = hookRefIndex++;
+        if (hookRefCells[idx] === undefined) hookRefCells[idx] = { current: initial };
+        return hookRefCells[idx];
+    },
+    useEffect: (fn: () => void, deps?: unknown[]) => {
+        const idx = hookEffectIndex++;
+        const prevDeps = hookEffectDeps[idx];
+        const hasChanged = !prevDeps || !deps || deps.some((d, i) => d !== prevDeps[i]);
+        if (hasChanged) {
+            hookEffectDeps[idx] = deps || [];
+            try { fn(); } catch { }
+        }
+    },
+    useCallback: (fn: unknown) => fn,
+    useMemo: (fn: () => unknown) => fn(),
+    useLayoutEffect: () => { },
+    useContext: (ctx: { _currentValue: unknown }) => ctx._currentValue,
+}));
 
-    describe("Initial Rendering", () => {
-        it("should render in restart mode with provider selection step", () => {
-            render(
-                <Wizard
-                    initialConfig={EMPTY_CONFIG}
-                    mode="restart"
-                    onComplete={mockOnComplete}
-                    onCancel={mockOnCancel}
-                    onQuit={mockOnQuit}
-                    onUpdate={mockOnUpdate}
-                    focusArea="body"
-                    onFocusChange={mockOnFocusChange}
-                    tabTransition="forward"
-                    backSignal={0}
-                /> as React.JSX.Element
-            );
+// Mock useKeyboard to capture the handler
+let capturedHandler: (e: { name: string }) => void = () => { };
+mock.module("@opentui/react", () => ({
+    ...opentuiReact,
+    useKeyboard: (handler: (e: { name: string }) => void) => {
+        capturedHandler = handler;
+    }
+}));
 
-            // Wizard should render without error
-            expect(true).toBe(true);
-        });
+// Mock useTheme
+mock.module("../lib/theme", () => ({
+    useTheme: () => ({ colors: mockThemeColors })
+}));
 
-        it("should render in continue mode when config is partially complete", () => {
-            const partialConfig = createMockConfig({
-                source_provider: "copyparty",
-                local_dir: "/tmp/test",
-            });
+// Mock deploy
+mock.module("../lib/deploy", () => ({
+    isSystemBootstrapped: () => false,
+    bootstrapSystem: mock(() => Promise.resolve())
+}));
 
-            render(
-                <Wizard
-                    initialConfig={partialConfig}
-                    mode="continue"
-                    onComplete={mockOnComplete}
-                    onCancel={mockOnCancel}
-                    onQuit={mockOnQuit}
-                    onUpdate={mockOnUpdate}
-                    focusArea="body"
-                    onFocusChange={mockOnFocusChange}
-                    tabTransition="forward"
-                    backSignal={0}
-                /> as React.JSX.Element
-            );
+// Mock useWizardAuth
+const mockDispatchDirectAuth = mock((_provider: string) => { });
 
-            expect(true).toBe(true);
-        });
-
-        it("should render in edit mode with existing complete config", () => {
-            const completeConfig = createMockConfig({
-                source_provider: "copyparty",
-                local_dir: "/home/test/schematics",
+mock.module("../hooks/useWizardAuth", () => ({
+    useWizardAuth: (props: {
+        updateConfig: (fn: (prev: PortalConfig) => PortalConfig) => void;
+        wizardContext: "source" | "dest";
+        next: () => void;
+    }) => ({
+        handleAuth: mock(() => { }),
+        handleGdriveAuth: mock(() => { }),
+        startGenericAuth: mock(() => { }),
+        dispatchDirectAuth: (provider: string) => {
+            mockDispatchDirectAuth(provider);
+            props.updateConfig((prev: PortalConfig) => ({
+                ...prev,
+                [props.wizardContext === "source" ? "source_provider" : "backup_provider"]: provider as PortalProvider,
+                local_dir: "/tmp/sync",
                 upsync_enabled: true,
-                backup_provider: "gdrive",
-            });
+                enable_malware_shield: true
+            }));
+            props.next();
+        },
+        refs: {
+            urlRef: { current: "" },
+            userRef: { current: "" },
+            passRef: { current: "" },
+            clientIdRef: { current: "" },
+            clientSecretRef: { current: "" },
+            b2IdRef: { current: "" },
+            b2KeyRef: { current: "" }
+        }
+    })
+}));
 
-            render(
-                <Wizard
-                    initialConfig={completeConfig}
-                    mode="edit"
-                    onComplete={mockOnComplete}
-                    onCancel={mockOnCancel}
-                    onQuit={mockOnQuit}
-                    onUpdate={mockOnUpdate}
-                    focusArea="body"
-                    onFocusChange={mockOnFocusChange}
-                    tabTransition="forward"
-                    backSignal={0}
-                /> as React.JSX.Element
-            );
+describe("Wizard Behavioral Tests", () => {
+    let mockOnComplete: (config: PortalConfig) => void;
+    let mockOnUpdate: (config: PortalConfig) => void;
+    let mockOnCancel: () => void;
 
-            expect(true).toBe(true);
-        });
+    beforeEach(() => {
+        mockOnComplete = mock((_config: PortalConfig) => { });
+        mockOnUpdate = mock((_config: PortalConfig) => { });
+        mockOnCancel = mock(() => { });
+        mockDispatchDirectAuth.mockClear();
+        hookStateIndex = 0;
+        hookStateCells = [];
+        hookRefIndex = 0;
+        hookRefCells = [];
+        hookEffectIndex = 0;
+        hookEffectDeps = [];
     });
 
-    describe("Provider Configuration Validation", () => {
-        it("should track source provider selection state", () => {
-            const config = createMockConfig({
-                source_provider: "copyparty",
-            });
+    const renderWizard = (props: Partial<React.ComponentProps<typeof Wizard>> = {}) => {
+        hookStateIndex = 0;
+        hookRefIndex = 0;
+        hookEffectIndex = 0;
+        return render(
+            React.createElement(Wizard, {
+                initialConfig: EMPTY_CONFIG,
+                mode: "restart",
+                onComplete: mockOnComplete,
+                onCancel: mockOnCancel,
+                onQuit: () => { },
+                onUpdate: mockOnUpdate,
+                focusArea: "body",
+                onFocusChange: () => { },
+                backSignal: 0,
+                tabTransition: "forward",
+                ...props
+            })
+        );
+    };
 
-            // Verify the source provider is set correctly
-            expect(config.source_provider).toBe("copyparty");
-        });
+    const runAction = (name: string, props: Partial<React.ComponentProps<typeof Wizard>> = {}) => {
+        capturedHandler({ name });
+        renderWizard(props);
+    };
 
-        it("should validate Google Drive provider configuration", () => {
-            const gdriveConfig = createMockConfig({
-                source_provider: "gdrive",
-                local_dir: "/home/test/schematics",
-            });
-
-            // Google Drive requires at minimum the local directory
-            expect(gdriveConfig.source_provider).toBe("gdrive");
-            expect(gdriveConfig.local_dir).toBeDefined();
-        });
-
-        it("should validate Backblaze B2 provider configuration structure", () => {
-            const b2Config = createMockConfig({
-                source_provider: "b2",
-                local_dir: "/home/test/b2-sync",
-            });
-
-            // B2 configuration should have provider and local_dir
-            expect(b2Config.source_provider).toBe("b2");
-            expect(b2Config.local_dir).toBe("/home/test/b2-sync");
-        });
-
-        it("should validate SFTP provider configuration", () => {
-            const sftpConfig = createMockConfig({
-                backup_provider: "sftp",
-                backup_dir: "/path/to/backup",
-            });
-
-            // SFTP config should include backup directory
-            expect(sftpConfig.backup_provider).toBe("sftp");
-            expect(sftpConfig.backup_dir).toBeDefined();
-        });
+    it("should select source provider and trigger onUpdate when return is pressed", () => {
+        renderWizard();
+        runAction("return"); // Skip Shortcut
+        runAction("down");   // To gdrive
+        runAction("return"); // Select gdrive
+        expect(mockOnUpdate).toHaveBeenCalledWith(expect.objectContaining({ source_provider: 'gdrive' }));
     });
 
-    describe("Wizard State Management", () => {
-        it("should call onUpdate when configuration changes", () => {
-            render(
-                <Wizard
-                    initialConfig={EMPTY_CONFIG}
-                    mode="restart"
-                    onComplete={mockOnComplete}
-                    onCancel={mockOnCancel}
-                    onQuit={mockOnQuit}
-                    onUpdate={mockOnUpdate}
-                    focusArea="body"
-                    onFocusChange={mockOnFocusChange}
-                    tabTransition="forward"
-                    backSignal={0}
-                /> as React.JSX.Element
-            );
-
-            // Wizard is rendered - onUpdate would be called on config changes
-            // This test confirms the mock is properly wired
-            expect(mockOnUpdate).toBeDefined();
-        });
-
-        it("should support backSignal prop for navigation", () => {
-            const { rerender } = render(
-                <Wizard
-                    initialConfig={EMPTY_CONFIG}
-                    mode="restart"
-                    onComplete={mockOnComplete}
-                    onCancel={mockOnCancel}
-                    onQuit={mockOnQuit}
-                    onUpdate={mockOnUpdate}
-                    focusArea="body"
-                    onFocusChange={mockOnFocusChange}
-                    tabTransition="forward"
-                    backSignal={0}
-                /> as React.JSX.Element
-            );
-
-            // Increment backSignal to trigger navigation
-            rerender(
-                <Wizard
-                    initialConfig={EMPTY_CONFIG}
-                    mode="restart"
-                    onComplete={mockOnComplete}
-                    onCancel={mockOnCancel}
-                    onQuit={mockOnQuit}
-                    onUpdate={mockOnUpdate}
-                    focusArea="body"
-                    onFocusChange={mockOnFocusChange}
-                    tabTransition="forward"
-                    backSignal={1}
-                /> as React.JSX.Element
-            );
-
-            // Should handle backSignal increment gracefully
-            expect(true).toBe(true);
-        });
+    it("should handle backSignal by calling onCancel when at initial step", () => {
+        renderWizard({ backSignal: 0 });
+        renderWizard({ backSignal: 1 });
+        expect(mockOnCancel).toHaveBeenCalled();
     });
 
-    describe("Wizard Props Validation", () => {
-        it("should accept all required props without error", () => {
-            expect(() => {
-                render(
-                    <Wizard
-                        initialConfig={EMPTY_CONFIG}
-                        mode="restart"
-                        onComplete={mockOnComplete}
-                        onCancel={mockOnCancel}
-                        onQuit={mockOnQuit}
-                        onUpdate={mockOnUpdate}
-                        focusArea="body"
-                        onFocusChange={mockOnFocusChange}
-                        tabTransition="forward"
-                        backSignal={0}
-                    /> as React.JSX.Element
-                );
-            }).not.toThrow();
-        });
+    it("should trigger dispatchDirectAuth and update config for backup provider", () => {
+        renderWizard();
+        runAction("return"); // Skip shortcut
+        runAction("down");   // Source choice -> GDrive
+        runAction("return");
+        runAction("down");   // GDrive Intro -> Direct
+        runAction("return");
+        runAction("return"); // Direct 1
+        runAction("return"); // Direct 2
+        runAction("return"); // Direct 3 -> moves to dir
+        runAction("return"); // Dir
+        runAction("return"); // Mirror
+        runAction("down");   // Upsync -> Yes
+        runAction("return"); // moves to dest_cloud_select
+        runAction("down");   // Dest Selection -> B2
+        runAction("return"); // Confirm B2 -> moves to b2_intro
+        runAction("down");   // B2 Intro -> Direct
+        runAction("return"); // moves to cloud_direct_entry (dest)
+        runAction("return"); // Direct 1
+        runAction("return"); // Direct 2
+        runAction("return"); // Direct 3 -> calls dispatchDirectAuth('b2')
 
-        it("should handle 'edit' mode prop", () => {
-            expect(() => {
-                render(
-                    <Wizard
-                        initialConfig={EMPTY_CONFIG}
-                        mode="edit"
-                        onComplete={mockOnComplete}
-                        onCancel={mockOnCancel}
-                        onQuit={mockOnQuit}
-                        onUpdate={mockOnUpdate}
-                        focusArea="body"
-                        onFocusChange={mockOnFocusChange}
-                        tabTransition="forward"
-                        backSignal={0}
-                    /> as React.JSX.Element
-                );
-            }).not.toThrow();
-        });
+        expect(mockOnUpdate).toHaveBeenCalledWith(expect.objectContaining({ backup_provider: 'b2' }));
+    });
+    it("should trigger dispatchDirectAuth and update config for S3 source provider", () => {
+        renderWizard();
+        runAction("return"); // Skip shortcut
+        // Select S3 (9th down)
+        for (let i = 0; i < 9; i++) runAction("down");
+        runAction("return"); // Select S3 -> s3_intro
 
-        it("should handle footer focus area", () => {
-            render(
-                <Wizard
-                    initialConfig={EMPTY_CONFIG}
-                    mode="restart"
-                    onComplete={mockOnComplete}
-                    onCancel={mockOnCancel}
-                    onQuit={mockOnQuit}
-                    onUpdate={mockOnUpdate}
-                    focusArea="footer"
-                    onFocusChange={mockOnFocusChange}
-                    tabTransition="forward"
-                    backSignal={0}
-                /> as React.JSX.Element
-            );
+        runAction("down");   // s3_intro -> Direct
+        runAction("return"); // moves to cloud_direct_entry
+        runAction("return");
+        runAction("return");
+        runAction("return"); // calls dispatchDirectAuth('s3')
 
-            expect(true).toBe(true);
-        });
-
-        it("should handle backward tab transition", () => {
-            render(
-                <Wizard
-                    initialConfig={EMPTY_CONFIG}
-                    mode="restart"
-                    onComplete={mockOnComplete}
-                    onCancel={mockOnCancel}
-                    onQuit={mockOnQuit}
-                    onUpdate={mockOnUpdate}
-                    focusArea="body"
-                    onFocusChange={mockOnFocusChange}
-                    tabTransition="backward"
-                    backSignal={0}
-                /> as React.JSX.Element
-            );
-
-            expect(true).toBe(true);
-        });
+        expect(mockOnUpdate).toHaveBeenCalledWith(expect.objectContaining({ source_provider: 's3' }));
     });
 });
+
+

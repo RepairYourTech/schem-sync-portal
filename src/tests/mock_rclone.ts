@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { readFileSync, writeFileSync, existsSync } from "fs";
 
 const args = process.argv.slice(2);

@@ -1,9 +1,11 @@
 /** @jsxImportSource @opentui/react */
 import React from "react";
 import { TextAttributes } from "@opentui/core";
+import type { PortalProvider } from "../../lib/config.ts";
 import { Hotkey } from "../Hotkey";
 import { ProviderIcon } from "../ProviderIcon";
 import type { WizardStepProps } from "./StepProps";
+import { getProviderMetadata } from "../../lib/providers";
 
 export const SourceChoice = ({
     colors,
@@ -17,17 +19,6 @@ export const SourceChoice = ({
     config
 }: WizardStepProps) => {
     const fontVersion = config.nerd_font_version || 2;
-    const providers: Record<string, { name: string, icon: string, desc?: string }> = {
-        copyparty: { name: "CopyParty (IYKYK)", icon: "\ueac2" },
-        gdrive: { name: "Google Drive", icon: "\ueac2" },
-        b2: { name: "Backblaze Cloud", icon: "\ueac2" },
-        pcloud: { name: "pCloud", icon: "\ueac2" },
-        sftp: { name: "SFTP/SSH", icon: "\ueac2" },
-        onedrive: { name: "OneDrive", icon: "\ueac2" },
-        dropbox: { name: "Dropbox", icon: "\ueac2" },
-        mega: { name: "Mega.nz", icon: "\ueac2" },
-        r2: { name: "Cloudflare R2", icon: "\ueac2" }
-    };
 
     return (
         <box flexDirection="column" gap={1}>
@@ -35,7 +26,7 @@ export const SourceChoice = ({
             <text fg={colors.fg}>🔗 Select your "Source of Truth":</text>
             <box flexDirection="column" gap={0} marginTop={1}>
                 {getOptions().map((opt, i) => {
-                    const p = providers[opt.value as string];
+                    const meta = getProviderMetadata(opt.value as PortalProvider);
                     const isFocused = selectedIndex === i && focusArea === "body";
                     return (
                         <box
@@ -57,7 +48,7 @@ export const SourceChoice = ({
                             <ProviderIcon provider={opt.value as string} version={fontVersion} color={colors.primary} />
                             <Hotkey
                                 keyLabel={(i + 1).toString()}
-                                label={p?.name || (opt.value as string)}
+                                label={meta.label}
                                 isFocused={isFocused}
                             />
                         </box>
