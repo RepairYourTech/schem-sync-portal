@@ -101,6 +101,10 @@ export async function runPullPhase(
     let riskyItems: string[] = [];
     let standardItems: string[] = [];
 
+    // Track shield clearance for progress updates
+    let pendingShieldCount = 0;
+    let clearedForUpsyncCount = 0;
+
     if (localManifest) {
         const manifestData = processManifest(localManifest, config.local_dir);
         if (manifestData) {
@@ -210,6 +214,12 @@ export async function runPullPhase(
                 // If it survives cleaning and we have a queue, mark as pending shield clearance
                 if (existsSync(fullPath) && cleanedQueue) {
                     cleanedQueue.markPending(item);
+                    pendingShieldCount++;
+                    onProgress({
+                        pendingShieldCount,
+                        clearedForUpsyncCount,
+                        description: `${pendingShieldCount} files pending shield clearance...`
+                    });
                 }
             }
         }
@@ -219,6 +229,13 @@ export async function runPullPhase(
             const survivingRiskyFiles = riskyItems.filter(item => existsSync(join(config.local_dir, item)));
             if (survivingRiskyFiles.length > 0) {
                 cleanedQueue.clearPending(survivingRiskyFiles);
+                clearedForUpsyncCount += survivingRiskyFiles.length;
+                pendingShieldCount -= survivingRiskyFiles.length;
+                onProgress({
+                    pendingShieldCount,
+                    clearedForUpsyncCount,
+                    description: `${clearedForUpsyncCount} files cleared for upsync after shield verification`
+                });
                 Logger.debug("SYNC", `Cleared ${survivingRiskyFiles.length} risky files for upsync after shield verification`);
             }
         }
@@ -269,6 +286,7 @@ export async function runPullPhase(
         // Will be released to upsync queue after shield sweep verifies archives
         if (cleanedQueue && existsSync(join(config.local_dir, filename))) {
             cleanedQueue.markPending(filename);
+            pendingShieldCount++;
         }
     }, "download", "pull");
 
@@ -305,8 +323,16 @@ export async function runPullPhase(
             };
             scanVerified(config.local_dir, "");
             if (verifiedFiles.length > 0) {
+                const previouslyCleared = clearedForUpsyncCount;
                 cleanedQueue.clearPending(verifiedFiles);
-                Logger.info("SYNC", `Released ${verifiedFiles.length} verified files for upsync after final shield sweep`);
+                clearedForUpsyncCount = verifiedFiles.length;
+                pendingShieldCount = 0;
+                onProgress({
+                    pendingShieldCount: 0,
+                    clearedForUpsyncCount,
+                    description: `All ${clearedForUpsyncCount} files cleared for upsync after final shield sweep`
+                });
+                Logger.info("SYNC", `Released ${verifiedFiles.length - previouslyCleared} newly verified files for upsync after final shield sweep`);
             }
         }
     }

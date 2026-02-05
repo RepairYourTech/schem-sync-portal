@@ -103,7 +103,10 @@ export async function runSync(
             description: p.description || currentProgress.description,
             percentage: phasePct,
             isPaused: p.isPaused !== undefined ? p.isPaused : currentProgress.isPaused,
-            globalPercentage
+            globalPercentage,
+            // Explicitly preserve shield clearance tracking
+            pendingShieldCount: p.pendingShieldCount !== undefined ? p.pendingShieldCount : currentProgress.pendingShieldCount,
+            clearedForUpsyncCount: p.clearedForUpsyncCount !== undefined ? p.clearedForUpsyncCount : currentProgress.clearedForUpsyncCount
         };
         currentProgress = full;
         lastProgressRef.current = full;

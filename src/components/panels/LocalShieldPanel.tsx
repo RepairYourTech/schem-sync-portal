@@ -85,7 +85,9 @@ export const LocalShieldPanel = React.memo(({
                     <box flexShrink={1}>
                         <text fg={colors.fg} attributes={TextAttributes.BOLD}>
                             {String((() => {
-                                const text = status === 'active' ? 'SWEEPING' : (status === 'complete' ? 'VERIFIED' : 'STANDBY');
+                                const text = status === 'paused' ? 'PAUSED' :
+                                    status === 'active' ? 'SWEEPING' :
+                                        status === 'complete' ? 'VERIFIED' : 'STANDBY';
                                 return text.length > width - 6 ? text.substring(0, width - 9) + '...' : text;
                             })())}
                         </text>
