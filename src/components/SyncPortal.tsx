@@ -282,20 +282,27 @@ export const SyncPortal = React.memo(({
 
                 {showShield ? (
                     <box flexBasis={panelWidth(showSource ? 1 : 0)} minWidth={panelWidth(showSource ? 1 : 0)} flexShrink={0}>
-                        <LocalShieldPanel
-                            progress={progress}
-                            colors={colors}
-                            width={panelWidth(showSource ? 1 : 0) - 2}
-                            shieldEnabled={true}
-                            onPause={onPause}
-                            onResume={onResume}
-                            isFocused={getPanelFocus("shield")}
-                            onFocus={(keep) => handleFocus("shield", keep)}
-                            subFocusIndex={subFocusIndex}
-                            onSubFocusIndexChange={onSubFocusIndexChange}
-                            height={isRunning ? getDynamicHeight(showSource ? 1 : 0) : 12}
-                            isRunning={isRunning}
-                        />
+                        {(() => {
+                            const shieldIdx = showSource ? 1 : 0;
+                            const baseHeight = getDynamicHeight(shieldIdx);
+                            const shieldHeight = isRunning ? Math.max(baseHeight, 12) : 12;
+                            return (
+                                <LocalShieldPanel
+                                    progress={progress}
+                                    colors={colors}
+                                    width={panelWidth(shieldIdx) - 2}
+                                    shieldEnabled={true}
+                                    onPause={onPause}
+                                    onResume={onResume}
+                                    isFocused={getPanelFocus("shield")}
+                                    onFocus={(keep) => handleFocus("shield", keep)}
+                                    subFocusIndex={subFocusIndex}
+                                    onSubFocusIndexChange={onSubFocusIndexChange}
+                                    height={shieldHeight}
+                                    isRunning={isRunning}
+                                />
+                            );
+                        })()}
                     </box>
                 ) : null}
 

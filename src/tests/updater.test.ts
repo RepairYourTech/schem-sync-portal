@@ -2,7 +2,9 @@ import { expect, test, describe, beforeAll, mock } from "bun:test";
 import { performUpdate } from "../lib/updater";
 import { Logger } from "../lib/logger";
 
-// Mock Bun's spawnSync
+const { spawnSync: realSpawnSync } = await import("bun");
+
+// Mock Bun's spawnSync for git commands
 mock.module("bun", () => ({
     spawnSync: (args: string[]) => {
         const cmd = args.join(" ");
@@ -13,7 +15,9 @@ mock.module("bun", () => ({
         if (cmd.includes("git pull")) return { success: true, stdout: Buffer.from("") };
         if (cmd.includes("git stash pop")) return { success: true, stdout: Buffer.from("") };
         if (cmd.includes("git stash")) return { success: true, stdout: Buffer.from("Saved working directory") };
-        return { success: true, stdout: Buffer.from("") };
+
+        // Fallback for everything else (like 7z/rar in cleanup)
+        return realSpawnSync(args);
     }
 }));
 

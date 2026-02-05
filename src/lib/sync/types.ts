@@ -28,6 +28,7 @@ export interface ManifestStats {
  * Statistics for the malware shield cleanup operation.
  */
 export interface CleanupStats {
+    phase?: "clean";
     totalArchives: number;
     scannedArchives: number;
     currentArchive?: string;
