@@ -1,12 +1,14 @@
 import { Logger } from "../logger";
 import { saveConfig } from "../config";
 import type { PortalConfig } from "../config";
-import type { SyncProgress } from "./types";
+import type { SyncProgress, CleanupStats } from "./types";
 import { runPullPhase } from "./pullPhase";
 // cleanPhase removed - now integrated into pullPhase final sweep
 import { runCloudPhase, runStreamingCloudPhase } from "./cloudPhase";
 import { resetSessionState, resetSessionCompletions, parseJsonLog } from "./progress";
 import { StreamingFileQueue } from "./streamingQueue";
+import { runCleanupSweep } from "../cleanup";
+import { Env } from "../env";
 
 import {
     stopSync,
@@ -119,6 +121,7 @@ export async function runSync(
 
             await Promise.all([
                 runPullPhase(config, wrapProgress, queue).then(() => {
+                    pullFinished = true; // Ensure clean phase shows up after pull
                     Logger.info("SYNC", "Pull phase finished, marking queue complete");
                     queue.markComplete();
                 }),
@@ -128,6 +131,20 @@ export async function runSync(
             // SEQUENTIAL MODE: Either one or the other
             if (showPull) {
                 await runPullPhase(config, wrapProgress);
+            } else if (config.enable_malware_shield) {
+                const excludeFile = Env.getExcludeFilePath(config.local_dir);
+                await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
+                    if ("phase" in cStats && cStats.phase) {
+                        wrapProgress(cStats as Partial<SyncProgress>);
+                        return;
+                    }
+                    const stats = cStats as CleanupStats;
+                    wrapProgress({
+                        phase: "clean",
+                        description: `Shield: Sweep... ${stats.flaggedArchives} threats purged.`,
+                        cleanupStats: stats
+                    });
+                });
             }
 
             if (showCloud) {

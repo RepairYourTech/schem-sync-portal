@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
 import { runSync, clearSyncSession, type SyncProgress } from "../../lib/sync";
 import { createMockConfig } from "../ui-test-helpers";
 import type { PortalConfig } from "../../lib/config";
+import { join } from "path";
+import { existsSync, rmSync, mkdirSync, writeFileSync } from "fs";
 
 
 const mockSaveConfig = mock(() => Promise.resolve());
@@ -33,10 +35,18 @@ describe("E2E: Sync Flow", () => {
     });
 
     it("should progress through pull, clean, and cloud phases", async () => {
+        const testDir = join(process.cwd(), "test_sync_flow_" + Math.random().toString(36).slice(2));
+        if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
+        mkdirSync(testDir, { recursive: true });
+
+        // Create a dummy archive for the shield to find
+        const archivePath = join(testDir, "archive.zip");
+        writeFileSync(archivePath, "fake zip content");
+
         const config = createMockConfig({
             source_provider: "gdrive",
             backup_provider: "b2",
-            local_dir: "/tmp/portal-test",
+            local_dir: testDir,
             upsync_enabled: true,
             enable_malware_shield: true
         });
@@ -50,6 +60,9 @@ describe("E2E: Sync Flow", () => {
             }
             progressUpdates.push(p);
         });
+
+        // Cleanup
+        if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
 
         // Verify phase sequence
         expect(phases).toContain("syncing");
@@ -78,12 +91,16 @@ describe("E2E: Sync Flow", () => {
     });
 
     it("should handle sync failure in rclone", async () => {
+        const testDir = join(process.cwd(), "test_sync_fail_" + Math.random().toString(36).slice(2));
+        if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
+        mkdirSync(testDir, { recursive: true });
+
         // Trigger failure in mock_rclone
         process.env.MOCK_FAIL_PROBABILITY = "1.0";
 
         const config = createMockConfig({
             source_provider: "gdrive",
-            local_dir: "/tmp/portal-test"
+            local_dir: testDir
         });
 
         let errorProgress: Partial<SyncProgress> | null = null;
@@ -96,6 +113,9 @@ describe("E2E: Sync Flow", () => {
 
         // Reset failure probability
         process.env.MOCK_FAIL_PROBABILITY = "0";
+
+        // Cleanup
+        if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
     });
 
 

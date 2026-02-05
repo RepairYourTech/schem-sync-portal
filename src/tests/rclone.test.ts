@@ -1,7 +1,6 @@
-import { mock, expect, test, describe, beforeEach, spyOn } from "bun:test";
+import { mock, expect, test, describe, beforeEach, afterAll, spyOn } from "bun:test";
 
 // 1. Setup spies on Bun globals
-// We use unknown cast to satisfy the complex overloads of Bun.spawnSync/spawn without using 'any'
 const mockSpawnSync = spyOn(Bun, "spawnSync").mockImplementation((..._args: unknown[]) => {
     return {
         success: true,
@@ -35,6 +34,12 @@ import { createRcloneRemote } from "../lib/rclone";
 import { Logger } from "../lib/logger";
 
 describe("Rclone Config Sanitization", () => {
+    afterAll(() => {
+        mockSpawnSync.mockRestore();
+        mockSpawn.mockRestore();
+        mockWhich.mockRestore();
+    });
+
     beforeEach(() => {
         mockSpawnSync.mockClear();
         mockSpawn.mockClear();

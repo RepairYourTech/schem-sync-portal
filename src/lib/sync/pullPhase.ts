@@ -8,9 +8,10 @@ import {
     getSessionCompletionsSize,
     clearActiveTransfers
 } from "./progress";
-import { runCleanupSweep, cleanFile, ShieldManager } from "../cleanup";
+import { runCleanupSweep, cleanFile } from "../cleanup";
+import { ShieldManager } from "../shield/ShieldManager";
 import type { PortalConfig } from "../config";
-import type { SyncProgress, ManifestStats } from "./types";
+import type { SyncProgress, ManifestStats, CleanupStats } from "./types";
 import type { StreamingFileQueue } from "./streamingQueue";
 
 /**
@@ -187,11 +188,16 @@ export async function runPullPhase(
 
         // Neutralize through both archive sweep AND direct file cleanup
         await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
+            if ("phase" in cStats && cStats.phase) {
+                onProgress(cStats as Partial<SyncProgress>);
+                return;
+            }
+            const stats = cStats as CleanupStats;
             onProgress({
                 phase: "clean",
-                description: `Shield: Neutralizing archives... ${cStats.flaggedArchives} threats purged.`,
+                description: `Shield: Neutralizing archives... ${stats.flaggedArchives} threats purged.`,
                 manifestStats,
-                cleanupStats: cStats,
+                cleanupStats: stats,
                 percentage: Math.min(100, Math.round((getSessionCompletionsSize() / (riskyItems.length + standardItems.length)) * 100))
             });
         });
@@ -260,10 +266,15 @@ export async function runPullPhase(
     if (config.enable_malware_shield) {
         onProgress({ phase: "clean", description: "Shield: Final security sweep..." });
         await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
+            if ("phase" in cStats && cStats.phase) {
+                onProgress(cStats as Partial<SyncProgress>);
+                return;
+            }
+            const stats = cStats as CleanupStats;
             onProgress({
                 phase: "clean",
-                description: `Shield: Final sweep... ${cStats.scannedArchives}/${cStats.totalArchives} archives checked.`,
-                cleanupStats: cStats
+                description: `Shield: Final sweep... ${stats.scannedArchives}/${stats.totalArchives} archives checked.`,
+                cleanupStats: stats
             });
         });
     }

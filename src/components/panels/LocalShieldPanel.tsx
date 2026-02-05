@@ -76,18 +76,23 @@ export const LocalShieldPanel = React.memo(({
             />
 
             {/* Shield Stats Body */}
-            <box flexDirection="column" gap={0} marginTop={0} paddingLeft={1} paddingRight={1} flexGrow={1}>
+            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1} overflow="hidden">
                 {/* Visual Status Indicator */}
-                <box flexDirection="row" alignItems="center" gap={1} marginBottom={0}>
-                    <text fg={status === 'active' ? colors.setup : (status === 'complete' ? colors.success : colors.dim)}>
+                <box flexDirection="row" alignItems="center" gap={1} height={1} paddingLeft={1} paddingRight={1}>
+                    <text fg={status === 'active' ? colors.setup : (status === 'complete' ? colors.success : colors.dim)} flexShrink={0}>
                         {String(status === 'active' ? '\ueb72' : (status === 'complete' ? '\uf058' : '\ueb9c'))}
                     </text>
-                    <text fg={colors.fg} attributes={TextAttributes.BOLD}>
-                        {String(status === 'active' ? 'SWEEPING ARCHIVES' : (status === 'complete' ? 'PROTECTION VERIFIED' : 'SHIELD STANDBY'))}
-                    </text>
+                    <box flexShrink={1}>
+                        <text fg={colors.fg} attributes={TextAttributes.BOLD}>
+                            {String((() => {
+                                const text = status === 'active' ? 'SWEEPING' : (status === 'complete' ? 'VERIFIED' : 'STANDBY');
+                                return text.length > width - 6 ? text.substring(0, width - 9) + '...' : text;
+                            })())}
+                        </text>
+                    </box>
                 </box>
 
-                <box flexDirection="row" justifyContent="space-between" height={1} marginBottom={0}>
+                <box flexDirection="row" justifyContent="space-between" height={1} paddingLeft={1} paddingRight={1}>
                     <box flexDirection="row" gap={1}>
                         <text fg={colors.dim}>Found:</text>
                         <text fg={colors.fg} attributes={TextAttributes.BOLD}>{String(stats?.totalArchives || 0)}</text>
@@ -100,32 +105,34 @@ export const LocalShieldPanel = React.memo(({
                     </box>
                 </box>
 
-                <box flexDirection="column" gap={0} marginTop={0}>
-                    <text fg={colors.dim}>Current Target:</text>
-                    <text fg={status === 'active' ? colors.setup : colors.dim} attributes={status === 'active' ? TextAttributes.BOLD : 0}>
-                        {String(stats?.currentArchive ? (stats.currentArchive.length > width - 4 ? '...' + stats.currentArchive.substring(stats.currentArchive.length - (width - 7)) : stats.currentArchive) : (status === 'complete' ? '--- ALL SYSTEMS CLEAN ---' : 'IDLE'))}
-                    </text>
+                <box flexDirection="row" justifyContent="space-between" height={1} paddingLeft={1} paddingRight={1}>
+                    <text fg={colors.dim} flexShrink={0}>Target:</text>
+                    <box flexShrink={1}>
+                        <text fg={status === 'active' ? colors.setup : colors.dim} attributes={status === 'active' ? TextAttributes.BOLD : 0}>
+                            {String(stats?.currentArchive ? (stats.currentArchive.length > width - 12 ? '...' + stats.currentArchive.substring(stats.currentArchive.length - (width - 15)) : stats.currentArchive) : (status === 'complete' ? 'CLEAN' : 'IDLE'))}
+                        </text>
+                    </box>
                 </box>
 
-                <box flexDirection="row" justifyContent="space-between" height={1} marginTop={0}>
+                <box flexDirection="row" justifyContent="space-between" height={1} paddingLeft={1} paddingRight={1}>
                     <box flexDirection="row" gap={1}>
                         <text fg={colors.dim}>Cleaned:</text>
                         <text fg={colors.success} attributes={TextAttributes.BOLD}>{String(stats?.extractedFiles || 0)}</text>
                     </box>
                     {!!(stats?.riskyPatternCount && stats.riskyPatternCount > 0) ? (
-                        <text fg={colors.danger} attributes={TextAttributes.BOLD}>[ {String(stats.riskyPatternCount)} NEUTRALIZED ]</text>
+                        <text fg={colors.danger} attributes={TextAttributes.BOLD}>[ {String(stats.riskyPatternCount)} ]</text>
                     ) : null}
                 </box>
 
             </box>
 
             {/* ACTION BAR (Bottom-docked) */}
-            <box marginTop="auto">
+            <box marginTop="auto" paddingLeft={1} paddingRight={1}>
                 <PanelControls
                     onPause={(isActive && !isGlobalPaused) ? onPause : undefined}
                     onResume={isGlobalPaused ? onResume : undefined}
                     colors={colors}
-                    width={width}
+                    width={width - 2}
                     isFocused={isFocused}
                     subFocusIndex={subFocusIndex}
                     onSubFocusIndexChange={_onSubFocusIndexChange}
