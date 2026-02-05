@@ -5,7 +5,7 @@ import { glob } from "glob";
 import { Env } from "./env";
 import { Logger } from "./logger";
 import { ShieldManager } from "./shield/ShieldManager";
-import { KEEP_EXTS, GARBAGE_PATTERNS, PRIORITY_FILENAMES } from "./shield/patterns";
+import { KEEP_EXTS, GARBAGE_PATTERNS, PRIORITY_FILENAMES, SAFE_PATTERNS } from "./shield/patterns";
 import type { CleanupStats, SyncProgress } from "./sync/types";
 
 let _overrideSpawnSync: typeof bunSpawnSync | null = null;
@@ -108,7 +108,38 @@ async function cleanArchive(
 
     const fileName = basename(relPath);
     const isKnownBad = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase());
-    const hasGarbage = isKnownBad || GARBAGE_PATTERNS.some(p => internalListing.toLowerCase().includes(p.toLowerCase()));
+
+    // Context-aware garbage detection
+    const hasGarbage = isKnownBad || (() => {
+        const lowerListing = internalListing.toLowerCase();
+
+        // 1. Check exact High Confidence patterns
+        if (GARBAGE_PATTERNS.some(p => lowerListing.includes(p.toLowerCase()))) {
+            return true;
+        }
+
+        // 2. Check Medium Confidence patterns (need context)
+        const mediumConfidence = ["activator", "bypass", "medicine", "fixed"];
+        const hasMedium = mediumConfidence.some(p => {
+            if (!lowerListing.includes(p)) return false;
+            // Only flag if it's an executable or in a suspicious path
+            return lowerListing.includes(p + ".exe") ||
+                lowerListing.includes(p + "/") ||
+                lowerListing.includes("/" + p);
+        });
+
+        if (hasMedium) {
+            // 3. Whitelist check: If safe patterns are present (BIOS utilities), and no high-confidence garbage, it's likely safe
+            const hasSafe = SAFE_PATTERNS.some((p: string) => lowerListing.includes(p.toLowerCase()));
+            if (hasSafe) {
+                Logger.info("SHIELD", `Archive ${fileName} contains safe patterns (${SAFE_PATTERNS.filter((p: string) => lowerListing.includes(p.toLowerCase())).join(", ")}), suppressing medium-confidence alert.`);
+                return false;
+            }
+            return true;
+        }
+
+        return false;
+    })();
 
     if (hasGarbage) {
         Logger.info("SHIELD", `Detected risky archive: ${relPath}`);
@@ -176,7 +207,10 @@ async function cleanArchive(
             }
         }
 
+        // Add to offenders and exclusions BEFORE removal/move
         ShieldManager.addOffender(baseDir, relPath, "Archive contains malware patterns");
+        ShieldManager.updateExclusions(baseDir, [relPath]);
+
         try {
             if (policy === "isolate") {
                 const riskDir = join(baseDir, "_risk_tools");
