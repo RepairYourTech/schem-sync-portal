@@ -49,11 +49,12 @@ export const UpsyncPanel = React.memo(({
 }: UpsyncPanelProps) => {
     const isActive = progress.phase !== "done" && progress.phase !== "error";
     const isGlobalPaused = progress.isPaused;
+    const isCloudPaused = isPhasePaused?.('cloud') ?? isGlobalPaused;
     const isShieldPaused = isPhasePaused?.('shield') ?? false;
 
     const status: PanelStatus = !upsyncEnabled ? "idle" :
         isShieldPaused ? "blocked" :
-            isGlobalPaused ? "paused" :
+            isCloudPaused ? "paused" :
                 isActive ? "active" :
                     (progress.phase === "pull" || progress.phase === "clean") ? "waiting" :
                         progress.phase === "done" ? "complete" : "idle";
@@ -97,8 +98,8 @@ export const UpsyncPanel = React.memo(({
             {/* ACTION BAR (Bottom-docked) */}
             <box marginTop="auto">
                 <PanelControls
-                    onPause={(isActive && !isGlobalPaused) ? onPause : undefined}
-                    onResume={isGlobalPaused ? onResume : undefined}
+                    onPause={(isActive && !isCloudPaused) ? onPause : undefined}
+                    onResume={isCloudPaused ? onResume : undefined}
                     transfers={transfers}
                     onRateChange={onRateChange}
                     colors={colors}

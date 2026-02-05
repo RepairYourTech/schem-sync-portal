@@ -17,6 +17,7 @@ interface DownsyncPanelProps {
     width: number;
     onPause?: () => void;
     onResume?: () => void;
+    isPhasePaused?: (phase: 'pull' | 'shield' | 'cloud') => boolean;
     height?: number;
     maxFiles?: number;
     transfers?: 4 | 6 | 8;
@@ -41,12 +42,14 @@ export const DownsyncPanel = React.memo(({
     isFocused = false,
     onFocus,
     subFocusIndex = 0,
-    onSubFocusIndexChange: _onSubFocusIndexChange
+    onSubFocusIndexChange: _onSubFocusIndexChange,
+    isPhasePaused
 }: DownsyncPanelProps) => {
     const isActive = progress.phase !== "done" && progress.phase !== "error";
     const isGlobalPaused = progress.isPaused;
 
-    const status: PanelStatus = isGlobalPaused ? "paused" :
+    const isPullPaused = isPhasePaused?.('pull') ?? isGlobalPaused;
+    const status: PanelStatus = isPullPaused ? "paused" :
         isActive ? "active" :
             (progress.phase === "cloud" || progress.phase === "done" || progress.phase === "clean") ? "complete" : "idle";
 
@@ -88,8 +91,8 @@ export const DownsyncPanel = React.memo(({
             {/* ACTION BAR (Bottom-docked) */}
             <box marginTop="auto">
                 <PanelControls
-                    onPause={(isActive && !isGlobalPaused) ? onPause : undefined}
-                    onResume={isGlobalPaused ? onResume : undefined}
+                    onPause={(isActive && !isPullPaused) ? onPause : undefined}
+                    onResume={isPullPaused ? onResume : undefined}
                     transfers={transfers}
                     onRateChange={onRateChange}
                     colors={colors}
