@@ -285,6 +285,7 @@ export const SyncPortal = React.memo(({
                             width={panelWidth(0) - 2}
                             onPause={onPausePull || onPause}
                             onResume={onResumePull || onResume}
+                            isPhasePaused={isPhasePaused}
                             height={isRunning ? getDynamicHeight(0, "source") : 12}
                             maxFiles={getMaxFiles(getDynamicHeight(0, "source"), "source")}
                             transfers={config.downsync_transfers}
@@ -311,6 +312,7 @@ export const SyncPortal = React.memo(({
                                     shieldEnabled={true}
                                     onPause={onPauseShield || onPause}
                                     onResume={onResumeShield || onResume}
+                                    isPhasePaused={isPhasePaused}
                                     isFocused={getPanelFocus("shield")}
                                     onFocus={(keep) => handleFocus("shield", keep)}
                                     subFocusIndex={subFocusIndex}

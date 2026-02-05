@@ -230,6 +230,63 @@ describe("Panel Focus Preservation", () => {
     });
 });
 
+describe("Per-Phase Pause Controls", () => {
+    it("should enable pause button when phase is active and not paused", () => {
+        const isPhasePaused = (_phase: 'pull' | 'shield' | 'cloud') => false;
+
+        const { findWithProp } = render(
+            <DownsyncPanel
+                progress={activeProgress}
+                sourceType="CLOUD"
+                colors={mockColors}
+                width={80}
+                onPause={() => { }}
+                isPhasePaused={isPhasePaused}
+            />
+        );
+
+        const controls = findWithProp("onPause");
+        expect(controls).toBeDefined();
+    });
+
+    it("should enable resume button when phase is paused", () => {
+        const isPhasePaused = (phase: 'pull' | 'shield' | 'cloud') => phase === 'pull';
+
+        const { findWithProp } = render(
+            <DownsyncPanel
+                progress={activeProgress}
+                sourceType="CLOUD"
+                colors={mockColors}
+                width={80}
+                onResume={() => { }}
+                isPhasePaused={isPhasePaused}
+            />
+        );
+
+        const controls = findWithProp("onResume");
+        expect(controls).toBeDefined();
+    });
+
+    it("should not disable other panels when one is paused", () => {
+        const isPhasePaused = (phase: 'pull' | 'shield' | 'cloud') => phase === 'pull';
+
+        // Shield should still have pause button
+        const { findWithProp: findShield } = render(
+            <LocalShieldPanel
+                progress={activeProgress}
+                colors={mockColors}
+                width={80}
+                shieldEnabled={true}
+                onPause={() => { }}
+                isPhasePaused={isPhasePaused}
+            />
+        );
+
+        const shieldControls = findShield("onPause");
+        expect(shieldControls).toBeDefined();
+    });
+});
+
 describe("Panel Sub-Focus Interaction", () => {
     it("should support speed selector sub-focus indices (1-3)", () => {
         const subFocusIndices = [1, 2, 3];

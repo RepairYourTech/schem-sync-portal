@@ -16,6 +16,7 @@ interface LocalShieldPanelProps {
     shieldEnabled: boolean;
     onPause?: () => void;
     onResume?: () => void;
+    isPhasePaused?: (phase: 'pull' | 'shield' | 'cloud') => boolean;
     isFocused?: boolean;
     onFocus?: (keepSubFocus?: boolean) => void;
     height?: number;
@@ -36,7 +37,8 @@ export const LocalShieldPanel = React.memo(({
     height: _height = 12,
     isRunning: _isRunning = false,
     subFocusIndex = 0,
-    onSubFocusIndexChange: _onSubFocusIndexChange
+    onSubFocusIndexChange: _onSubFocusIndexChange,
+    isPhasePaused
 }: LocalShieldPanelProps) => {
     const isActive = progress.phase !== "done" && progress.phase !== "error";
     const isGlobalPaused = progress.isPaused;
@@ -45,8 +47,9 @@ export const LocalShieldPanel = React.memo(({
     const isShieldActive = progress.phase === "clean" ||
         (progress.phase === "pull" && progress.description.toLowerCase().includes("shield:"));
 
+    const isShieldPaused = isPhasePaused?.('shield') ?? isGlobalPaused;
     const status: PanelStatus = !shieldEnabled ? "idle" :
-        isGlobalPaused ? "paused" :
+        isShieldPaused ? "paused" :
             isShieldActive ? "active" :
                 progress.phase === "pull" ? "waiting" :
                     (progress.phase === "cloud" || progress.phase === "done") ? "complete" : "idle";
@@ -165,8 +168,8 @@ export const LocalShieldPanel = React.memo(({
             {/* ACTION BAR (Bottom-docked) */}
             <box marginTop="auto" flexShrink={0}>
                 <PanelControls
-                    onPause={(isActive && !isGlobalPaused) ? onPause : undefined}
-                    onResume={isGlobalPaused ? onResume : undefined}
+                    onPause={(isActive && !isShieldPaused) ? onPause : undefined}
+                    onResume={isShieldPaused ? onResume : undefined}
                     colors={colors}
                     width={width}
                     isFocused={isFocused}
