@@ -86,4 +86,17 @@ file_b.bin
         expect(verification.missing).toEqual(["missing.txt"]);
         expect(verification.total).toBe(2);
     });
+
+    it("should incrementally update manifest", () => {
+        const initialFiles = ["file1.txt"];
+        ShieldManager.saveUpsyncManifest(testDir, initialFiles, "purge");
+
+        const updateFiles = ["file2.txt", "file1.txt"]; // file1 is duplicate
+        const metadata = ShieldManager.updateUpsyncManifest(testDir, updateFiles);
+
+        expect(metadata.fileCount).toBe(2);
+        const manifest = ShieldManager.loadManifest(testDir);
+        expect(manifest.files).toEqual(["file1.txt", "file2.txt"]);
+        expect(new Date(manifest.generatedAt).getTime()).toBeGreaterThan(0);
+    });
 });
