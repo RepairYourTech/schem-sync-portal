@@ -9,6 +9,20 @@ import type { SyncProgress } from "./types";
  */
 
 const activeProcs = new Set<Subprocess>();
+let currentSessionId: string | null = null;
+
+export function startNewSession(): string {
+    currentSessionId = `session_${Date.now()}`;
+    return currentSessionId;
+}
+
+export function getCurrentSessionId(): string | null {
+    return currentSessionId;
+}
+
+export function isNewSession(sessionId: string): boolean {
+    return sessionId !== currentSessionId;
+}
 
 // Per-phase process tracking for independent pause control
 const phaseProcesses: { pull: Set<Subprocess>, shield: Set<Subprocess>, cloud: Set<Subprocess> } = {
