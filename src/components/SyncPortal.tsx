@@ -285,7 +285,7 @@ export const SyncPortal = React.memo(({
                         {(() => {
                             const shieldIdx = showSource ? 1 : 0;
                             const baseHeight = getDynamicHeight(shieldIdx);
-                            const shieldHeight = isRunning ? Math.max(baseHeight, 12) : 12;
+                            const shieldHeight = isRunning ? baseHeight : 12;
                             return (
                                 <LocalShieldPanel
                                     progress={progress}
