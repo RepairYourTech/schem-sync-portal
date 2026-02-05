@@ -162,7 +162,10 @@ export const SyncPortal = React.memo(({
 
     // In stage B (2+1), top panels share height, bottom is full. 
     // In stage A (3 side-by-side), all share height.
-    const getDynamicHeight = (idx: number) => {
+    const getDynamicHeight = (idx: number, type: "source" | "shield" | "dest") => {
+        // Shield panel MUST stay compact (approx 10-11 rows for ultra-condensed stats + controls)
+        if (type === "shield") return isRunning ? 11 : 12;
+
         if (visiblePanelCount <= 1) return Math.max(12, availableHeight);
         if (visiblePanelCount === 2) {
             return canFit2 ? Math.max(12, availableHeight) : Math.max(10, Math.floor(availableHeight / 2));
@@ -268,8 +271,8 @@ export const SyncPortal = React.memo(({
                             width={panelWidth(0) - 2}
                             onPause={onPause}
                             onResume={onResume}
-                            height={isRunning ? getDynamicHeight(0) : 12}
-                            maxFiles={getMaxFiles(getDynamicHeight(0), "source")}
+                            height={isRunning ? getDynamicHeight(0, "source") : 12}
+                            maxFiles={getMaxFiles(getDynamicHeight(0, "source"), "source")}
                             transfers={config.downsync_transfers}
                             onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
                             isFocused={getPanelFocus("source")}
@@ -284,7 +287,7 @@ export const SyncPortal = React.memo(({
                     <box flexBasis={panelWidth(showSource ? 1 : 0)} minWidth={panelWidth(showSource ? 1 : 0)} flexShrink={0}>
                         {(() => {
                             const shieldIdx = showSource ? 1 : 0;
-                            const baseHeight = getDynamicHeight(shieldIdx);
+                            const baseHeight = getDynamicHeight(shieldIdx, "shield");
                             const shieldHeight = isRunning ? baseHeight : 12;
                             return (
                                 <LocalShieldPanel
@@ -316,8 +319,8 @@ export const SyncPortal = React.memo(({
                             upsyncEnabled={true}
                             onPause={onPause}
                             onResume={onResume}
-                            height={isRunning ? getDynamicHeight(visiblePanelCount - 1) : 12}
-                            maxFiles={getMaxFiles(getDynamicHeight(visiblePanelCount - 1), "dest")}
+                            height={isRunning ? getDynamicHeight(visiblePanelCount - 1, "dest") : 12}
+                            maxFiles={getMaxFiles(getDynamicHeight(visiblePanelCount - 1, "dest"), "dest")}
                             transfers={config.upsync_transfers}
                             onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}
                             isFocused={getPanelFocus("dest")}
