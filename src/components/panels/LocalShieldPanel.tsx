@@ -127,12 +127,12 @@ export const LocalShieldPanel = React.memo(({
             </box>
 
             {/* ACTION BAR (Bottom-docked) */}
-            <box marginTop="auto" paddingLeft={1} paddingRight={1} flexShrink={0}>
+            <box marginTop="auto" flexShrink={0}>
                 <PanelControls
                     onPause={(isActive && !isGlobalPaused) ? onPause : undefined}
                     onResume={isGlobalPaused ? onResume : undefined}
                     colors={colors}
-                    width={width - 2}
+                    width={width}
                     isFocused={isFocused}
                     subFocusIndex={subFocusIndex}
                     onSubFocusIndexChange={_onSubFocusIndexChange}
