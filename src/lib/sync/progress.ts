@@ -37,12 +37,12 @@ function getQueueFromMap(map: Map<string, FileTransferItem>, limit = 10): FileTr
 /**
  * Core log parser for rclone --use-json-log
  */
-export function parseJsonLog(
+export async function parseJsonLog(
     json: unknown,
     onUpdate: (stats: Partial<SyncProgress>) => void,
-    onFileComplete?: (filename: string) => void,
+    onFileComplete?: (filename: string) => Promise<void> | void,
     type: "download" | "upload" = "download"
-): void {
+): Promise<void> {
     const data = json as Record<string, unknown>;
     const targetMap = type === "download" ? downloadTransfers : uploadTransfers;
 
@@ -81,7 +81,7 @@ export function parseJsonLog(
             if (status === "completed") {
                 const alreadyDone = sessionCompletions.has(name);
                 sessionCompletions.add(name);
-                if (!alreadyDone && onFileComplete) onFileComplete(name);
+                if (!alreadyDone && onFileComplete) await onFileComplete(name);
             }
 
             targetMap.set(name, {
@@ -102,7 +102,7 @@ export function parseJsonLog(
         if (name) {
             const alreadyDone = sessionCompletions.has(name);
             sessionCompletions.add(name);
-            if (!alreadyDone && onFileComplete) onFileComplete(name);
+            if (!alreadyDone && onFileComplete) await onFileComplete(name);
 
             // Ensure file is in the target map
             const existing = targetMap.get(name);
@@ -151,7 +151,7 @@ export function parseJsonLog(
                     if (status === "completed") {
                         const alreadyDone = sessionCompletions.has(name);
                         sessionCompletions.add(name);
-                        if (!alreadyDone && onFileComplete) onFileComplete(name);
+                        if (!alreadyDone && onFileComplete) await onFileComplete(name);
                     }
 
                     targetMap.set(name, {

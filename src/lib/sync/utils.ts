@@ -152,7 +152,7 @@ export async function executeRclone(
 
                     try {
                         const json = JSON.parse(cleanedLine);
-                        parseJsonLog(json, onUpdate, onFileComplete, type);
+                        await parseJsonLog(json, onUpdate, onFileComplete, type);
                         if (json.msg) {
                             if (json.level === "error") Logger.error("SYNC", `[rclone] ${json.msg}`);
                             else if (json.level === "info") Logger.info("SYNC", `[rclone] ${json.msg}`);

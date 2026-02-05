@@ -176,7 +176,7 @@ async function cleanArchive(
             }
         }
 
-        ShieldManager.addOffender(relPath, baseDir);
+        ShieldManager.addOffender(baseDir, relPath, "Archive contains malware patterns");
         try {
             if (policy === "isolate") {
                 const riskDir = join(baseDir, "_risk_tools");
@@ -240,7 +240,7 @@ export async function cleanFile(
                 if (stats) stats.purgedFiles++;
                 Logger.info("SHIELD", `Purged individual file: ${relPath}`);
             }
-            ShieldManager.addOffender(relPath, baseDir);
+            ShieldManager.addOffender(baseDir, relPath, "File matches malware pattern");
             if (stats && onProgress) onProgress(stats);
             return true;
         } catch (e) {
