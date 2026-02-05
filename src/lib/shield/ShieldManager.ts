@@ -2,7 +2,8 @@ import { writeFileSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { Logger } from "../logger";
 import { Env } from "../env";
-import { ManifestParser, type ShieldManifest } from "./manifestParser";
+import { ManifestParser } from "./manifestParser";
+import { type ShieldManifest } from "./types";
 
 export interface ShieldMetadata {
     fileCount: number;
@@ -89,7 +90,7 @@ export const ShieldManager = {
      */
     verifyManifest(localDir: string): { total: number; missing: string[]; valid: boolean } {
         const manifest = this.loadManifest(localDir);
-        const missing = manifest.files.filter(f => !existsSync(join(localDir, f)));
+        const missing = manifest.files.filter((f: string) => !existsSync(join(localDir, f)));
         return {
             total: manifest.files.length,
             missing,
@@ -137,5 +138,29 @@ export const ShieldManager = {
 
         const merged = Array.from(new Set([...currentPatterns, ...patterns]));
         writeFileSync(excludeFile, merged.join("\n"), "utf8");
+    },
+
+    /**
+     * Gets the list of previously identified offenders.
+     */
+    getOffenders(localDir: string): string[] {
+        const listPath = Env.getOffenderListPath(localDir);
+        if (!existsSync(listPath)) return [];
+        try {
+            const offenders = JSON.parse(readFileSync(listPath, "utf8"));
+            return Array.isArray(offenders) ? offenders.map((o: { path: string }) => o.path) : [];
+        } catch {
+            return [];
+        }
+    },
+
+    /**
+     * Gets the static list of filenames and extensions that trigger immediate shielding.
+     */
+    getPriorityFilenames(): string[] {
+        return [
+            "FlexBV.exe", "BoardViewer.exe", "OpenBoardView.exe",
+            ".exe", ".zip", ".rar", ".7z", ".tar.gz", ".tar.xz"
+        ];
     }
 };
