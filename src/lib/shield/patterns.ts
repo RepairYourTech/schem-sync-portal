@@ -18,11 +18,15 @@ export const GARBAGE_PATTERNS = [
     "patch.exe", "Patch.exe",
     "keygen.exe", "Keygen.exe",
     "loader.exe", "Loader.exe",
+    "activator.exe", "Activator.exe",
+    "bypass.exe", "Bypass.exe",
     ".exe.bak", ".exe.BAK",                            // Backup of cracked executables
+    "DOS4GW.EXE", "DOS4GW",                            // Suspicious in BIOS context
 
-    // === GENERIC INDICATORS (Medium Confidence - need context) ===
-    "activator", "bypass", "medicine", "fixed",
-    "DOS4GW.EXE", "DOS4GW"                             // Suspicious in BIOS context
+    // === DIRECTORY/FOLDER PATTERNS (High Confidence) ===
+    "crack/", "Crack/",
+    "keygen/", "Keygen/",
+    "medicine/", "Medicine/"
 ];
 
 export const PRIORITY_FILENAMES = [
