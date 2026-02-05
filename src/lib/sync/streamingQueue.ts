@@ -61,6 +61,9 @@ export class StreamingFileQueue {
      * Mark the queue as complete (no more files will be added).
      */
     markComplete() {
+        if (this.pendingFiles.size > 0) {
+            Logger.warn("SYNC", `Queue marked complete with ${this.pendingFiles.size} files still pending! These will never be upsynced.`);
+        }
         this.isComplete = true;
         Logger.debug("SYNC", "Queue marked complete");
         // Wake up drainers so they can exit

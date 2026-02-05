@@ -8,8 +8,8 @@ import {
     getSessionCompletionsSize,
     clearActiveTransfers
 } from "./progress";
-import { runCleanupSweep, cleanFile } from "../cleanup";
 import { ShieldManager } from "../shield/ShieldManager";
+import { ShieldExecutor } from "../shield/ShieldExecutor";
 import type { PortalConfig } from "../config";
 import type { SyncProgress, ManifestStats, CleanupStats } from "./types";
 import type { StreamingFileQueue } from "./streamingQueue";
@@ -91,6 +91,26 @@ export async function runPullPhase(
     onProgress: (p: Partial<SyncProgress>) => void,
     cleanedQueue?: StreamingFileQueue
 ): Promise<void> {
+    const releasePending = () => {
+        if (!cleanedQueue) return;
+        const verifiedFiles: string[] = [];
+        const scan = (dir: string, base: string) => {
+            if (!existsSync(dir)) return;
+            const entries = readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+                const relPath = join(base, entry.name);
+                if (entry.isDirectory()) {
+                    scan(join(dir, entry.name), relPath);
+                } else if (entry.isFile()) {
+                    verifiedFiles.push(relPath);
+                }
+            }
+        };
+        scan(config.local_dir, "");
+        if (verifiedFiles.length > 0) {
+            cleanedQueue.clearPending(verifiedFiles);
+        }
+    };
     const excludeFile = Env.getExcludeFilePath(config.local_dir);
     const sourceRemote = `${Env.REMOTE_PORTAL_SOURCE}:/`;
 
@@ -199,27 +219,25 @@ export async function runPullPhase(
         }, undefined, "download", "pull");
 
         // Neutralize through both archive sweep AND direct file cleanup
-        await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
-            if ("phase" in cStats && cStats.phase && !("scannedArchives" in cStats)) {
-                onProgress(cStats as Partial<SyncProgress>);
-                return;
-            }
-            // Update our cumulative stats
-            Object.assign(cleanupStats, cStats);
-            onProgress({
-                phase: "clean",
-                description: `Shield: Neutralizing archives... ${cleanupStats.flaggedArchives} threats purged.`,
-                manifestStats,
-                cleanupStats,
-                percentage: Math.min(100, Math.round((getSessionCompletionsSize() / (riskyItems.length + standardItems.length)) * 100))
-            });
-        }, undefined, cleanupStats);
+        await ShieldExecutor.execute({
+            type: "risky_sweep",
+            localDir: config.local_dir,
+            policy: config.malware_policy || "purge",
+            excludeFile,
+            onProgress,
+            initialStats: cleanupStats
+        });
 
         for (const item of riskyItems) {
             const fullPath = join(config.local_dir, item);
             if (existsSync(fullPath)) {
-                await cleanFile(fullPath, config.local_dir, config.malware_policy || "purge", cleanupStats, (stats) => {
-                    onProgress({ cleanupStats: stats, description: `Shield: Cleaning ${item}...` });
+                await ShieldExecutor.execute({
+                    type: "realtime_clean",
+                    localDir: config.local_dir,
+                    policy: config.malware_policy || "purge",
+                    filePath: fullPath,
+                    onProgress,
+                    initialStats: cleanupStats
                 });
 
                 // If it survives cleaning and we have a queue, mark as pending shield clearance
@@ -265,6 +283,7 @@ export async function runPullPhase(
         standardArgs.push("--exclude-from", excludeFile, "--exclude", "_risk_tools/**");
     } else {
         // Manifest exists but no missing files identified - nothing to do for standard
+        releasePending();
         return;
     }
 
@@ -291,8 +310,13 @@ export async function runPullPhase(
         if (config.enable_malware_shield) {
             const fullPath = join(config.local_dir, filename);
             if (existsSync(fullPath)) {
-                await cleanFile(fullPath, config.local_dir, config.malware_policy || "purge", cleanupStats, (stats) => {
-                    onProgress({ cleanupStats: stats, description: `Shield: Cleaning ${filename}...` });
+                await ShieldExecutor.execute({
+                    type: "realtime_clean",
+                    localDir: config.local_dir,
+                    policy: config.malware_policy || "purge",
+                    filePath: fullPath,
+                    onProgress,
+                    initialStats: cleanupStats
                 });
             }
         }
@@ -307,49 +331,27 @@ export async function runPullPhase(
 
     // FINAL SWEEP: Catch any archives identified after download during standard pull
     if (config.enable_malware_shield) {
-        onProgress({ phase: "clean", description: "Shield: Final security sweep...", cleanupStats });
-        await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
-            if ("phase" in cStats && cStats.phase && !("scannedArchives" in cStats)) {
-                onProgress(cStats as Partial<SyncProgress>);
-                return;
-            }
-            // Update our cumulative stats
-            Object.assign(cleanupStats, cStats);
-            onProgress({
-                phase: "clean",
-                description: `Shield: Final sweep... ${cleanupStats.scannedArchives}/${cleanupStats.totalArchives} archives checked.`,
-                cleanupStats: cleanupStats
-            });
-        }, undefined, cleanupStats);
+        await ShieldExecutor.execute({
+            type: "final_sweep",
+            localDir: config.local_dir,
+            policy: config.malware_policy || "purge",
+            excludeFile,
+            onProgress,
+            initialStats: cleanupStats
+        });
 
-        // After final sweep, scan local directory and release all verified files for upsync
-        if (cleanedQueue) {
-            const verifiedFiles: string[] = [];
-            const scanVerified = (dir: string, base: string) => {
-                if (!existsSync(dir)) return;
-                const entries = readdirSync(dir, { withFileTypes: true });
-                for (const entry of entries) {
-                    const relPath = join(base, entry.name);
-                    if (entry.isDirectory()) {
-                        scanVerified(join(dir, entry.name), relPath);
-                    } else if (entry.isFile()) {
-                        verifiedFiles.push(relPath);
-                    }
-                }
-            };
-            scanVerified(config.local_dir, "");
-            if (verifiedFiles.length > 0) {
-                const previouslyCleared = clearedForUpsyncCount;
-                cleanedQueue.clearPending(verifiedFiles);
-                clearedForUpsyncCount = verifiedFiles.length;
-                pendingShieldCount = 0;
-                onProgress({
-                    pendingShieldCount: 0,
-                    clearedForUpsyncCount,
-                    description: `All ${clearedForUpsyncCount} files cleared for upsync after final shield sweep`
-                });
-                Logger.info("SYNC", `Released ${verifiedFiles.length - previouslyCleared} newly verified files for upsync after final shield sweep`);
-            }
+        // After final sweep, release all verified files for upsync
+        releasePending();
+        const finalCleared = cleanedQueue?.getPendingCount() === 0;
+        if (finalCleared) {
+            clearedForUpsyncCount = 0; // Reset for final count log if needed, or just update UI
+            onProgress({
+                pendingShieldCount: 0,
+                description: `All files cleared for upsync after final shield sweep`
+            });
         }
     }
+
+    // GUARANTEED CLEARANCE: Ensure all pending files are released before finishing pull phase
+    releasePending();
 }

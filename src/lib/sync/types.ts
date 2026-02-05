@@ -40,6 +40,8 @@ export interface CleanupStats {
     extractedFiles: number;
     purgedFiles: number;
     isolatedFiles: number;
+    extractedFilePaths?: string[]; // NEW: Track actual extracted files
+    executionContext?: "risky_sweep" | "realtime_clean" | "final_sweep";
     policyMode: "purge" | "isolate";
 }
 

@@ -1,14 +1,23 @@
-import { expect, test, describe, mock, beforeEach } from "bun:test";
+import { expect, test, describe, mock, beforeEach, afterAll } from "bun:test";
 import { __setSpawnSync, __setFetch, __setFilesystem, installNerdFont } from "../lib/fontInstaller";
 import { __setDetectNerdFonts, detectNerdFonts } from "../lib/doctor";
 import { Env } from "../lib/env";
 import { type Dirent, type mkdirSync, type existsSync, type writeFileSync, type rmSync, type readdirSync, type copyFileSync } from "fs";
+import { join } from "path";
 import type { spawnSync } from "bun";
 
 type SpawnSyncReturn = ReturnType<typeof spawnSync>;
 type DetectResult = Awaited<ReturnType<typeof detectNerdFonts>>;
 
 describe("FontInstaller", () => {
+    // Prevent Env.getLogPath from creating directories during tests
+    const originalGetLogPath = Env.getLogPath;
+    Env.getLogPath = mock((filename: string = "test.log") => join("/tmp", filename));
+
+    afterAll(() => {
+        Env.getLogPath = originalGetLogPath;
+    });
+
     // Top-level mocks to be reuseable and clearable
     const mockMkdirSync = mock((_path: string, _options?: { recursive?: boolean }) => { return undefined; });
     const mockExistsSync = mock((_path: string) => true);

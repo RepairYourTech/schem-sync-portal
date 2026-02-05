@@ -3,6 +3,8 @@ import { join } from "path";
 import { writeFileSync, existsSync, mkdirSync, rmSync } from "fs";
 import { cleanFile } from "../lib/cleanup";
 import { ShieldManager } from "../lib/shield/ShieldManager";
+import { ShieldExecutor } from "../lib/shield/ShieldExecutor";
+import type { CleanupStats } from "../lib/sync/types";
 
 describe("Local Shield Hardening", () => {
     const getTestDir = () => join(process.cwd(), `test_shield_cleanup_${Math.random().toString(36).substring(2, 7)}`);
@@ -80,5 +82,44 @@ describe("Local Shield Hardening", () => {
         expect(existsSync(file)).toBe(false);
         expect(existsSync(join(testDir, "_risk_tools", "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip"))).toBe(true);
         expect(ShieldManager.getOffenders(testDir)).toContain("GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
+    });
+
+    it("should execute shield in all contexts with consistent behavior", async () => {
+        const stats: CleanupStats = {
+            phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge"
+        };
+
+        // Test realtime_clean
+        const file = join(testDir, "crack.exe");
+        writeFileSync(file, "malware content");
+        await ShieldExecutor.execute({
+            type: "realtime_clean",
+            localDir: testDir,
+            policy: "purge",
+            filePath: file,
+            initialStats: stats
+        });
+        expect(stats.executionContext).toBe("realtime_clean");
+        expect(stats.riskyPatternCount).toBe(1);
+        expect(existsSync(file)).toBe(false);
+
+        // Test risky_sweep (using no manifest/empty sweep for simplicity in this test)
+        await ShieldExecutor.execute({
+            type: "risky_sweep",
+            localDir: testDir,
+            policy: "purge",
+            initialStats: stats
+        });
+        expect(stats.executionContext).toBe("risky_sweep");
+
+        // Test final_sweep
+        await ShieldExecutor.execute({
+            type: "final_sweep",
+            localDir: testDir,
+            policy: "purge",
+            initialStats: stats
+        });
+        expect(stats.executionContext).toBe("final_sweep");
     });
 });

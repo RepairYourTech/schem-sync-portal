@@ -52,10 +52,19 @@ export const LocalShieldPanel = React.memo(({
                     (progress.phase === "cloud" || progress.phase === "done") ? "complete" : "idle";
 
     const stats = progress.cleanupStats;
-    const statusText = status === 'paused' ? 'PAUSED' :
-        status === 'active' ? 'CLEANING' :
-            status === 'complete' ? 'VERIFIED' :
-                status === 'waiting' ? 'WAITING' : 'STANDBY';
+    const isSweeping = isShieldActive && stats?.currentArchive && /\.(zip|7z|rar)$/i.test(stats.currentArchive);
+    const isCleaning = isShieldActive && !isSweeping;
+
+    const contextLabel = stats?.executionContext === "risky_sweep" ? "PRIORITY" :
+        stats?.executionContext === "realtime_clean" ? "REALTIME" :
+            stats?.executionContext === "final_sweep" ? "FINAL" : "";
+
+    const statusText = !shieldEnabled ? 'OFF' :
+        status === 'paused' ? 'PAUSED' :
+            isSweeping ? `${contextLabel} SWEEPING`.trim() :
+                isCleaning ? `${contextLabel} CLEANING`.trim() :
+                    status === 'complete' ? 'VERIFIED' :
+                        status === 'waiting' ? 'WAITING' : 'STANDBY';
 
     return (
         <box
