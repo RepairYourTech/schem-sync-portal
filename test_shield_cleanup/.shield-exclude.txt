@@ -1,2 +1,0 @@
-GV-R580AORUS-8GD-1.0-1.01 Boardview.zip
-_risk_tools/**

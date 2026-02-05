@@ -41,13 +41,21 @@ export const LocalShieldPanel = React.memo(({
     const isActive = progress.phase !== "done" && progress.phase !== "error";
     const isGlobalPaused = progress.isPaused;
 
+    // Shield is active if we are in clean phase, or if we are in pull phase but the description indicates shield activity
+    const isShieldActive = progress.phase === "clean" ||
+        (progress.phase === "pull" && progress.description.toLowerCase().includes("shield:"));
+
     const status: PanelStatus = !shieldEnabled ? "idle" :
         isGlobalPaused ? "paused" :
-            isActive ? "active" :
+            isShieldActive ? "active" :
                 progress.phase === "pull" ? "waiting" :
                     (progress.phase === "cloud" || progress.phase === "done") ? "complete" : "idle";
 
     const stats = progress.cleanupStats;
+    const statusText = status === 'paused' ? 'PAUSED' :
+        status === 'active' ? 'CLEANING' :
+            status === 'complete' ? 'VERIFIED' :
+                status === 'waiting' ? 'WAITING' : 'STANDBY';
 
     return (
         <box
@@ -76,53 +84,54 @@ export const LocalShieldPanel = React.memo(({
             />
 
             {/* Shield Stats Body */}
-            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1} flexShrink={1}>
+            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1} overflow="hidden">
                 {/* Visual Status Indicator */}
                 <box flexDirection="row" alignItems="center" gap={1} height={1} paddingLeft={1} paddingRight={1}>
                     <text fg={status === 'active' ? colors.setup : (status === 'complete' ? colors.success : colors.dim)} flexShrink={0}>
                         {String(status === 'active' ? '\ueb72' : (status === 'complete' ? '\uf058' : '\ueb9c'))}
                     </text>
-                    <box flexShrink={1}>
+                    <box flexShrink={1} overflow="hidden">
                         <text fg={colors.fg} attributes={TextAttributes.BOLD}>
+                            {String(statusText)}
+                        </text>
+                    </box>
+                </box>
+
+                <box flexDirection="row" justifyContent="space-between" height={1} paddingLeft={1} paddingRight={1}>
+                    <box flexDirection="row" gap={1} flexShrink={1}>
+                        <text fg={colors.dim} flexShrink={0}>Found:</text>
+                        <text fg={colors.fg} attributes={TextAttributes.BOLD} flexShrink={1}>{String(stats?.totalArchives || 0)}</text>
+                    </box>
+                    <box flexDirection="row" gap={1} flexShrink={1}>
+                        <text fg={colors.dim} flexShrink={0}>Threats:</text>
+                        <text fg={!!(stats?.riskyPatternCount && stats.riskyPatternCount > 0) ? colors.danger : colors.success} attributes={TextAttributes.BOLD} flexShrink={1}>
+                            {String(stats?.riskyPatternCount || 0)}
+                        </text>
+                    </box>
+                </box>
+
+                <box flexDirection="row" gap={1} height={1} paddingLeft={1} paddingRight={1}>
+                    <text fg={colors.dim} flexShrink={0}>Target:</text>
+                    <box flexShrink={1} overflow="hidden">
+                        <text fg={status === 'active' ? colors.setup : colors.dim} attributes={status === 'active' ? TextAttributes.BOLD : 0}>
                             {String((() => {
-                                const text = status === 'paused' ? 'PAUSED' :
-                                    status === 'active' ? 'SWEEPING' :
-                                        status === 'complete' ? 'VERIFIED' : 'STANDBY';
-                                return text.length > width - 6 ? text.substring(0, width - 9) + '...' : text;
+                                const raw = stats?.currentArchive || (status === 'complete' ? 'CLEAN' : 'IDLE');
+                                const maxW = width - 10;
+                                return raw.length > maxW ? '...' + raw.substring(raw.length - (maxW - 3)) : raw;
                             })())}
                         </text>
                     </box>
                 </box>
 
                 <box flexDirection="row" justifyContent="space-between" height={1} paddingLeft={1} paddingRight={1}>
-                    <box flexDirection="row" gap={1}>
-                        <text fg={colors.dim}>Found:</text>
-                        <text fg={colors.fg} attributes={TextAttributes.BOLD}>{String(stats?.totalArchives || 0)}</text>
-                    </box>
-                    <box flexDirection="row" gap={1}>
-                        <text fg={colors.dim}>Threats:</text>
-                        <text fg={!!(stats?.riskyPatternCount && stats.riskyPatternCount > 0) ? colors.danger : colors.success} attributes={TextAttributes.BOLD}>
-                            {String(stats?.riskyPatternCount || 0)}
-                        </text>
-                    </box>
-                </box>
-
-                <box flexDirection="row" justifyContent="space-between" height={1} paddingLeft={1} paddingRight={1}>
-                    <text fg={colors.dim} flexShrink={0}>Target:</text>
-                    <box flexShrink={1}>
-                        <text fg={status === 'active' ? colors.setup : colors.dim} attributes={status === 'active' ? TextAttributes.BOLD : 0}>
-                            {String(stats?.currentArchive ? (stats.currentArchive.length > width - 12 ? '...' + stats.currentArchive.substring(stats.currentArchive.length - (width - 15)) : stats.currentArchive) : (status === 'complete' ? 'CLEAN' : 'IDLE'))}
-                        </text>
-                    </box>
-                </box>
-
-                <box flexDirection="row" justifyContent="space-between" height={1} paddingLeft={1} paddingRight={1}>
-                    <box flexDirection="row" gap={1}>
-                        <text fg={colors.dim}>Cleaned:</text>
-                        <text fg={colors.success} attributes={TextAttributes.BOLD}>{String(stats?.extractedFiles || 0)}</text>
+                    <box flexDirection="row" gap={1} flexShrink={1}>
+                        <text fg={colors.dim} flexShrink={0}>Cleaned:</text>
+                        <text fg={colors.success} attributes={TextAttributes.BOLD} flexShrink={1}>{String((stats?.extractedFiles || 0) + (stats?.purgedFiles || 0) + (stats?.isolatedFiles || 0))}</text>
                     </box>
                     {!!(stats?.riskyPatternCount && stats.riskyPatternCount > 0) ? (
-                        <text fg={colors.danger} attributes={TextAttributes.BOLD}>[ {String(stats.riskyPatternCount)} ]</text>
+                        <box flexShrink={0}>
+                            <text fg={colors.danger} attributes={TextAttributes.BOLD}>[ {String(stats.riskyPatternCount)} ]</text>
+                        </box>
                     ) : null}
                 </box>
 

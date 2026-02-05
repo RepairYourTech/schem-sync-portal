@@ -1,18 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
-import { writeFileSync, existsSync, mkdirSync } from "fs";
-import { ShieldManager, cleanFile } from "../lib/cleanup";
+import { writeFileSync, existsSync, mkdirSync, rmSync } from "fs";
+import { cleanFile } from "../lib/cleanup";
+import { ShieldManager } from "../lib/shield/ShieldManager";
 
 describe("Local Shield Hardening", () => {
-    const testDir = join(process.cwd(), "test_shield_cleanup");
+    const getTestDir = () => join(process.cwd(), `test_shield_cleanup_${Math.random().toString(36).substring(2, 7)}`);
+    let testDir = "";
 
     beforeEach(() => {
+        testDir = getTestDir();
         if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });
         ShieldManager.resetShield(testDir); // Start clean
     });
 
     afterEach(() => {
-        // Cleanup would go here, but keep for manual check if needed
+        if (testDir && existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
     });
 
     it("should start with an empty offender list but have priority filenames available", () => {
