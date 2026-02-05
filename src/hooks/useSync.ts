@@ -13,6 +13,13 @@ export function useSync() {
     const [isRunning, setIsRunning] = useState(false);
     const stopRequested = useRef(false);
 
+    const updateProgress = useCallback((p: Partial<SyncProgress>) => {
+        setProgress(prev => ({
+            ...prev,
+            ...p
+        }));
+    }, []);
+
     const start = useCallback(async (config: PortalConfig) => {
         setIsRunning(true);
         stopRequested.current = false;
@@ -76,6 +83,7 @@ export function useSync() {
         resume,
         pausePhase,
         resumePhase,
-        isPhasePaused
+        isPhasePaused,
+        updateProgress
     };
 }

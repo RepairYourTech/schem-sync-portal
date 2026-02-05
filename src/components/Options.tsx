@@ -16,6 +16,7 @@ interface OptionsProps {
     onSetup: () => void;
     onReset: () => void;
     onResetShield: () => void;
+    onScan: () => void;
     onForensic: () => void;
     onBack: () => void;
     focusArea: "body" | "footer";
@@ -25,7 +26,7 @@ interface OptionsProps {
     onUpdateConfig: (config: PortalConfig) => void;
 }
 
-export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, onForensic, onBack, focusArea, onFocusChange, tabTransition, config, onUpdateConfig }: OptionsProps) => {
+export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, onScan, onForensic, onBack, focusArea, onFocusChange, tabTransition, config, onUpdateConfig }: OptionsProps) => {
     const { colors } = useTheme();
     const [subView, setSubView] = useState<"menu" | "about" | "logs">("menu");
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -57,8 +58,32 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
             description: "Cycle logging verbosity (NORMAL, DEBUG, VERBOSE).",
             key: "4"
         },
+        {
+            label: `MALWARE SHIELD: [${config.enable_malware_shield ? (config.backup_provider === "gdrive" ? "MANDATORY" : "ON") : "OFF"}]`,
+            action: () => {
+                if (config.backup_provider === "gdrive") {
+                    Logger.warn("UI", "Shield cannot be disabled for Google Drive backups.");
+                    return;
+                }
+                const options: (false | "purge" | "isolate")[] = [false, "purge", "isolate"];
+                const current = config.enable_malware_shield ? config.malware_policy : false;
+                const nextIdx = (options.indexOf(current) + 1) % options.length;
+                const next = options[nextIdx];
+
+                if (next === false) {
+                    onUpdateConfig({ ...config, enable_malware_shield: false });
+                } else {
+                    onUpdateConfig({ ...config, enable_malware_shield: true, malware_policy: next as "purge" | "isolate" });
+                }
+            },
+            description: config.backup_provider === "gdrive"
+                ? "Shield is REQUIRED for Google Drive to prevent account suspension."
+                : `Surgical security policy: ${config.enable_malware_shield ? config.malware_policy.toUpperCase() : "DISABLED"}.`,
+            key: "6"
+        },
         { label: "LOG VIEWER", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "5" },
-        { label: "FORENSIC SWEEP", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "6" },
+        { label: "REGENERATE MANIFEST", action: onScan, description: "Full local scan to rebuild the upsync manifest.", key: "m" },
+        { label: "FORENSIC SWEEP", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "f" },
         { label: "RESET SHIELD", action: onResetShield, description: "Clear identified threats & revert to defaults.", key: "7" },
         { label: "RESET CONFIGURATION", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "8" },
         { label: "SAVE & EXIT", action: onBack, description: "Persist change and return to dashboard.", key: "v" }
@@ -137,7 +162,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
             if (subView === "menu" && focusArea === "body") {
                 // Hotkeys trigger actions IMMEDIATELY
                 const hotkeyMap: Record<string, number> = {
-                    "1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "6": 5, "7": 6, "8": 7, "v": 8
+                    "1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "m": 5, "f": 6, "7": 7, "8": 8, "v": 9
                 };
 
                 const hotkeyIdx = hotkeyMap[e.name];

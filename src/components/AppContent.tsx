@@ -19,10 +19,12 @@ import { FontInstaller } from "./FontInstaller";
 import { ManualFontGuide } from "./ManualFontGuide";
 import { FontMissingBanner } from "./FontMissingBanner";
 import { ShieldManager } from "../lib/shield/ShieldManager";
+import { ShieldExecutor } from "../lib/shield/ShieldExecutor";
 import { FlexBVIcon } from "./FlexBVIcon";
 import { SlimeIcon } from "./SlimeIcon";
 import { useAppState } from "../hooks/useAppState";
 import { useViewNavigation } from "../hooks/useViewNavigation";
+import { Logger } from "../lib/logger";
 
 export function AppContent() {
     const {
@@ -47,7 +49,7 @@ export function AppContent() {
     const { colors } = useTheme();
     const renderer = useRenderer();
     const { width, height } = useTerminalDimensions();
-    const { progress, isRunning, start, stop, pause, resume, pausePhase, resumePhase, isPhasePaused } = useSync();
+    const { progress, isRunning, start, stop, pause, resume, pausePhase, resumePhase, isPhasePaused, updateProgress } = useSync();
 
     const handleStartSync = useCallback(() => {
         if (config.source_provider !== "unconfigured" && config.source_provider !== "none" && !isRunning) {
@@ -328,6 +330,19 @@ export function AppContent() {
 
     const onResetShield = useCallback(() => ShieldManager.resetShield(config.local_dir), [config.local_dir]);
 
+    const onScan = useCallback(async () => {
+        setView("sync"); // Switch to sync view to see progress
+        try {
+            await ShieldExecutor.scanLocal({
+                localDir: config.local_dir,
+                policy: config.malware_policy || "purge",
+                onProgress: (p) => updateProgress(p)
+            });
+        } catch (err) {
+            Logger.error("SHIELD", "Standalone scan failed", err as Error);
+        }
+    }, [config.local_dir, config.malware_policy, updateProgress, setView]);
+
     const activeFontVersion = config.nerd_font_version || 2;
 
     const renderDashboard = () => (
@@ -422,7 +437,7 @@ export function AppContent() {
                 ) : null}
                 {view === "sync" ? <SyncPortal config={config} progress={progress} isRunning={isRunning} onStop={stop} onStart={handleStartSync} onPause={pause} onResume={resume} onPausePull={() => pausePhase('pull')} onResumePull={() => resumePhase('pull')} onPauseShield={() => pausePhase('shield')} onResumeShield={() => resumePhase('shield')} onPauseCloud={() => pausePhase('cloud')} onResumeCloud={() => resumePhase('cloud')} isPhasePaused={isPhasePaused} configLoaded={!isEmpty} focusArea={focusArea} onFocusChange={setFocusArea} focusIndex={syncFocusIndex} onFocusIndexChange={setSyncFocusIndex} subFocusIndex={syncSubFocusIndex} onSubFocusIndexChange={setSyncSubFocusIndex} onUpdateConfig={(nc) => { setConfig(nc); saveConfig(nc); }} /> : null}
                 {view === "wizard" ? <Wizard initialConfig={config} mode={wizardMode} onUpdate={onUpdateWizard} onComplete={onWizardComplete} onCancel={() => setView("dashboard")} onQuit={() => renderer.destroy()} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} backSignal={backSignal} /> : null}
-                {view === "options" ? <Options onDoctor={() => setView("doctor")} onSetup={() => { setView("wizard"); setWizardMode("edit"); }} onForensic={() => setView("forensic")} onReset={onReset} onResetShield={onResetShield} onBack={() => setView("dashboard")} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} config={config} onUpdateConfig={(nc) => { saveConfig(nc); setConfig(nc); }} /> : null}
+                {view === "options" ? <Options onDoctor={() => setView("doctor")} onSetup={() => { setView("wizard"); setWizardMode("edit"); }} onScan={onScan} onForensic={() => setView("forensic")} onReset={onReset} onResetShield={onResetShield} onBack={() => setView("dashboard")} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} config={config} onUpdateConfig={(nc) => { saveConfig(nc); setConfig(nc); }} /> : null}
                 {view === "forensic" ? <ForensicView targetDir={config.local_dir && config.local_dir !== "none" ? config.local_dir : ""} gdriveRemote={config.source_provider === "gdrive" ? Env.REMOTE_PORTAL_SOURCE : (config.backup_provider === "gdrive" ? Env.REMOTE_PORTAL_BACKUP : null)} onComplete={() => setView("options")} onCancel={() => setView("options")} /> : null}
                 {view === "doctor" ? renderDoctor() : null}
                 {view === "fontinstaller" ? <FontInstaller returnView={fontInstallerReturnView} onComplete={async (res) => { if (res.success) { const next = { ...config, nerd_font_version: 3 as const, nerd_font_installed_family: res.installedFamily, nerd_font_last_check: Date.now() }; setConfig(next); saveConfig(next); setDeps(await checkDependencies()); } setView(fontInstallerReturnView); }} onCancel={() => setView(fontInstallerReturnView)} /> : null}

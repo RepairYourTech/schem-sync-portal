@@ -76,6 +76,9 @@ export interface SyncProgress {
     cleanupStats?: CleanupStats;
     cloudStats?: CloudSyncStats;
     transferSlots?: { active: number; total: number };
-    pendingShieldCount?: number;
-    clearedForUpsyncCount?: number;
+    manifestInfo?: {
+        generatedAt: string;
+        fileCount: number;
+        policy: "purge" | "isolate";
+    };
 }

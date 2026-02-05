@@ -12,7 +12,6 @@ import { ShieldManager } from "../shield/ShieldManager";
 import { ShieldExecutor } from "../shield/ShieldExecutor";
 import type { PortalConfig } from "../config";
 import type { SyncProgress, ManifestStats, CleanupStats } from "./types";
-import type { StreamingFileQueue } from "./streamingQueue";
 
 /**
  * Discovers the manifest file from source or backup.
@@ -88,11 +87,11 @@ function processManifest(localManifest: string, localDir: string): { remoteFiles
  */
 export async function runPullPhase(
     config: PortalConfig,
-    onProgress: (p: Partial<SyncProgress>) => void,
-    cleanedQueue?: StreamingFileQueue
+    onProgress: (p: Partial<SyncProgress>) => void
 ): Promise<void> {
+    const approvedFiles = new Set<string>();
     const releasePending = () => {
-        if (!cleanedQueue) return;
+        // Manifest-only mode: scan local dir to ensure we capture all existing files
         const verifiedFiles: string[] = [];
         const scan = (dir: string, base: string) => {
             if (!existsSync(dir)) return;
@@ -107,9 +106,12 @@ export async function runPullPhase(
             }
         };
         scan(config.local_dir, "");
-        if (verifiedFiles.length > 0) {
-            cleanedQueue.clearPending(verifiedFiles);
-        }
+        verifiedFiles.forEach(f => {
+            const filename = f.split(/[/\\]/).pop();
+            if (filename && !filename.startsWith(".") && !filename.includes("manifest.txt")) {
+                approvedFiles.add(f);
+            }
+        });
     };
     const excludeFile = Env.getExcludeFilePath(config.local_dir);
     const sourceRemote = `${Env.REMOTE_PORTAL_SOURCE}:/`;
@@ -120,10 +122,6 @@ export async function runPullPhase(
     let initialLocalCount = 0;
     let riskyItems: string[] = [];
     let standardItems: string[] = [];
-
-    // Track shield clearance for progress updates
-    let pendingShieldCount = 0;
-    let clearedForUpsyncCount = 0;
 
     // Track shield stats cumulatively
     const cleanupStats: CleanupStats = {
@@ -177,10 +175,6 @@ export async function runPullPhase(
             };
         }
     }
-
-    // REDUNDANT GLOBAL PULL REMOVED
-    // We now proceed directly to Tiered Pull (Risky -> Standard) or Discovery Pull
-    // to ensure the Shield is always in the critical path.
 
     const basePullArgs = [
         config.strict_mirror ? "sync" : "copy", sourceRemote, config.local_dir,
@@ -240,34 +234,15 @@ export async function runPullPhase(
                     initialStats: cleanupStats
                 });
 
-                // If it survives cleaning and we have a queue, mark as pending shield clearance
-                if (existsSync(fullPath) && cleanedQueue) {
-                    cleanedQueue.markPending(item);
-                    pendingShieldCount++;
-                    onProgress({
-                        pendingShieldCount,
-                        clearedForUpsyncCount,
-                        cleanupStats,
-                        description: `${pendingShieldCount} files pending shield clearance...`
-                    });
+                if (existsSync(fullPath)) {
+                    approvedFiles.add(item);
                 }
             }
         }
 
-        // After risky items sweep, clear pending for files that survived cleaning
-        if (cleanedQueue) {
-            const survivingRiskyFiles = riskyItems.filter(item => existsSync(join(config.local_dir, item)));
-            if (survivingRiskyFiles.length > 0) {
-                cleanedQueue.clearPending(survivingRiskyFiles);
-                clearedForUpsyncCount += survivingRiskyFiles.length;
-                pendingShieldCount -= survivingRiskyFiles.length;
-                onProgress({
-                    pendingShieldCount,
-                    clearedForUpsyncCount,
-                    description: `${clearedForUpsyncCount} files cleared for upsync after shield verification`
-                });
-                Logger.debug("SYNC", `Cleared ${survivingRiskyFiles.length} risky files for upsync after shield verification`);
-            }
+        // Add any files extracted from archives during risky sweep
+        if (cleanupStats.extractedFilePaths && cleanupStats.extractedFilePaths.length > 0) {
+            cleanupStats.extractedFilePaths.forEach(f => approvedFiles.add(f));
         }
     }
 
@@ -284,7 +259,6 @@ export async function runPullPhase(
     } else {
         // Manifest exists but no missing files identified - nothing to do for standard
         releasePending();
-        return;
     }
 
     await executeRclone(standardArgs, (stats) => {
@@ -321,11 +295,9 @@ export async function runPullPhase(
             }
         }
 
-        // Mark as pending shield clearance if the file still exists
-        // Will be released to upsync queue after shield sweep verifies archives
-        if (cleanedQueue && existsSync(join(config.local_dir, filename))) {
-            cleanedQueue.markPending(filename);
-            pendingShieldCount++;
+        // Mark as approved if it survives cleaning
+        if (existsSync(join(config.local_dir, filename))) {
+            approvedFiles.add(filename);
         }
     }, "download", "pull");
 
@@ -340,18 +312,18 @@ export async function runPullPhase(
             initialStats: cleanupStats
         });
 
-        // After final sweep, release all verified files for upsync
-        releasePending();
-        const finalCleared = cleanedQueue?.getPendingCount() === 0;
-        if (finalCleared) {
-            clearedForUpsyncCount = 0; // Reset for final count log if needed, or just update UI
-            onProgress({
-                pendingShieldCount: 0,
-                description: `All files cleared for upsync after final shield sweep`
-            });
+        // After final sweep, ensure we capture extracted files
+        if (cleanupStats.extractedFilePaths && cleanupStats.extractedFilePaths.length > 0) {
+            cleanupStats.extractedFilePaths.forEach(f => approvedFiles.add(f));
         }
     }
 
     // GUARANTEED CLEARANCE: Ensure all pending files are released before finishing pull phase
     releasePending();
+
+    // Finalize manifest
+    const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, Array.from(approvedFiles), config.malware_policy);
+    if (manifestInfo && onProgress) {
+        onProgress({ manifestInfo });
+    }
 }

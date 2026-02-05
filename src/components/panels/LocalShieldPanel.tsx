@@ -144,6 +144,22 @@ export const LocalShieldPanel = React.memo(({
                     ) : null}
                 </box>
 
+                {/* Manifest Metadata */}
+                {!!progress.manifestInfo && (
+                    <box marginTop={1} border borderStyle="single" borderColor={colors.dim} flexDirection="column" paddingLeft={1} paddingRight={1}>
+                        <box flexDirection="row" justifyContent="space-between">
+                            <text fg={colors.setup}>MANIFEST</text>
+                            <text fg={colors.dim}>{String(progress.manifestInfo.fileCount)} files</text>
+                        </box>
+                        <box flexDirection="row" gap={1}>
+                            <text fg={colors.dim} flexShrink={0}>Gen:</text>
+                            <text fg={colors.fg} flexShrink={1} overflow="hidden">
+                                {String(new Date(progress.manifestInfo.generatedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }))}
+                            </text>
+                        </box>
+                    </box>
+                )}
+
             </box>
 
             {/* ACTION BAR (Bottom-docked) */}
