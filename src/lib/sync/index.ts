@@ -4,9 +4,8 @@ import type { PortalConfig } from "../config";
 import type { SyncProgress, CleanupStats } from "./types";
 import { runPullPhase } from "./pullPhase";
 // cleanPhase removed - now integrated into pullPhase final sweep
-import { runCloudPhase, runStreamingCloudPhase } from "./cloudPhase";
+import { runManifestCloudPhase } from "./cloudPhase";
 import { resetSessionState, resetSessionCompletions, parseJsonLog } from "./progress";
-import { StreamingFileQueue } from "./streamingQueue";
 import { runCleanupSweep } from "../cleanup";
 import { Env } from "../env";
 
@@ -60,8 +59,8 @@ export async function runSync(
     const showCloud = config.upsync_enabled && config.backup_provider !== "none" && config.backup_provider !== "unconfigured";
 
     // INTEGRATED CLEANING: Assign weight to clean phase for UI visibility
-    const weights = { pull: showPull ? 45 : 0, clean: 10, cloud: showCloud ? 45 : 0 };
-    const totalWeight = weights.pull + weights.clean + weights.cloud;
+    const weights = { pull: showPull ? 50 : 0, clean: 0, cloud: showCloud ? 50 : 0 };
+    const totalWeight = weights.pull + weights.cloud;
     const scale = totalWeight > 0 ? 100 / totalWeight : 1;
 
     let pullFinished = false;
@@ -103,10 +102,7 @@ export async function runSync(
             description: p.description || currentProgress.description,
             percentage: phasePct,
             isPaused: p.isPaused !== undefined ? p.isPaused : currentProgress.isPaused,
-            globalPercentage,
-            // Explicitly preserve shield clearance tracking
-            pendingShieldCount: p.pendingShieldCount !== undefined ? p.pendingShieldCount : currentProgress.pendingShieldCount,
-            clearedForUpsyncCount: p.clearedForUpsyncCount !== undefined ? p.clearedForUpsyncCount : currentProgress.clearedForUpsyncCount
+            globalPercentage
         };
         currentProgress = full;
         lastProgressRef.current = full;
@@ -117,47 +113,31 @@ export async function runSync(
         resetSessionState();
         resetExecutorState();
 
-        if (showPull && showCloud) {
-            // ASYNC STREAMING MODE: Pull and Cloud run in parallel
-            Logger.info("SYNC", "Starting Parallel Sync (Streaming Mode)");
-            const queue = new StreamingFileQueue();
+        if (showPull) {
+            await runPullPhase(config, wrapProgress);
+        } else if (config.enable_malware_shield) {
+            const excludeFile = Env.getExcludeFilePath(config.local_dir);
+            const cleanupStats: CleanupStats = {
+                phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+                cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0,
+                policyMode: config.malware_policy || "purge"
+            };
+            await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
+                if ("phase" in cStats && cStats.phase && !("scannedArchives" in cStats)) {
+                    wrapProgress(cStats as Partial<SyncProgress>);
+                    return;
+                }
+                Object.assign(cleanupStats, cStats);
+                wrapProgress({
+                    phase: "clean",
+                    description: `Shield: Sweep... ${cleanupStats.flaggedArchives} threats purged.`,
+                    cleanupStats
+                });
+            }, undefined, cleanupStats);
+        }
 
-            await Promise.all([
-                runPullPhase(config, wrapProgress, queue).then(() => {
-                    pullFinished = true; // Ensure clean phase shows up after pull
-                    Logger.info("SYNC", "Pull phase finished, marking queue complete");
-                    queue.markComplete();
-                }),
-                runStreamingCloudPhase(config, wrapProgress, queue)
-            ]);
-        } else {
-            // SEQUENTIAL MODE: Either one or the other
-            if (showPull) {
-                await runPullPhase(config, wrapProgress);
-            } else if (config.enable_malware_shield) {
-                const excludeFile = Env.getExcludeFilePath(config.local_dir);
-                const cleanupStats: CleanupStats = {
-                    phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
-                    cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0,
-                    policyMode: config.malware_policy || "purge"
-                };
-                await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
-                    if ("phase" in cStats && cStats.phase && !("scannedArchives" in cStats)) {
-                        wrapProgress(cStats as Partial<SyncProgress>);
-                        return;
-                    }
-                    Object.assign(cleanupStats, cStats);
-                    wrapProgress({
-                        phase: "clean",
-                        description: `Shield: Sweep... ${cleanupStats.flaggedArchives} threats purged.`,
-                        cleanupStats
-                    });
-                }, undefined, cleanupStats);
-            }
-
-            if (showCloud) {
-                await runCloudPhase(config, wrapProgress);
-            }
+        if (showCloud) {
+            await runManifestCloudPhase(config, wrapProgress);
         }
 
         wrapProgress({

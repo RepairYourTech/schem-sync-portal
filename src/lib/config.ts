@@ -114,6 +114,12 @@ export function loadConfig(): PortalConfig {
 export function saveConfig(config: PortalConfig): void {
     const configPath = getConfigPath();
     try {
+        // ENFORCEMENT: Shield is REQUIRED for Google Drive to prevent account suspension.
+        if (config.backup_provider === "gdrive") {
+            config.enable_malware_shield = true;
+            config.malware_policy = "isolate"; // Recommended for forensics
+        }
+
         // THOROUGH SAVE: Ensure ALL fields defined in the type are explicitly picked.
         const clean: PortalConfig = {
             source_provider: config.source_provider,
