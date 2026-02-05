@@ -39,6 +39,7 @@ export const ShieldManager = {
         const offenders = this.getOffenders(localDir);
         if (!offenders.includes(relPath)) {
             offenders.push(relPath);
+            Logger.info("SHIELD", `Added new offender to blocklist: ${relPath}`);
             this.saveOffenders(offenders, localDir);
             this.syncWithRclone(localDir);
         }

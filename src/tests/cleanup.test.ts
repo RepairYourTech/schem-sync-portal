@@ -3,6 +3,7 @@ import { Logger } from "../lib/logger";
 import { join } from "path";
 import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from "fs";
 import { ShieldManager } from "../lib/shield/ShieldManager";
+import type { CleanupStats } from "../lib/sync/types";
 
 describe("Malware Shield (Cleanup)", () => {
     const getTestDir = () => join(process.cwd(), `test_cleanup_dir_${Math.random().toString(36).substring(2, 7)}`);
@@ -118,5 +119,28 @@ describe("Malware Shield (Cleanup)", () => {
         expect(existsSync(priorityPath)).toBe(false);
         const excludeContent = readFileSync(excludeFile, "utf-8");
         expect(excludeContent).toContain("GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
+    });
+
+    test("should extract boardviews from malicious archive and verify paths in stats", async () => {
+        const malwarePath = join(testDir, "malware_with_bv.zip");
+        writeFileSync(malwarePath, "fake zip content");
+
+        const stats: CleanupStats = {
+            phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge",
+            extractedFilePaths: []
+        };
+
+        await runCleanupSweep(testDir, excludeFile, "purge", undefined, undefined, stats);
+
+        // Verify boardview.tvw exists (mocked extraction in beforeEach)
+        expect(existsSync(join(testDir, "boardview.tvw"))).toBe(true);
+
+        // Verify stats tracking
+        expect(stats.extractedFiles).toBe(1);
+        expect(stats.extractedFilePaths).toContain("boardview.tvw");
+
+        // Verify cleanup happened
+        expect(existsSync(malwarePath)).toBe(false);
     });
 });

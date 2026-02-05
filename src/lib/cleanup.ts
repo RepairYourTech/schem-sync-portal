@@ -136,14 +136,21 @@ async function cleanArchive(
                             const destPath = join(dirPath, basename(match));
                             if (!existsSync(destPath)) {
                                 renameSync(match, destPath);
-                                Logger.info("SHIELD", `Successfully extracted and verified: ${basename(match)} from ${fileName}`);
+                                const relExtracted = relative(baseDir, destPath);
+                                Logger.info("SHIELD", `Successfully extracted and verified: ${relExtracted} from ${fileName}`);
                                 extractedCount++;
+
+                                // Track extracted paths in stats
+                                stats.extractedFilePaths = stats.extractedFilePaths || [];
+                                stats.extractedFilePaths.push(relExtracted);
                             }
                         }
                     } else {
-                        const stderr = (spawnRes as any).stderr; // eslint-disable-line @typescript-eslint/no-explicit-any
-                        const errMsg = stderr ? stderr.toString() : "Unknown error";
-                        Logger.warn("SHIELD", `Extraction failed for pattern *${ext} in ${fileName}: ${errMsg}`);
+                        const res = spawnRes as { stderr?: Buffer; exitCode?: number };
+                        const errMsg = res.stderr ? res.stderr.toString() : "Unknown error";
+                        Logger.error("SHIELD", `Extraction failed for pattern *${ext} in ${fileName}: ${errMsg}`, {
+                            exitCode: res.exitCode
+                        });
                     }
                 }
             }
@@ -209,6 +216,7 @@ export async function cleanFile(
         GARBAGE_PATTERNS.some(p => fileName.toLowerCase().includes(p.toLowerCase()));
 
     if (isGarbage) {
+        Logger.info("SHIELD", `Detected risky individual file: ${relPath}`);
         if (stats) {
             stats.riskyPatternCount++;
             stats.currentArchive = relPath; // Handle individual file as "currentArchive" for UI
