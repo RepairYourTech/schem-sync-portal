@@ -4,6 +4,7 @@ import { Logger } from "../logger";
 import { Env } from "../env";
 import { ManifestParser } from "./manifestParser";
 import { type ShieldManifest } from "./types";
+import { PRIORITY_FILENAMES } from "./patterns";
 
 export interface ShieldMetadata {
     fileCount: number;
@@ -158,9 +159,6 @@ export const ShieldManager = {
      * Gets the static list of filenames and extensions that trigger immediate shielding.
      */
     getPriorityFilenames(): string[] {
-        return [
-            "FlexBV.exe", "BoardViewer.exe", "OpenBoardView.exe",
-            ".exe", ".zip", ".rar", ".7z", ".tar.gz", ".tar.xz"
-        ];
+        return [...PRIORITY_FILENAMES];
     }
 };
