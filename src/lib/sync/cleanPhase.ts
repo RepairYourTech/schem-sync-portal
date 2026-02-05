@@ -13,7 +13,11 @@ export async function runCleanPhase(
     const excludeFile = Env.getExcludeFilePath(config.local_dir);
     onProgress({ phase: "clean", description: "Surgical Malware Shield...", percentage: 0 });
 
-    await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (stats) => {
+    await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (update) => {
+        // Type guard: check if this is CleanupStats or Partial<SyncProgress>
+        const stats = (update as any).totalArchives !== undefined ? (update as any) : null; // eslint-disable-line @typescript-eslint/no-explicit-any
+        if (!stats) return;
+
         onProgress({
             phase: "clean",
             description: stats.currentArchive ? `Scanning ${stats.currentArchive}...` : "Scanning archives...",

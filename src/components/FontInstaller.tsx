@@ -5,7 +5,7 @@ import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { installNerdFont, type InstallResult, type NerdFontName } from "../lib/fontInstaller";
 import { Hotkey } from "./Hotkey";
-import { type ViewName } from "../index";
+import { type ViewName } from "../hooks/useAppState";
 
 interface FontInstallerProps {
     returnView: ViewName;
