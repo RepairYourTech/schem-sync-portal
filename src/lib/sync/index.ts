@@ -17,7 +17,10 @@ import {
     pauseSync,
     resumeSync,
     getIsSyncPaused,
-    resetExecutorState
+    resetExecutorState,
+    startNewSession,
+    getCurrentSessionId,
+    isNewSession
 } from "./utils";
 
 export * from "./types";
@@ -25,7 +28,8 @@ export {
     stopSync,
     pauseSync,
     resumeSync,
-    getIsSyncPaused
+    getIsSyncPaused,
+    getCurrentSessionId
 };
 
 export { resetSessionCompletions, resetSessionState, parseJsonLog };
@@ -50,7 +54,8 @@ export function clearSyncSession(): void {
  */
 export async function runSync(
     config: PortalConfig,
-    onProgress: (progress: Partial<SyncProgress>) => void
+    onProgress: (progress: Partial<SyncProgress>) => void,
+    sessionId?: string
 ): Promise<void> {
     if (!config.local_dir) {
         onProgress({ phase: "error", description: "Portal not initialized.", percentage: 0 });
@@ -118,8 +123,14 @@ export async function runSync(
     };
 
     try {
-        resetSessionState();
-        resetExecutorState();
+        if (!sessionId || isNewSession(sessionId)) {
+            resetSessionState();
+            resetExecutorState();
+            startNewSession();
+            Logger.info("SYNC", "Starting new sync session");
+        } else {
+            Logger.info("SYNC", `Resuming existing session: ${sessionId}`);
+        }
 
         const tasks: Promise<void>[] = [];
         let pullDone = false;
@@ -167,12 +178,22 @@ export async function runSync(
                         for (const entry of entries) {
                             const relPath = join(base, entry.name);
                             if (entry.isDirectory()) {
+                                // CRITICAL: Skip _risk_tools to prevent malware from being upsynced
+                                if (entry.name === "_risk_tools") {
+                                    Logger.info("SHIELD", `Skipping isolated directory: ${relPath}`);
+                                    continue;
+                                }
                                 scan(join(dir, entry.name), relPath);
                             } else if (entry.isFile()) {
                                 const filename = entry.name;
-                                if (!filename.startsWith(".") && filename !== "manifest.txt" && filename !== "upsync-manifest.txt") {
-                                    approvedFiles.push(relPath);
+                                // Skip dotfiles, manifests, and anything in _risk_tools path (defense in depth)
+                                if (filename.startsWith(".") ||
+                                    filename === "manifest.txt" ||
+                                    filename === "upsync-manifest.txt" ||
+                                    relPath.includes("_risk_tools")) {
+                                    continue;
                                 }
+                                approvedFiles.push(relPath);
                             }
                         }
                     };
