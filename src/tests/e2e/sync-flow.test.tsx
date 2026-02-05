@@ -61,15 +61,12 @@ describe("E2E: Sync Flow", () => {
             progressUpdates.push(p);
         });
 
-        // Cleanup
-        if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
-
         // Verify phase sequence
         expect(phases).toContain("syncing");
         expect(phases).toContain("clean");
         expect(phases).toContain("done");
 
-        // Verify queue updates (presence of download/upload queue in some progress items)
+        // Verify queue updates
         const hasQueues = progressUpdates.some(p => (p.downloadQueue && p.downloadQueue.length > 0) || (p.uploadQueue && p.uploadQueue.length > 0));
         expect(hasQueues).toBe(true);
 
@@ -88,6 +85,9 @@ describe("E2E: Sync Flow", () => {
         expect(finalPersistedConfig.last_sync_stats).toBeDefined();
         expect(finalPersistedConfig.last_sync_stats?.status).toBe("success");
         expect(finalPersistedConfig.last_sync_stats?.files_processed).toBeGreaterThan(0);
+
+        // Cleanup
+        if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
     });
 
     it("should handle sync failure in rclone", async () => {

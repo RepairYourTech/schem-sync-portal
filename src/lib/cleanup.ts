@@ -1,74 +1,12 @@
 import { spawnSync as bunSpawnSync } from "bun";
-import { join, relative, dirname } from "path";
-import { existsSync, unlinkSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { join, relative, dirname, basename } from "path";
+import { existsSync, unlinkSync, mkdirSync, readFileSync, writeFileSync, rmSync, renameSync } from "fs";
 import { glob } from "glob";
 import { Env } from "./env";
 import { Logger } from "./logger";
+import { ShieldManager } from "./shield/ShieldManager";
+import { KEEP_EXTS, GARBAGE_PATTERNS, PRIORITY_FILENAMES } from "./shield/patterns";
 import type { CleanupStats, SyncProgress } from "./sync/types";
-
-export const KEEP_EXTS = [".tvw", ".brd", ".fz", ".cad", ".asc", ".pdf", ".bvr", ".pcb", ".sqlite3", ".obdata", ".obdlocal", ".obdlog", ".obdq", ".bin", ".rom", ".cap", ".fd", ".wph", ".hex", ".txt", ".json"];
-export const SAFE_PATTERNS = ["flash", "afud", "insyde", "h2o", "utility", "update", "phlash", "ami", "phoenix", "dell", "hp", "lenovo", "bios"];
-export const GARBAGE_PATTERNS = ["lpk.dll", "Open boardview using this TVW specific software", "Chinafix", "chinafix", "程序_原厂_迅维版主分享", "crack.exe", "Crack.exe", "patch.exe", "Patch.exe", "keygen.exe", "Keygen.exe", "loader.exe", "Loader.exe", ".exe.bak", ".exe.BAK", "activator", "bypass", "medicine", "fixed", "DOS4GW.EXE", "DOS4GW"];
-
-export const PRIORITY_FILENAMES = [
-    "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip", "GV-R580GAMING-8GD-1.0-1.01 Boardview.zip",
-    "GV-RX580GAMING-4GD-1.0-1.01 Boardview.zip", "GV-RX580GAMING-8GD-1.0-1.01 Boardview.zip",
-    "GV-R939XG1 GAMING-8GD-1.0-1.01 Boardview.zip", "GV-R938WF2-4GD-1.0 Boardview.zip",
-    "IOT73 V3.0 TG-B75.zip", "GV-R938G1 GAMING-4GD-1.02 Boardview.zip",
-    "GV-RX470G1 GAMING-4GD-0.2 Boardview.zip", "GV-RX480G1 GAMING-4GD-1.1 Boardview.zip",
-    "BIOS_K54C usb 3.0_factory-Chinafix.zip", "BIOS_K54LY usb 3.0_factory-Chinafix.zip",
-    "GV-RX570AORUS-4GD-1.0 Boardview.zip", "GV-RX580AORUS-4GD-0.2-1.1 Boardview.zip",
-    "GV-RX580GAMING-8GD-1.0 Boardview.zip", "GV-RX590GAMING-8GD-1.0 Boardview.zip",
-    "BIOS_k53SJ usb 3.0 K53SJFW05300A_factory-Chinafix.zip", "BIOS_k53sv usb 3.0 _factory-Chinafix.zip",
-    "BIOS_u310 U410_Chinafix.zip", "GV-N3070EAGLE OC-8GD-1.0 Boardview.zip",
-    "DANL9MB18F0 (tvw).rar", "GV-N4090GAMING-OC-24GD r1.0 boardview.zip"
-];
-
-export const ShieldManager = {
-    getOffenders(localDir: string): string[] {
-        const path = Env.getOffenderListPath(localDir);
-        if (!existsSync(path)) return [];
-        try {
-            const data = readFileSync(path, "utf-8");
-            const parsed = JSON.parse(data);
-            return Array.isArray(parsed) ? parsed : [];
-        } catch (e) { Logger.error("SHIELD", "Failed to load offender list", e); }
-        return [];
-    },
-    getPriorityFilenames(): string[] { return [...PRIORITY_FILENAMES]; },
-    addOffender(relPath: string, localDir: string) {
-        const offenders = this.getOffenders(localDir);
-        if (!offenders.includes(relPath)) {
-            offenders.push(relPath);
-            this.saveOffenders(offenders, localDir);
-            this.syncWithRclone(localDir);
-        }
-    },
-    saveOffenders(offenders: string[], localDir: string) {
-        const path = Env.getOffenderListPath(localDir);
-        try {
-            if (!existsSync(localDir)) mkdirSync(localDir, { recursive: true });
-            writeFileSync(path, JSON.stringify(offenders, null, 2));
-        } catch (e) { Logger.error("SHIELD", "Failed to save offender list", e); }
-    },
-    resetShield(localDir: string) {
-        const offenderPath = Env.getOffenderListPath(localDir);
-        const excludePath = Env.getExcludeFilePath(localDir);
-        try { if (existsSync(offenderPath)) unlinkSync(offenderPath); } catch { /* ignore */ }
-        try { if (existsSync(excludePath)) unlinkSync(excludePath); } catch { /* ignore */ }
-        this.syncWithRclone(localDir);
-        Logger.info("SHIELD", "History cleared.");
-    },
-    syncWithRclone(localDir: string) {
-        const excludeFile = Env.getExcludeFilePath(localDir);
-        const offenders = this.getOffenders(localDir);
-        try {
-            if (!existsSync(localDir)) mkdirSync(localDir, { recursive: true });
-            const entries = [...offenders, "_risk_tools/**"];
-            writeFileSync(excludeFile, entries.join("\n") + "\n");
-        } catch (e) { Logger.error("SHIELD", "Failed to sync exclusion file", e); }
-    }
-};
 
 let _overrideSpawnSync: typeof bunSpawnSync | null = null;
 export function __setSpawnSync(mock: typeof bunSpawnSync) { _overrideSpawnSync = mock; }
@@ -96,7 +34,8 @@ export async function runCleanupSweep(
     excludeFile: string,
     policy: "purge" | "isolate" = "purge",
     onProgress?: (stats: CleanupStats | Partial<SyncProgress>) => void,
-    abortSignal?: AbortSignal
+    abortSignal?: AbortSignal,
+    initialStats?: CleanupStats
 ): Promise<CleanupResult> {
     const engine = getEngine();
     if (!engine) {
@@ -111,10 +50,14 @@ export async function runCleanupSweep(
     const unscannedArchives: string[] = [];
     try {
         const archives = await glob("**/*.{zip,7z,rar}", { cwd: targetDir, absolute: true, ignore: ["**/node_modules/**", "**/.git/**"] });
-        const stats: CleanupStats = {
+
+        const stats: CleanupStats = initialStats || {
             phase: "clean", totalArchives: archives.length, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
             cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: policy
         };
+
+        // Ensure totalArchives is updated if reusing stats
+        stats.totalArchives = archives.length;
         if (onProgress) onProgress(stats);
         for (let i = 0; i < archives.length; i++) {
             const archivePath = archives[i]!;
@@ -137,6 +80,7 @@ export async function runCleanupSweep(
         }
         stats.currentArchive = undefined;
         if (onProgress) onProgress(stats);
+        Logger.info("SHIELD", `Cleanup sweep finished. Scanned ${stats.scannedArchives}/${stats.totalArchives} archives. Found ${stats.flaggedArchives} threats and ${stats.riskyPatternCount} patterns. Extracted ${stats.extractedFiles} verified items.`);
         return { completed: true, scannedArchives, unscannedArchives: [] };
     } catch (err) {
         Logger.error("SYNC", "Error during cleanup sweep", err);
@@ -162,24 +106,53 @@ async function cleanArchive(
         return { flagged: false, extractedCount: 0 };
     }
 
-    const fileName = relPath.split(/[/\\]/).pop() || "";
+    const fileName = basename(relPath);
     const isKnownBad = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase());
     const hasGarbage = isKnownBad || GARBAGE_PATTERNS.some(p => internalListing.toLowerCase().includes(p.toLowerCase()));
 
     if (hasGarbage) {
+        Logger.info("SHIELD", `Detected risky archive: ${relPath}`);
         stats.riskyPatternCount++;
         if (onProgress) onProgress(stats);
+
         const dirPath = dirname(archivePath);
+        const stagingDir = join(dirPath, `.shield_staging_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
         let extractedCount = 0;
-        const engine = getEngine();
-        if (engine) {
-            for (const ext of KEEP_EXTS) {
-                const extractCmd = engine.type === "7z"
-                    ? [engine.bin, "x", archivePath, `*${ext}`, `-o${dirPath}`, "-r", "-y"]
-                    : [engine.bin, "x", "-r", "-y", archivePath, `*${ext}`, dirPath];
-                if (getSpawnSync()(extractCmd).success) extractedCount++;
+
+        try {
+            if (!existsSync(stagingDir)) mkdirSync(stagingDir, { recursive: true });
+            const engine = getEngine();
+            if (engine) {
+                for (const ext of KEEP_EXTS) {
+                    const extractCmd = engine.type === "7z"
+                        ? [engine.bin, "x", archivePath, `*${ext}`, `-o${stagingDir}`, "-r", "-y"]
+                        : [engine.bin, "x", "-r", "-y", archivePath, `*${ext}`, stagingDir];
+
+                    const spawnRes = getSpawnSync()(extractCmd);
+                    if (spawnRes.success) {
+                        // Verification sweep in staging
+                        const matches = await glob(`**/*${ext}`, { cwd: stagingDir, absolute: true });
+                        for (const match of matches) {
+                            const destPath = join(dirPath, basename(match));
+                            if (!existsSync(destPath)) {
+                                renameSync(match, destPath);
+                                Logger.info("SHIELD", `Successfully extracted and verified: ${basename(match)} from ${fileName}`);
+                                extractedCount++;
+                            }
+                        }
+                    } else {
+                        const stderr = (spawnRes as any).stderr; // eslint-disable-line @typescript-eslint/no-explicit-any
+                        const errMsg = stderr ? stderr.toString() : "Unknown error";
+                        Logger.warn("SHIELD", `Extraction failed for pattern *${ext} in ${fileName}: ${errMsg}`);
+                    }
+                }
             }
+        } catch (err) {
+            Logger.error("SHIELD", `Error during extraction from ${relPath}`, err);
+        } finally {
+            try { if (existsSync(stagingDir)) rmSync(stagingDir, { recursive: true, force: true }); } catch { /* ignore */ }
         }
+
         stats.extractedFiles += extractedCount;
 
         if (policy === "isolate") {
@@ -202,15 +175,18 @@ async function cleanArchive(
                 const riskDir = join(baseDir, "_risk_tools");
                 if (!existsSync(riskDir)) mkdirSync(riskDir, { recursive: true });
                 const dest = join(riskDir, fileName);
-                writeFileSync(dest, readFileSync(archivePath));
-                if (!existsSync(dest)) throw new Error("Isolation failed.");
+                const archiveData = readFileSync(archivePath);
+                writeFileSync(dest, archiveData);
+                if (!existsSync(dest)) throw new Error("Isolation copy failed.");
                 unlinkSync(archivePath);
-                if (existsSync(archivePath)) throw new Error("Isolation failed.");
+                if (existsSync(archivePath)) throw new Error("Isolation original removal failed.");
                 stats.isolatedFiles++;
+                Logger.info("SHIELD", `Isolated archive: ${relPath} -> _risk_tools/${fileName}`);
             } else {
                 unlinkSync(archivePath);
                 if (existsSync(archivePath)) throw new Error("Purge failed.");
                 stats.purgedFiles++;
+                Logger.info("SHIELD", `Purged archive: ${relPath}`);
             }
         } catch (e) {
             Logger.error("SYNC", `Failed to ${policy} original malicious archive: ${relPath}`, e);
@@ -223,33 +199,46 @@ async function cleanArchive(
 }
 
 export async function cleanFile(
-    filePath: string, baseDir: string, policy: "purge" | "isolate", stats?: CleanupStats
+    filePath: string, baseDir: string, policy: "purge" | "isolate",
+    stats?: CleanupStats, onProgress?: (stats: CleanupStats) => void
 ): Promise<boolean> {
     const relPath = relative(baseDir, filePath);
-    const fileName = relPath.split(/[/\\]/).pop() || "";
+    const fileName = basename(relPath);
     if (KEEP_EXTS.includes("." + (fileName.split(".").pop() || "").toLowerCase())) return false;
     const isGarbage = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase()) ||
         GARBAGE_PATTERNS.some(p => fileName.toLowerCase().includes(p.toLowerCase()));
+
     if (isGarbage) {
-        if (stats) stats.riskyPatternCount++;
+        if (stats) {
+            stats.riskyPatternCount++;
+            stats.currentArchive = relPath; // Handle individual file as "currentArchive" for UI
+            if (onProgress) onProgress(stats);
+        }
         const riskDir = join(baseDir, "_risk_tools");
         try {
             if (policy === "isolate") {
                 if (!existsSync(riskDir)) mkdirSync(riskDir, { recursive: true });
                 const dest = join(riskDir, fileName);
-                writeFileSync(dest, readFileSync(filePath));
-                if (!existsSync(dest)) throw new Error("Isolation failed.");
+                const fileData = readFileSync(filePath);
+                writeFileSync(dest, fileData);
+                if (!existsSync(dest)) throw new Error("Isolation copy failed.");
                 unlinkSync(filePath);
-                if (existsSync(filePath)) throw new Error("Isolation failed.");
+                if (existsSync(filePath)) throw new Error("Isolation original removal failed.");
                 if (stats) stats.isolatedFiles++;
+                Logger.info("SHIELD", `Isolated individual file: ${relPath}`);
             } else {
                 unlinkSync(filePath);
                 if (existsSync(filePath)) throw new Error("Purge failed.");
                 if (stats) stats.purgedFiles++;
+                Logger.info("SHIELD", `Purged individual file: ${relPath}`);
             }
             ShieldManager.addOffender(relPath, baseDir);
+            if (stats && onProgress) onProgress(stats);
             return true;
-        } catch (e) { Logger.error("SYNC", `Failed to ${policy} item: ${relPath}`, e); return false; }
+        } catch (e) {
+            Logger.error("SYNC", `Failed to ${policy} item: ${relPath}`, e);
+            return false;
+        }
     }
     return false;
 }

@@ -1,4 +1,5 @@
-import { mock, expect, test, describe, beforeEach, afterAll, spyOn } from "bun:test";
+import { expect, test, describe, beforeEach, afterAll, spyOn } from "bun:test";
+import * as fs from "fs";
 
 // 1. Setup spies on Bun globals
 const mockSpawnSync = spyOn(Bun, "spawnSync").mockImplementation((..._args: unknown[]) => {
@@ -21,13 +22,11 @@ const mockSpawn = spyOn(Bun, "spawn").mockImplementation((..._args: unknown[]) =
 
 const mockWhich = spyOn(Bun, "which").mockImplementation((name: string) => `/mock/bin/${name}`);
 
-// 2. Mock 'fs'
-mock.module("fs", () => ({
-    existsSync: mock(() => true),
-    mkdirSync: mock(() => { }),
-    writeFileSync: mock(() => { }),
-    readFileSync: mock(() => Buffer.from(""))
-}));
+// 2. Setup spies on fs
+const mockExistsSync = spyOn(fs, "existsSync").mockImplementation(() => true);
+const mockMkdirSync = spyOn(fs, "mkdirSync").mockImplementation(() => { });
+const mockWriteFileSync = spyOn(fs, "writeFileSync").mockImplementation(() => { });
+const mockReadFileSync = spyOn(fs, "readFileSync").mockImplementation(() => Buffer.from("") as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // 3. Import system under test
 import { createRcloneRemote } from "../lib/rclone";
@@ -38,12 +37,20 @@ describe("Rclone Config Sanitization", () => {
         mockSpawnSync.mockRestore();
         mockSpawn.mockRestore();
         mockWhich.mockRestore();
+        mockExistsSync.mockRestore();
+        mockMkdirSync.mockRestore();
+        mockWriteFileSync.mockRestore();
+        mockReadFileSync.mockRestore();
     });
 
     beforeEach(() => {
         mockSpawnSync.mockClear();
         mockSpawn.mockClear();
         mockWhich.mockClear();
+        mockExistsSync.mockClear();
+        mockMkdirSync.mockClear();
+        mockWriteFileSync.mockClear();
+        mockReadFileSync.mockClear();
         Logger.setLevel("DEBUG");
     });
 

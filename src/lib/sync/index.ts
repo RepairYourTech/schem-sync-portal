@@ -136,18 +136,23 @@ export async function runSync(
                 await runPullPhase(config, wrapProgress);
             } else if (config.enable_malware_shield) {
                 const excludeFile = Env.getExcludeFilePath(config.local_dir);
+                const cleanupStats: CleanupStats = {
+                    phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+                    cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0,
+                    policyMode: config.malware_policy || "purge"
+                };
                 await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
-                    if ("phase" in cStats && cStats.phase) {
+                    if ("phase" in cStats && cStats.phase && !("scannedArchives" in cStats)) {
                         wrapProgress(cStats as Partial<SyncProgress>);
                         return;
                     }
-                    const stats = cStats as CleanupStats;
+                    Object.assign(cleanupStats, cStats);
                     wrapProgress({
                         phase: "clean",
-                        description: `Shield: Sweep... ${stats.flaggedArchives} threats purged.`,
-                        cleanupStats: stats
+                        description: `Shield: Sweep... ${cleanupStats.flaggedArchives} threats purged.`,
+                        cleanupStats
                     });
-                });
+                }, undefined, cleanupStats);
             }
 
             if (showCloud) {

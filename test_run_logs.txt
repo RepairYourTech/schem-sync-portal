@@ -1,0 +1,456 @@
+bun test v1.3.8-canary.1 (b64edcb4)
+
+src/tests/deploy.test.ts:
+(pass) Deployment (Bootstrap) > should bootstrap and remove on Linux [1.00ms]
+(pass) Deployment (Bootstrap) > should bootstrap and remove on Mac [1.00ms]
+(pass) Deployment (Bootstrap) > should bootstrap and remove on Windows
+
+src/tests/auth.test.ts:
+(pass) Authentication (Auth) > should extract cppws cookie on successful login [2.00ms]
+(pass) Authentication (Auth) > should handle login failure
+
+src/tests/doctor.test.ts:
+(pass) System Diagnostics (Doctor) > should detect dependency versions (Linux flow) [2.00ms]
+(pass) System Diagnostics (Doctor) > should detect dependency versions (Mac flow)
+(pass) System Diagnostics (Doctor) > should detect dependency versions (Windows flow) [1.00ms]
+(pass) System Diagnostics (Doctor) > should detect v2 fonts via fc-list
+(pass) System Diagnostics (Doctor) > should detect v3 fonts via fc-list
+(pass) System Diagnostics (Doctor) > should detect fonts via filesystem (Linux)
+(pass) System Diagnostics (Doctor) > should detect fonts via filesystem (Windows) [1.00ms]
+(pass) System Diagnostics (Doctor) > should detect fonts via filesystem (macOS)
+(pass) System Diagnostics (Doctor) > should fallback to heuristics when detection fails
+(pass) System Diagnostics (Doctor) > should handle readdirSync errors gracefully
+(pass) System Diagnostics (Doctor) > should handle missing dependencies gracefully
+
+src/tests/fontGuard.test.ts:
+(pass) Font Guard > should require installation when fonts are missing
+(pass) Font Guard > should require upgrade when v2 fonts detected
+(pass) Font Guard > should not require action when v3 fonts detected
+(pass) Font Guard > should skip check if last_check within 7 days
+(pass) Font Guard > should perform check if last_check older than 7 days
+
+src/tests/isolation.test.ts:
+(pass) Config Isolation > should surgically remove only portal remotes [32.00ms]
+
+src/tests/logger.test.ts:
+(pass) Logger Service > should mask sensitive information
+(pass) Logger Service > should respect log levels
+(pass) Logger Service > should report health status correctly [1.00ms]
+
+src/tests/sync.test.ts:
+(pass) Sync Engine Integration > should parse progress correctly from MockRclone [158.00ms]
+(pass) Sync Engine Integration > should handle rclone failures [58.00ms]
+(pass) Sync Engine Integration > should handle credential rejections [61.00ms]
+
+src/tests/fontCache.test.ts:
+(pass) FontCache > Windows Auto-Refresh [1.00ms]
+(pass) FontCache > macOS Auto-Refresh
+(pass) FontCache > Linux fc-cache Success
+(pass) FontCache > Linux fc-cache Not Found
+(pass) FontCache > Linux fc-cache Failure [1.00ms]
+
+src/tests/sync_visibility.test.ts:
+(pass) Sync Visibility: Structured Data Requirements > should parse detailed transfer stats from JSON [1.00ms]
+(pass) Sync Visibility: Structured Data Requirements > should handle stats block with transferring array
+(pass) Sync Visibility: Structured Data Requirements > should limit completed transfers and prioritize active ones
+(pass) Sync Visibility: Structured Data Requirements > should report filesTransferred accurately (Issue-018)
+
+src/tests/Dashboard.test.tsx:
+Using mock theme for Dashboard tests: #00ffff
+Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+(pass) Dashboard Component > Focus Management > should call onFocusChange and onSelectionChange on mouse hover [1.00ms]
+Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+(pass) Dashboard Component > Focus Management > should show border when focused
+Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+(pass) Dashboard Component > Focus Management > should use transparent border color when not focused
+Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+(pass) Dashboard Component > Focus Management > should use success color border when focused
+Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+(pass) Dashboard Component > Visual Feedback > should display different content for empty config
+Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+(pass) Dashboard Component > Visual Feedback > should display different content for incomplete config
+Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+(pass) Dashboard Component > Visual Feedback > should display different content for complete config
+Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+(pass) Dashboard Component > Visual Feedback > should pass isFocused prop to Hotkey component
+Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+(pass) Dashboard Component > Keyboard Navigation > should trigger action on key press
+(pass) Dashboard Component > Component Structure > should be wrapped in React.memo
+(pass) Dashboard Component > Component Structure > should have explicit displayName
+(pass) Dashboard Border Pattern Compliance > should follow standardized border pattern
+(pass) Dashboard Border Pattern Compliance > should NOT use semi-transparent border hacks
+
+src/tests/Hotkey.test.tsx:
+(pass) Hotkey Component > Color System > should use danger color for ESC key when unfocused [2.00ms]
+(pass) Hotkey Component > Color System > should use danger color for ESC key when focused
+(pass) Hotkey Component > Color System > should use primary color for regular keys when unfocused
+(pass) Hotkey Component > Color System > should use success color for regular keys when focused
+(pass) Hotkey Component > Auto-Nesting Logic > should auto-nest single character hotkey in label
+(pass) Hotkey Component > Auto-Nesting Logic > should handle non-leading characters
+(pass) Hotkey Component > Auto-Nesting Logic > should fallback to prefix layout when no match found
+(pass) Hotkey Component > Layout Options > should support prefix layout
+(pass) Hotkey Component > Layout Options > should support suffix layout
+(pass) Hotkey Component > Layout Options > should default to inline layout
+(pass) Hotkey Component > Bold Attribute > should apply bold when specified
+(pass) Hotkey Component > Bold Attribute > should not apply bold by default
+(pass) Hotkey Component > Custom Color Override > should allow custom color override
+(pass) Hotkey Focus Propagation > should accept isFocused prop
+(pass) Hotkey Focus Propagation > should default isFocused to false
+
+src/tests/ui-patterns.test.ts:
+(pass) Border Pattern Compliance > Standard Pattern > should use border={isFocused} for conditional visibility
+(pass) Border Pattern Compliance > Standard Pattern > should NOT use semi-transparent border hack
+(pass) Border Pattern Compliance > Standard Pattern > should use transparent border when unfocused
+(pass) Border Pattern Compliance > Standard Pattern > should use success color border when focused
+(pass) Border Pattern Compliance > Component Compliance > Dashboard.tsx should follow standardized border pattern
+(pass) Border Pattern Compliance > Component Compliance > Options.tsx should follow standardized border pattern
+(pass) Border Pattern Compliance > Component Compliance > SyncPortal.tsx should follow standardized border pattern
+(pass) Border Pattern Compliance > Component Compliance > DownsyncPanel should follow standardized border pattern
+(pass) Border Pattern Compliance > Component Compliance > LocalShieldPanel should follow standardized border pattern
+(pass) Border Pattern Compliance > Component Compliance > UpsyncPanel should follow standardized border pattern
+(pass) Focus Management Patterns > Mouse Hover Pattern > should sync focus on mouse hover
+(pass) Focus Management Patterns > Mouse Hover Pattern > should preserve sub-focus on panel hover
+(pass) Focus Management Patterns > Mouse Click Pattern > should trigger action on mouse click
+(pass) Focus Management Patterns > Mouse Click Pattern > should reset sub-focus on panel click
+(pass) Focus Management Patterns > Mouse Click Pattern > should NOT have redundant focus handler in onMouseDown
+(pass) Focus Management Patterns > Sub-Focus Pattern > should support sub-focus indices for multiple interactive elements
+(pass) Focus Management Patterns > Sub-Focus Pattern > should accept keepSubFocus parameter
+(pass) Focus Management Patterns > Sub-Focus Pattern > should preserve sub-focus when keepSubFocus=true
+(pass) Focus Management Patterns > Sub-Focus Pattern > should reset sub-focus when keepSubFocus=false or undefined
+(pass) Visual Feedback Hierarchy > Level 1 - Focused should use colors.success
+(pass) Visual Feedback Hierarchy > Level 2 - Unfocused should use transparent or colors.border
+(pass) Visual Feedback Hierarchy > Level 3 - Active/Running should use phase-specific colors
+(pass) Component Structure Patterns > should wrap all components in React.memo
+(pass) Component Structure Patterns > should have explicit displayName
+(pass) Component Structure Patterns > should define props interface
+(pass) Hotkey Component Patterns > should use danger color for ESC key
+(pass) Hotkey Component Patterns > should use primary color for regular keys when unfocused
+(pass) Hotkey Component Patterns > should use success color for regular keys when focused
+(pass) Hotkey Component Patterns > should auto-nest hotkey character in label
+(pass) Interactive Feedback Checklist > all interactive elements should have onMouseOver handler
+(pass) Interactive Feedback Checklist > all interactive elements should have onMouseDown handler
+(pass) Interactive Feedback Checklist > all interactive elements should have border prop
+(pass) Interactive Feedback Checklist > all interactive elements should have borderColor prop
+(pass) Reference Implementation: Dashboard.tsx > should demonstrate correct focus management
+(pass) Reference Implementation: Dashboard.tsx > should demonstrate correct Hotkey usage
+(pass) Bug Fixes Applied > FIXED: Panel focus preservation bug
+(pass) Bug Fixes Applied > FIXED: Inconsistent border colors
+(pass) Bug Fixes Applied > FIXED: Redundant focus handler in SyncPortal
+
+src/tests/SyncPortalParts.test.tsx:
+(pass) Panel Focus Preservation > DownsyncPanel > should preserve sub-focus on mouse hover via onFocus callback
+(pass) Panel Focus Preservation > DownsyncPanel > should call onFocus on mouse click [1.00ms]
+(pass) Panel Focus Preservation > DownsyncPanel > should use transparent border when unfocused
+(pass) Panel Focus Preservation > DownsyncPanel > should use success color border when focused
+(pass) Panel Focus Preservation > LocalShieldPanel > should preserve sub-focus on mouse hover via onFocus callback
+(pass) Panel Focus Preservation > LocalShieldPanel > should call onFocus on mouse click
+(pass) Panel Focus Preservation > UpsyncPanel > should preserve sub-focus on mouse hover via onFocus callback [1.00ms]
+(pass) Panel Focus Preservation > UpsyncPanel > should call onFocus on mouse click
+(pass) Panel Sub-Focus Interaction > should support speed selector sub-focus indices (1-3)
+(pass) Panel Sub-Focus Interaction > should support pause/resume at sub-focus index 0 [1.00ms]
+(pass) Panel Border Pattern Compliance > should follow standardized border pattern across all panels
+(pass) Panel Border Pattern Compliance > should NOT use semi-transparent border hacks
+(pass) Panel Component Structure > should wrap all panels in React.memo
+
+src/tests/Wizard.test.tsx:
+(pass) Wizard Behavioral Tests > should select source provider and trigger onUpdate when return is pressed [2.00ms]
+(pass) Wizard Behavioral Tests > should handle backSignal by calling onCancel when at initial step [1.00ms]
+(pass) Wizard Behavioral Tests > should trigger dispatchDirectAuth and update config for backup provider [1.00ms]
+(pass) Wizard Behavioral Tests > should trigger dispatchDirectAuth and update config for S3 source provider [1.00ms]
+
+src/tests/fontInstaller.test.ts:
+(pass) FontInstaller > Successful Installation [2.00ms]
+(pass) FontInstaller > Download Timeout
+(pass) FontInstaller > File Size Validation
+(pass) FontInstaller > Extraction Failure [1.00ms]
+Failed to create logs directory:  97 |     }
+ 98 | 
+ 99 |     static getLogPath(filename: string = "app.log"): string {
+100 |         const { logsDir } = Env.getPaths();
+101 |         try {
+102 |             if (logsDir && !existsSync(logsDir)) mkdirSync(logsDir, { recursive: true });
+                                                       ^
+EACCES: permission denied, mkdir '/home/user'
+    path: "/home/user",
+ syscall: "mkdir",
+   errno: -13,
+    code: "EACCES"
+
+      at getLogPath (/home/birdman/schem-sync-portal/src/lib/env.ts:102:50)
+      at writeToFile (/home/birdman/schem-sync-portal/src/lib/logger.ts:209:33)
+      at log (/home/birdman/schem-sync-portal/src/lib/logger.ts:184:14)
+      at info (/home/birdman/schem-sync-portal/src/lib/logger.ts:57:14)
+      at installNerdFont (/home/birdman/schem-sync-portal/src/lib/fontInstaller.ts:81:16)
+      at <anonymous> (/home/birdman/schem-sync-portal/src/tests/fontInstaller.test.ts:176:30)
+
+Failed to create logs directory:  97 |     }
+ 98 | 
+ 99 |     static getLogPath(filename: string = "app.log"): string {
+100 |         const { logsDir } = Env.getPaths();
+101 |         try {
+102 |             if (logsDir && !existsSync(logsDir)) mkdirSync(logsDir, { recursive: true });
+                                                       ^
+EACCES: permission denied, mkdir '/home/user'
+    path: "/home/user",
+ syscall: "mkdir",
+   errno: -13,
+    code: "EACCES"
+
+      at getLogPath (/home/birdman/schem-sync-portal/src/lib/env.ts:102:50)
+      at writeToFile (/home/birdman/schem-sync-portal/src/lib/logger.ts:209:33)
+      at log (/home/birdman/schem-sync-portal/src/lib/logger.ts:184:14)
+      at info (/home/birdman/schem-sync-portal/src/lib/logger.ts:57:14)
+      at installNerdFont (/home/birdman/schem-sync-portal/src/lib/fontInstaller.ts:131:16)
+      at async <anonymous> (/home/birdman/schem-sync-portal/src/tests/fontInstaller.test.ts:176:30)
+
+Failed to create logs directory:  97 |     }
+ 98 | 
+ 99 |     static getLogPath(filename: string = "app.log"): string {
+100 |         const { logsDir } = Env.getPaths();
+101 |         try {
+102 |             if (logsDir && !existsSync(logsDir)) mkdirSync(logsDir, { recursive: true });
+                                                       ^
+EACCES: permission denied, mkdir '/home/user'
+    path: "/home/user",
+ syscall: "mkdir",
+   errno: -13,
+    code: "EACCES"
+
+      at getLogPath (/home/birdman/schem-sync-portal/src/lib/env.ts:102:50)
+      at writeToFile (/home/birdman/schem-sync-portal/src/lib/logger.ts:209:33)
+      at log (/home/birdman/schem-sync-portal/src/lib/logger.ts:184:14)
+      at debug (/home/birdman/schem-sync-portal/src/lib/logger.ts:75:14)
+      at installNerdFont (/home/birdman/schem-sync-portal/src/lib/fontInstaller.ts:163:16)
+      at async <anonymous> (/home/birdman/schem-sync-portal/src/tests/fontInstaller.test.ts:176:30)
+
+Failed to create logs directory:  97 |     }
+ 98 | 
+ 99 |     static getLogPath(filename: string = "app.log"): string {
+100 |         const { logsDir } = Env.getPaths();
+101 |         try {
+102 |             if (logsDir && !existsSync(logsDir)) mkdirSync(logsDir, { recursive: true });
+                                                       ^
+EACCES: permission denied, mkdir '/home/user'
+    path: "/home/user",
+ syscall: "mkdir",
+   errno: -13,
+    code: "EACCES"
+
+      at getLogPath (/home/birdman/schem-sync-portal/src/lib/env.ts:102:50)
+      at writeToFile (/home/birdman/schem-sync-portal/src/lib/logger.ts:209:33)
+      at log (/home/birdman/schem-sync-portal/src/lib/logger.ts:184:14)
+      at info (/home/birdman/schem-sync-portal/src/lib/logger.ts:57:14)
+      at installNerdFont (/home/birdman/schem-sync-portal/src/lib/fontInstaller.ts:180:16)
+      at async <anonymous> (/home/birdman/schem-sync-portal/src/tests/fontInstaller.test.ts:176:30)
+
+Failed to create logs directory:  97 |     }
+ 98 | 
+ 99 |     static getLogPath(filename: string = "app.log"): string {
+100 |         const { logsDir } = Env.getPaths();
+101 |         try {
+102 |             if (logsDir && !existsSync(logsDir)) mkdirSync(logsDir, { recursive: true });
+                                                       ^
+EACCES: permission denied, mkdir '/home/user'
+    path: "/home/user",
+ syscall: "mkdir",
+   errno: -13,
+    code: "EACCES"
+
+      at getLogPath (/home/birdman/schem-sync-portal/src/lib/env.ts:102:50)
+      at writeToFile (/home/birdman/schem-sync-portal/src/lib/logger.ts:209:33)
+      at log (/home/birdman/schem-sync-portal/src/lib/logger.ts:184:14)
+      at info (/home/birdman/schem-sync-portal/src/lib/logger.ts:57:14)
+      at installNerdFont (/home/birdman/schem-sync-portal/src/lib/fontInstaller.ts:185:20)
+      at async <anonymous> (/home/birdman/schem-sync-portal/src/tests/fontInstaller.test.ts:176:30)
+
+(pass) FontInstaller > Platform-Specific Paths
+(pass) FontInstaller > Permission Error [1.00ms]
+(pass) FontInstaller > Verification Failure
+
+src/tests/rclone.test.ts:
+(pass) Rclone Config Sanitization > should preserve token JSON structure including newlines
+(pass) Rclone Config Sanitization > should sanitize newlines in non-token fields and pass empty values [1.00ms]
+
+src/tests/updater.test.ts:
+(pass) System Updater (Updater) > should perform update successfully [535.00ms]
+(pass) System Updater (Updater) > should handle missing git gracefully
+
+src/tests/cleanup.test.ts:
+[MOCK _spawnSync] 7z l /home/birdman/schem-sync-portal/test_cleanup_dir/safe.zip -r
+74 |         writeFileSync(malwarePath, "fake zip content");
+75 | 
+76 |         await runCleanupSweep(testDir, excludeFile, "purge");
+77 | 
+78 |         // Should be removed
+79 |         expect(existsSync(malwarePath)).toBe(false);
+                                             ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/home/birdman/schem-sync-portal/src/tests/cleanup.test.ts:79:41)
+(fail) Malware Shield (Cleanup) > should identify and purge malicious archives [22.00ms]
+[MOCK _spawnSync] 7z l /home/birdman/schem-sync-portal/test_cleanup_dir/safe.zip -r
+(pass) Malware Shield (Cleanup) > should skip safe archives (e.g. BIOS utilities) [1.00ms]
+[MOCK _spawnSync] 7z l /home/birdman/schem-sync-portal/test_cleanup_dir/safe.zip -r
+100 |         const malwarePath = join(testDir, "malware_isolate.zip");
+101 |         writeFileSync(malwarePath, "fake zip content");
+102 | 
+103 |         await runCleanupSweep(testDir, excludeFile, "isolate");
+104 | 
+105 |         expect(existsSync(malwarePath)).toBe(false);
+                                              ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/home/birdman/schem-sync-portal/src/tests/cleanup.test.ts:105:41)
+(fail) Malware Shield (Cleanup) > should isolate risks to _risk_tools if policy is isolate [1.00ms]
+[MOCK _spawnSync] 7z l /home/birdman/schem-sync-portal/test_cleanup_dir/safe.zip -r
+112 |         const priorityPath = join(testDir, "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
+113 |         writeFileSync(priorityPath, "fake zip content");
+114 | 
+115 |         await runCleanupSweep(testDir, excludeFile, "purge");
+116 | 
+117 |         expect(existsSync(priorityPath)).toBe(false);
+                                               ^
+error: expect(received).toBe(expected)
+
+Expected: false
+Received: true
+
+      at <anonymous> (/home/birdman/schem-sync-portal/src/tests/cleanup.test.ts:117:42)
+(fail) Malware Shield (Cleanup) > should catch priority archives even if no internal patterns match [2.00ms]
+
+src/tests/local-shield-hardening.test.ts:
+(pass) Local Shield Hardening > should start with an empty offender list but have priority filenames available
+26 |         const file = join(testDir, "activator.exe");
+27 |         writeFileSync(file, "malware content");
+28 | 
+29 |         const handled = await cleanFile(file, testDir, "purge");
+30 | 
+31 |         expect(handled).toBe(true);
+                             ^
+error: expect(received).toBe(expected)
+
+Expected: true
+Received: false
+
+      at <anonymous> (/home/birdman/schem-sync-portal/src/tests/local-shield-hardening.test.ts:31:25)
+(fail) Local Shield Hardening > should purge a direct malware file [1.00ms]
+38 |         writeFileSync(file, "malware content");
+39 |         const riskDir = join(testDir, "_risk_tools");
+40 | 
+41 |         const handled = await cleanFile(file, testDir, "isolate");
+42 | 
+43 |         expect(handled).toBe(true);
+                             ^
+error: expect(received).toBe(expected)
+
+Expected: true
+Received: false
+
+      at <anonymous> (/home/birdman/schem-sync-portal/src/tests/local-shield-hardening.test.ts:43:25)
+(fail) Local Shield Hardening > should isolate a direct malware file
+(pass) Local Shield Hardening > should NOT purge useful files matching patterns
+63 |         writeFileSync(file, "malware content");
+64 | 
+65 |         await cleanFile(file, testDir, "purge");
+66 | 
+67 |         const relPath = join("subdir", "keygen.exe");
+68 |         expect(ShieldManager.getOffenders(testDir)).toContain(relPath);
+                                                         ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "subdir/keygen.exe"
+Received: []
+
+      at <anonymous> (/home/birdman/schem-sync-portal/src/tests/local-shield-hardening.test.ts:68:53)
+(fail) Local Shield Hardening > should blacklist folders properly in offender list
+72 |         const file = join(testDir, "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
+73 |         writeFileSync(file, "legit content but known bad filename");
+74 | 
+75 |         const handled = await cleanFile(file, testDir, "isolate");
+76 | 
+77 |         expect(handled).toBe(true);
+                             ^
+error: expect(received).toBe(expected)
+
+Expected: true
+Received: false
+
+      at <anonymous> (/home/birdman/schem-sync-portal/src/tests/local-shield-hardening.test.ts:77:25)
+(fail) Local Shield Hardening > should catch a PRIORITY_FILENAME even without other malware patterns [1.00ms]
+
+src/tests/e2e/wizard-complete.test.tsx:
+(pass) E2E: Wizard Completion > should simulate a full gdrive-to-b2 flow and save config [12.00ms]
+
+src/tests/e2e/sync-flow.test.tsx:
+65 |         if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
+66 | 
+67 |         // Verify phase sequence
+68 |         expect(phases).toContain("syncing");
+69 |         expect(phases).toContain("clean");
+70 |         expect(phases).toContain("done");
+                            ^
+error: expect(received).toContain(expected)
+
+Expected to contain: "done"
+Received: [ "syncing", "pull", "clean", "error" ]
+
+      at <anonymous> (/home/birdman/schem-sync-portal/src/tests/e2e/sync-flow.test.tsx:70:24)
+(fail) E2E: Sync Flow > should progress through pull, clean, and cloud phases [1175.00ms]
+(pass) E2E: Sync Flow > should handle sync failure in rclone [140.00ms]
+
+8 tests failed:
+(fail) Malware Shield (Cleanup) > should identify and purge malicious archives [22.00ms]
+(fail) Malware Shield (Cleanup) > should isolate risks to _risk_tools if policy is isolate [1.00ms]
+(fail) Malware Shield (Cleanup) > should catch priority archives even if no internal patterns match [2.00ms]
+(fail) Local Shield Hardening > should purge a direct malware file [1.00ms]
+(fail) Local Shield Hardening > should isolate a direct malware file
+(fail) Local Shield Hardening > should blacklist folders properly in offender list
+(fail) Local Shield Hardening > should catch a PRIORITY_FILENAME even without other malware patterns [1.00ms]
+(fail) E2E: Sync Flow > should progress through pull, clean, and cloud phases [1175.00ms]
+
+ 136 pass
+ 8 fail
+ 299 expect() calls
+Ran 144 tests across 21 files. [2.43s]

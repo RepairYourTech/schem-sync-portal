@@ -1,0 +1,20 @@
+bun test v1.3.8-canary.1 (b64edcb4)
+
+src/tests/cleanup.test.ts:
+(pass) Malware Shield (Cleanup) > should identify and purge malicious archives [27.00ms]
+(pass) Malware Shield (Cleanup) > should skip safe archives (e.g. BIOS utilities) [1.00ms]
+(pass) Malware Shield (Cleanup) > should isolate risks to _risk_tools if policy is isolate [7.00ms]
+(pass) Malware Shield (Cleanup) > should catch priority archives even if no internal patterns match [3.00ms]
+
+src/tests/local-shield-hardening.test.ts:
+(pass) Local Shield Hardening > should start with an empty offender list but have priority filenames available
+(pass) Local Shield Hardening > should purge a direct malware file [1.00ms]
+(pass) Local Shield Hardening > should isolate a direct malware file
+(pass) Local Shield Hardening > should NOT purge useful files matching patterns
+(pass) Local Shield Hardening > should blacklist folders properly in offender list [1.00ms]
+(pass) Local Shield Hardening > should catch a PRIORITY_FILENAME even without other malware patterns
+
+ 10 pass
+ 0 fail
+ 25 expect() calls
+Ran 10 tests across 2 files. [79.00ms]

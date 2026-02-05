@@ -1,4 +1,6 @@
-import { runCleanupSweep, ShieldManager } from "./cleanup.ts";
+import { runCleanupSweep } from "./cleanup.ts";
+import { ShieldManager } from "./shield/ShieldManager";
+import type { CleanupStats } from "./sync/types";
 import { spawn } from "bun";
 import { Logger } from "./logger";
 import { resolve } from "path";
@@ -31,7 +33,8 @@ export async function runForensicSweep(
         onProgress({ currentFile: "Scanning for archives...", filesProcessed: 0, totalFiles: 0, status: "scanning" });
 
         // Step 1: Local Surgery (The Heavy Lifting)
-        await runCleanupSweep(targetDir, excludeFile, "isolate", (stats) => {
+        await runCleanupSweep(targetDir, excludeFile, "isolate", (cStats) => {
+            const stats = cStats as CleanupStats;
             onProgress({
                 currentFile: stats.currentArchive || "Processing...",
                 filesProcessed: stats.scannedArchives,
@@ -43,7 +46,7 @@ export async function runForensicSweep(
         // Step 2: Surgical Cloud Scrub (Due Diligence)
         if (gdriveRemote) {
             // Merge hardcoded knowns with dynamic offenders from ShieldManager
-            const dynamicOffenders = ShieldManager.getOffenders().map(o => o.split("/").pop()).filter(Boolean) as string[];
+            const dynamicOffenders = ShieldManager.getOffenders(targetDir).map(o => o.split("/").pop()).filter(Boolean) as string[];
             const flaggedFiles = Array.from(new Set([
                 "GV-R939XG1 GAMING-8GD-1.0-1.01 Boardview.zip",
                 "GV-R938WF2-4GD-1.0 Boardview.zip",
