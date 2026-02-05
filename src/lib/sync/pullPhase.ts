@@ -244,6 +244,11 @@ export async function runPullPhase(
         if (cleanupStats.extractedFilePaths && cleanupStats.extractedFilePaths.length > 0) {
             cleanupStats.extractedFilePaths.forEach(f => approvedFiles.add(f));
         }
+
+        // IMMEDIATE CREATION: Create manifest immediately after initial risky sweep
+        Logger.info("SYNC", `Creating initial upsync manifest after risky sweep (${approvedFiles.size} files approved)`);
+        const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, Array.from(approvedFiles), config.malware_policy || "purge");
+        onProgress({ manifestInfo });
     }
 
     // STAGE 2: Standard Pull
@@ -298,6 +303,16 @@ export async function runPullPhase(
         // Mark as approved if it survives cleaning
         if (existsSync(join(config.local_dir, filename))) {
             approvedFiles.add(filename);
+
+            // INCREMENTAL UPDATE: Update manifest in batches (e.g., every 8 files)
+            if (approvedFiles.size % 8 === 0) {
+                const manifestInfo = ShieldManager.updateUpsyncManifest(config.local_dir, [filename]);
+                onProgress({ manifestInfo });
+            } else {
+                // For smaller counts, just update with the single file to ensure cloud phase sees it
+                const manifestInfo = ShieldManager.updateUpsyncManifest(config.local_dir, [filename]);
+                onProgress({ manifestInfo });
+            }
         }
     }, "download", "pull");
 
@@ -322,7 +337,7 @@ export async function runPullPhase(
     releasePending();
 
     // Finalize manifest
-    const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, Array.from(approvedFiles), config.malware_policy);
+    const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, Array.from(approvedFiles), config.malware_policy || "purge");
     if (manifestInfo && onProgress) {
         onProgress({ manifestInfo });
     }

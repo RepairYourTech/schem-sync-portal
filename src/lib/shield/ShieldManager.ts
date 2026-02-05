@@ -7,9 +7,10 @@ import { type ShieldManifest } from "./types";
 import { PRIORITY_FILENAMES } from "./patterns";
 
 export interface ShieldMetadata {
+    generatedAt: string;
     fileCount: number;
     timestamp: number;
-    policy: string;
+    policy: "purge" | "isolate";
 }
 
 export const ShieldManager = {
@@ -36,9 +37,10 @@ export const ShieldManager = {
     saveUpsyncManifest(localDir: string, files: string[], policy: string): ShieldMetadata {
         const manifestPath = join(localDir, "upsync-manifest.txt");
         const metadata: ShieldMetadata = {
+            generatedAt: new Date().toISOString(),
             fileCount: files.length,
             timestamp: Date.now(),
-            policy
+            policy: policy as "purge" | "isolate"
         };
 
         const manifest: ShieldManifest = {
@@ -54,6 +56,50 @@ export const ShieldManager = {
             return metadata;
         } catch (err) {
             Logger.error("SHIELD", `Failed to save manifest to ${manifestPath}`, err as Error);
+            throw err;
+        }
+    },
+
+    /**
+     * Incrementally updates the existing upsync manifest.
+     */
+    updateUpsyncManifest(localDir: string, newFiles: string[]): ShieldMetadata {
+        const manifest = this.loadManifest(localDir);
+        const existingFiles = new Set(manifest.files);
+        let addedCount = 0;
+
+        for (const file of newFiles) {
+            if (!existingFiles.has(file)) {
+                manifest.files.push(file);
+                existingFiles.add(file);
+                addedCount++;
+            }
+        }
+
+        if (addedCount === 0) {
+            return {
+                generatedAt: manifest.generatedAt,
+                fileCount: manifest.files.length,
+                timestamp: Date.now(),
+                policy: manifest.policy
+            };
+        }
+
+        manifest.generatedAt = new Date().toISOString();
+        const metadata: ShieldMetadata = {
+            generatedAt: manifest.generatedAt,
+            fileCount: manifest.files.length,
+            timestamp: Date.now(),
+            policy: manifest.policy
+        };
+
+        const manifestPath = join(localDir, "upsync-manifest.txt");
+        try {
+            writeFileSync(manifestPath, ManifestParser.stringify(manifest), "utf8");
+            Logger.info("SHIELD", `Updated manifest at ${manifestPath} (added ${addedCount} files, total ${manifest.files.length})`);
+            return metadata;
+        } catch (err) {
+            Logger.error("SHIELD", `Failed to update manifest at ${manifestPath}`, err as Error);
             throw err;
         }
     },

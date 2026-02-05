@@ -8,6 +8,9 @@ import { runManifestCloudPhase } from "./cloudPhase";
 import { resetSessionState, resetSessionCompletions, parseJsonLog } from "./progress";
 import { runCleanupSweep } from "../cleanup";
 import { Env } from "../env";
+import { ShieldManager } from "../shield/ShieldManager";
+import { existsSync, readdirSync } from "fs";
+import { join } from "path";
 
 import {
     stopSync,
@@ -134,9 +137,63 @@ export async function runSync(
                     cleanupStats
                 });
             }, undefined, cleanupStats);
+
+            // STANDALONE SHIELD PATH: Generate manifest after cleanup
+            Logger.info("SYNC", "Standalone shield run: Generating manifest after cleanup");
+            const approvedFiles: string[] = [];
+            const scan = (dir: string, base: string) => {
+                if (!existsSync(dir)) return;
+                const entries = readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const relPath = join(base, entry.name);
+                    if (entry.isDirectory()) {
+                        scan(join(dir, entry.name), relPath);
+                    } else if (entry.isFile()) {
+                        const filename = entry.name;
+                        if (!filename.startsWith(".") && filename !== "manifest.txt" && filename !== "upsync-manifest.txt") {
+                            approvedFiles.push(relPath);
+                        }
+                    }
+                }
+            };
+            scan(config.local_dir, "");
+
+            // Include any files extracted from archives
+            if (cleanupStats.extractedFilePaths) {
+                cleanupStats.extractedFilePaths.forEach(f => {
+                    if (!approvedFiles.includes(f)) approvedFiles.push(f);
+                });
+            }
+
+            const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, approvedFiles, config.malware_policy || "purge");
+            wrapProgress({ manifestInfo });
         }
 
         if (showCloud) {
+            // CLOUD PHASE SAFETY: Ensure manifest exists before proceeding
+            const manifestPath = join(config.local_dir, "upsync-manifest.txt");
+            if (!existsSync(manifestPath)) {
+                Logger.warn("SYNC", "Upsync manifest missing before cloud phase - attempting to generate default");
+                const approvedFiles: string[] = [];
+                const scan = (dir: string, base: string) => {
+                    if (!existsSync(dir)) return;
+                    const entries = readdirSync(dir, { withFileTypes: true });
+                    for (const entry of entries) {
+                        const relPath = join(base, entry.name);
+                        if (entry.isDirectory()) {
+                            scan(join(dir, entry.name), relPath);
+                        } else if (entry.isFile()) {
+                            const filename = entry.name;
+                            if (!filename.startsWith(".") && filename !== "manifest.txt" && filename !== "upsync-manifest.txt") {
+                                approvedFiles.push(relPath);
+                            }
+                        }
+                    }
+                };
+                scan(config.local_dir, "");
+                const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, approvedFiles, config.malware_policy || "purge");
+                wrapProgress({ manifestInfo });
+            }
             await runManifestCloudPhase(config, wrapProgress);
         }
 
