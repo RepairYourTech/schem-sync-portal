@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef } from "react";
 import type { PortalConfig } from "../lib/config";
-import { runSync, stopSync, pauseSync, resumeSync, clearSyncSession, type SyncProgress } from "../lib/sync";
+import { runSync, stopSync, pauseSync, resumeSync, clearSyncSession, getIsSyncPaused, type SyncProgress } from "../lib/sync";
+
+type Phase = 'pull' | 'shield' | 'cloud';
 
 export function useSync() {
     const [progress, setProgress] = useState<SyncProgress>({
@@ -53,12 +55,27 @@ export function useSync() {
         resumeSync(p => setProgress(prev => ({ ...prev, ...p })));
     }, []);
 
+    const pausePhase = useCallback((phase: Phase) => {
+        pauseSync(p => setProgress(prev => ({ ...prev, ...p })), phase);
+    }, []);
+
+    const resumePhase = useCallback((phase: Phase) => {
+        resumeSync(p => setProgress(prev => ({ ...prev, ...p })), phase);
+    }, []);
+
+    const isPhasePaused = useCallback((phase: Phase): boolean => {
+        return getIsSyncPaused(phase);
+    }, [progress]); // Recalculate when progress changes
+
     return {
         progress,
         isRunning,
         start,
         stop,
         pause,
-        resume
+        resume,
+        pausePhase,
+        resumePhase,
+        isPhasePaused
     };
 }

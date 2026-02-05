@@ -27,7 +27,7 @@ async function discoverManifest(config: PortalConfig, sourceRemote: string): Pro
             "copyto", `${sourceRemote}manifest.txt`, localManifest,
             ...sourceFlags,
             ...RETRY_FLAGS
-        ], () => { }, undefined, "download");
+        ], () => { }, undefined, "download", "pull");
         return localManifest;
     } catch (err) {
         Logger.debug("SYNC", `Failed to fetch manifest from source: ${err instanceof Error ? err.message : String(err)}`);
@@ -37,7 +37,7 @@ async function discoverManifest(config: PortalConfig, sourceRemote: string): Pro
                 await executeRclone([
                     "copyto", `${destRemote}manifest.txt`, localManifest,
                     ...RETRY_FLAGS
-                ], () => { }, undefined, "download");
+                ], () => { }, undefined, "download", "pull");
                 return localManifest;
             } catch (err) {
                 Logger.debug("SYNC", `Failed to fetch manifest from backup: ${err instanceof Error ? err.message : String(err)}`);
@@ -184,7 +184,7 @@ export async function runPullPhase(
                 ...stats,
                 percentage: Math.min(100, Math.round((getSessionCompletionsSize() / (riskyItems.length + standardItems.length)) * 100))
             });
-        });
+        }, undefined, "download", "pull");
 
         // Neutralize through both archive sweep AND direct file cleanup
         await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
@@ -207,10 +207,19 @@ export async function runPullPhase(
             if (existsSync(fullPath)) {
                 await cleanFile(fullPath, config.local_dir, config.malware_policy || "purge");
 
-                // If it survives cleaning and we have a queue, push it to allow upsync
+                // If it survives cleaning and we have a queue, mark as pending shield clearance
                 if (existsSync(fullPath) && cleanedQueue) {
-                    cleanedQueue.push(item);
+                    cleanedQueue.markPending(item);
                 }
+            }
+        }
+
+        // After risky items sweep, clear pending for files that survived cleaning
+        if (cleanedQueue) {
+            const survivingRiskyFiles = riskyItems.filter(item => existsSync(join(config.local_dir, item)));
+            if (survivingRiskyFiles.length > 0) {
+                cleanedQueue.clearPending(survivingRiskyFiles);
+                Logger.debug("SYNC", `Cleared ${survivingRiskyFiles.length} risky files for upsync after shield verification`);
             }
         }
     }
@@ -256,11 +265,12 @@ export async function runPullPhase(
             }
         }
 
-        // Only push to cleanedQueue if the file still exists (passed the filter/shield)
+        // Mark as pending shield clearance if the file still exists
+        // Will be released to upsync queue after shield sweep verifies archives
         if (cleanedQueue && existsSync(join(config.local_dir, filename))) {
-            cleanedQueue.push(filename);
+            cleanedQueue.markPending(filename);
         }
-    });
+    }, "download", "pull");
 
     // FINAL SWEEP: Catch any archives identified after download during standard pull
     if (config.enable_malware_shield) {
@@ -277,5 +287,27 @@ export async function runPullPhase(
                 cleanupStats: stats
             });
         });
+
+        // After final sweep, scan local directory and release all verified files for upsync
+        if (cleanedQueue) {
+            const verifiedFiles: string[] = [];
+            const scanVerified = (dir: string, base: string) => {
+                if (!existsSync(dir)) return;
+                const entries = readdirSync(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const relPath = join(base, entry.name);
+                    if (entry.isDirectory()) {
+                        scanVerified(join(dir, entry.name), relPath);
+                    } else if (entry.isFile()) {
+                        verifiedFiles.push(relPath);
+                    }
+                }
+            };
+            scanVerified(config.local_dir, "");
+            if (verifiedFiles.length > 0) {
+                cleanedQueue.clearPending(verifiedFiles);
+                Logger.info("SYNC", `Released ${verifiedFiles.length} verified files for upsync after final shield sweep`);
+            }
+        }
     }
 }

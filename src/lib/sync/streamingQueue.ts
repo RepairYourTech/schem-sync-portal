@@ -6,6 +6,7 @@ import { Logger } from "../logger";
  */
 export class StreamingFileQueue {
     private queue: string[] = [];
+    private pendingFiles: Set<string> = new Set();
     private isComplete = false;
     private drainResolvers: (() => void)[] = [];
 
@@ -19,6 +20,41 @@ export class StreamingFileQueue {
             const resolver = this.drainResolvers.pop();
             resolver?.();
         }
+    }
+
+    /**
+     * Mark a file as pending shield clearance.
+     * File is held until shield verification completes.
+     */
+    markPending(file: string) {
+        this.pendingFiles.add(file);
+        Logger.debug("SYNC", `File marked pending shield clearance: ${file}`);
+    }
+
+    /**
+     * Clear pending files that have passed shield verification.
+     * Moves verified files from pending to the actual queue.
+     */
+    clearPending(files: string[]) {
+        for (const file of files) {
+            if (this.pendingFiles.has(file)) {
+                this.pendingFiles.delete(file);
+                this.queue.push(file);
+                Logger.debug("SYNC", `File cleared for upsync: ${file}`);
+            }
+        }
+        // Wake up any waiting drainers
+        while (this.drainResolvers.length > 0) {
+            const resolver = this.drainResolvers.pop();
+            resolver?.();
+        }
+    }
+
+    /**
+     * Get count of files pending shield clearance.
+     */
+    getPendingCount(): number {
+        return this.pendingFiles.size;
     }
 
     /**

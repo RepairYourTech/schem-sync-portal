@@ -18,6 +18,13 @@ interface SyncPortalProps {
     onStart: () => void;
     onPause: () => void;
     onResume: () => void;
+    onPausePull?: () => void;
+    onResumePull?: () => void;
+    onPauseShield?: () => void;
+    onResumeShield?: () => void;
+    onPauseCloud?: () => void;
+    onResumeCloud?: () => void;
+    isPhasePaused?: (phase: 'pull' | 'shield' | 'cloud') => boolean;
     configLoaded: boolean;
     focusArea: "body" | "footer";
     onFocusChange: (area: "body" | "footer") => void;
@@ -36,6 +43,13 @@ export const SyncPortal = React.memo(({
     onStart: _onStart,
     onPause,
     onResume,
+    onPausePull,
+    onResumePull,
+    onPauseShield,
+    onResumeShield,
+    onPauseCloud,
+    onResumeCloud,
+    isPhasePaused,
     configLoaded,
     focusArea,
     onFocusChange,
@@ -269,8 +283,8 @@ export const SyncPortal = React.memo(({
                             sourceType={sourceType}
                             colors={colors}
                             width={panelWidth(0) - 2}
-                            onPause={onPause}
-                            onResume={onResume}
+                            onPause={onPausePull || onPause}
+                            onResume={onResumePull || onResume}
                             height={isRunning ? getDynamicHeight(0, "source") : 12}
                             maxFiles={getMaxFiles(getDynamicHeight(0, "source"), "source")}
                             transfers={config.downsync_transfers}
@@ -295,8 +309,8 @@ export const SyncPortal = React.memo(({
                                     colors={colors}
                                     width={panelWidth(shieldIdx) - 2}
                                     shieldEnabled={true}
-                                    onPause={onPause}
-                                    onResume={onResume}
+                                    onPause={onPauseShield || onPause}
+                                    onResume={onResumeShield || onResume}
                                     isFocused={getPanelFocus("shield")}
                                     onFocus={(keep) => handleFocus("shield", keep)}
                                     subFocusIndex={subFocusIndex}
@@ -317,8 +331,9 @@ export const SyncPortal = React.memo(({
                             colors={colors}
                             width={panelWidth(visiblePanelCount - 1) - 2}
                             upsyncEnabled={true}
-                            onPause={onPause}
-                            onResume={onResume}
+                            onPause={onPauseCloud || onPause}
+                            onResume={onResumeCloud || onResume}
+                            isPhasePaused={isPhasePaused}
                             height={isRunning ? getDynamicHeight(visiblePanelCount - 1, "dest") : 12}
                             maxFiles={getMaxFiles(getDynamicHeight(visiblePanelCount - 1, "dest"), "dest")}
                             transfers={config.upsync_transfers}

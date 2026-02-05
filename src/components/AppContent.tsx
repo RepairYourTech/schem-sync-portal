@@ -47,7 +47,7 @@ export function AppContent() {
     const { colors } = useTheme();
     const renderer = useRenderer();
     const { width, height } = useTerminalDimensions();
-    const { progress, isRunning, start, stop, pause, resume } = useSync();
+    const { progress, isRunning, start, stop, pause, resume, pausePhase, resumePhase, isPhasePaused } = useSync();
 
     const handleStartSync = useCallback(() => {
         if (config.source_provider !== "unconfigured" && config.source_provider !== "none" && !isRunning) {
@@ -420,7 +420,7 @@ export function AppContent() {
                         onLearnMore={() => { setShowFontInstallPrompt(false); setFontInstallerReturnView("dashboard"); setView('fontguide'); }}
                     />
                 ) : null}
-                {view === "sync" ? <SyncPortal config={config} progress={progress} isRunning={isRunning} onStop={stop} onStart={handleStartSync} onPause={pause} onResume={resume} configLoaded={!isEmpty} focusArea={focusArea} onFocusChange={setFocusArea} focusIndex={syncFocusIndex} onFocusIndexChange={setSyncFocusIndex} subFocusIndex={syncSubFocusIndex} onSubFocusIndexChange={setSyncSubFocusIndex} onUpdateConfig={(nc) => { setConfig(nc); saveConfig(nc); }} /> : null}
+                {view === "sync" ? <SyncPortal config={config} progress={progress} isRunning={isRunning} onStop={stop} onStart={handleStartSync} onPause={pause} onResume={resume} onPausePull={() => pausePhase('pull')} onResumePull={() => resumePhase('pull')} onPauseShield={() => pausePhase('shield')} onResumeShield={() => resumePhase('shield')} onPauseCloud={() => pausePhase('cloud')} onResumeCloud={() => resumePhase('cloud')} isPhasePaused={isPhasePaused} configLoaded={!isEmpty} focusArea={focusArea} onFocusChange={setFocusArea} focusIndex={syncFocusIndex} onFocusIndexChange={setSyncFocusIndex} subFocusIndex={syncSubFocusIndex} onSubFocusIndexChange={setSyncSubFocusIndex} onUpdateConfig={(nc) => { setConfig(nc); saveConfig(nc); }} /> : null}
                 {view === "wizard" ? <Wizard initialConfig={config} mode={wizardMode} onUpdate={onUpdateWizard} onComplete={onWizardComplete} onCancel={() => setView("dashboard")} onQuit={() => renderer.destroy()} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} backSignal={backSignal} /> : null}
                 {view === "options" ? <Options onDoctor={() => setView("doctor")} onSetup={() => { setView("wizard"); setWizardMode("edit"); }} onForensic={() => setView("forensic")} onReset={onReset} onResetShield={onResetShield} onBack={() => setView("dashboard")} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} config={config} onUpdateConfig={(nc) => { saveConfig(nc); setConfig(nc); }} /> : null}
                 {view === "forensic" ? <ForensicView targetDir={config.local_dir && config.local_dir !== "none" ? config.local_dir : ""} gdriveRemote={config.source_provider === "gdrive" ? Env.REMOTE_PORTAL_SOURCE : (config.backup_provider === "gdrive" ? Env.REMOTE_PORTAL_BACKUP : null)} onComplete={() => setView("options")} onCancel={() => setView("options")} /> : null}
