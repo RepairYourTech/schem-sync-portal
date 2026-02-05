@@ -9,7 +9,16 @@ import type { SyncProgress } from "./types";
  */
 
 const activeProcs = new Set<Subprocess>();
-let isSyncPaused = false;
+
+// Per-phase process tracking for independent pause control
+const phaseProcesses: { pull: Set<Subprocess>, shield: Set<Subprocess>, cloud: Set<Subprocess> } = {
+    pull: new Set(),
+    shield: new Set(),
+    cloud: new Set()
+};
+
+// Per-phase pause state
+const pauseState = { pull: false, shield: false, cloud: false };
 
 /**
  * Helper to strip ANSI codes and control characters.
@@ -64,14 +73,32 @@ export const RETRY_FLAGS = [
 ];
 
 /**
+ * Check if shield phase is blocking upsync.
+ * Returns true if shield is paused, which should block cloud phase.
+ */
+export function isShieldBlocking(): boolean {
+    return pauseState.shield;
+}
+
+/**
+ * Get processes belonging to a specific phase.
+ */
+export function getPhaseProcesses(phase: 'pull' | 'shield' | 'cloud'): Set<Subprocess> {
+    return phaseProcesses[phase];
+}
+
+/**
  * Executes an rclone command and streams JSON logs to the update callback.
  * Now supports an optional onFileComplete callback for streaming upsync.
+ *
+ * @param phase - Optional phase identifier for per-phase pause control
  */
 export async function executeRclone(
     args: string[],
     onUpdate: (stats: Partial<SyncProgress>) => void,
     onFileComplete?: (filename: string) => void,
-    type: "download" | "upload" = "download"
+    type: "download" | "upload" = "download",
+    phase?: 'pull' | 'shield' | 'cloud'
 ): Promise<void> {
     return new Promise((resolve, reject) => {
         const fullArgs = [
@@ -94,7 +121,14 @@ export async function executeRclone(
 
         activeProcs.add(proc);
 
-        if (isSyncPaused) {
+        // Track process by phase if specified
+        if (phase) {
+            phaseProcesses[phase].add(proc);
+        }
+
+        // Check pause state for this specific phase or global
+        const phasePaused = phase ? pauseState[phase] : (pauseState.pull || pauseState.shield || pauseState.cloud);
+        if (phasePaused) {
             proc.kill("SIGSTOP");
             onUpdate({ isPaused: true });
         }
@@ -137,6 +171,10 @@ export async function executeRclone(
         const checkExit = async () => {
             const exitCode = await proc.exited;
             activeProcs.delete(proc);
+            // Remove from phase tracking if tagged
+            if (phase) {
+                phaseProcesses[phase].delete(proc);
+            }
             await Promise.all([stdoutDone, stderrDone]);
             if (exitCode === 0) {
                 onUpdate({ percentage: 100 });
@@ -150,8 +188,12 @@ export async function executeRclone(
     });
 }
 
-export function getIsSyncPaused(): boolean {
-    return isSyncPaused;
+export function getIsSyncPaused(phase?: 'pull' | 'shield' | 'cloud'): boolean {
+    if (phase) {
+        return pauseState[phase];
+    }
+    // Global check: return true if any phase is paused
+    return pauseState.pull || pauseState.shield || pauseState.cloud;
 }
 
 export function stopSync(): void {
@@ -159,31 +201,70 @@ export function stopSync(): void {
         proc.kill();
     }
     activeProcs.clear();
+    // Clear phase tracking
+    phaseProcesses.pull.clear();
+    phaseProcesses.shield.clear();
+    phaseProcesses.cloud.clear();
 }
 
-export function pauseSync(onUpdate?: (p: Partial<SyncProgress>) => void): void {
-    if (activeProcs.size > 0 && !isSyncPaused) {
-        for (const proc of activeProcs) {
-            proc.kill("SIGSTOP");
+export function pauseSync(onUpdate?: (p: Partial<SyncProgress>) => void, phase?: 'pull' | 'shield' | 'cloud'): void {
+    if (phase) {
+        // Pause specific phase
+        if (!pauseState[phase] && phaseProcesses[phase].size > 0) {
+            for (const proc of phaseProcesses[phase]) {
+                proc.kill("SIGSTOP");
+            }
+            pauseState[phase] = true;
+            Logger.info("SYNC", `${phase.toUpperCase()} phase paused: ${phaseProcesses[phase].size} processes`);
+            if (onUpdate) onUpdate({ isPaused: true });
         }
-        isSyncPaused = true;
-        Logger.info("SYNC", `Sync processes paused: ${activeProcs.size}`);
-        if (onUpdate) onUpdate({ isPaused: true });
+    } else {
+        // Global pause: pause all active phases
+        if (activeProcs.size > 0) {
+            for (const proc of activeProcs) {
+                proc.kill("SIGSTOP");
+            }
+            pauseState.pull = true;
+            pauseState.shield = true;
+            pauseState.cloud = true;
+            Logger.info("SYNC", `All phases paused: ${activeProcs.size} processes`);
+            if (onUpdate) onUpdate({ isPaused: true });
+        }
     }
 }
 
-export function resumeSync(onUpdate?: (p: Partial<SyncProgress>) => void): void {
-    if (isSyncPaused) {
-        for (const proc of activeProcs) {
-            proc.kill("SIGCONT");
+export function resumeSync(onUpdate?: (p: Partial<SyncProgress>) => void, phase?: 'pull' | 'shield' | 'cloud'): void {
+    if (phase) {
+        // Resume specific phase
+        if (pauseState[phase]) {
+            for (const proc of phaseProcesses[phase]) {
+                proc.kill("SIGCONT");
+            }
+            pauseState[phase] = false;
+            Logger.info("SYNC", `${phase.toUpperCase()} phase resumed: ${phaseProcesses[phase].size} processes`);
+            if (onUpdate) onUpdate({ isPaused: false });
         }
-        isSyncPaused = false;
-        Logger.info("SYNC", "Sync processes resumed");
-        if (onUpdate) onUpdate({ isPaused: false });
+    } else {
+        // Global resume: resume all phases
+        if (pauseState.pull || pauseState.shield || pauseState.cloud) {
+            for (const proc of activeProcs) {
+                proc.kill("SIGCONT");
+            }
+            pauseState.pull = false;
+            pauseState.shield = false;
+            pauseState.cloud = false;
+            Logger.info("SYNC", "All phases resumed");
+            if (onUpdate) onUpdate({ isPaused: false });
+        }
     }
 }
 
 export function resetExecutorState(): void {
-    isSyncPaused = false;
+    pauseState.pull = false;
+    pauseState.shield = false;
+    pauseState.cloud = false;
     activeProcs.clear();
+    phaseProcesses.pull.clear();
+    phaseProcesses.shield.clear();
+    phaseProcesses.cloud.clear();
 }

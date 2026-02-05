@@ -1,7 +1,7 @@
 import { join } from "path";
 import { writeFileSync, existsSync, mkdirSync } from "fs";
 import { Env } from "../env";
-import { executeRclone, RETRY_FLAGS, getIsSyncPaused } from "./utils";
+import { executeRclone, RETRY_FLAGS, getIsSyncPaused, isShieldBlocking } from "./utils";
 import { clearActiveTransfers } from "./progress";
 import type { PortalConfig } from "../config";
 import type { SyncProgress } from "./types";
@@ -45,7 +45,7 @@ export async function runCloudPhase(
             description: "Syncing to Cloud...",
             isPaused: getIsSyncPaused()
         });
-    }, undefined, "upload");
+    }, undefined, "upload", "cloud");
 }
 
 /**
@@ -76,6 +76,19 @@ export async function runStreamingCloudPhase(
     for await (const batch of cleanedQueue.drain(50)) {
         if (batch.length === 0) continue;
 
+        // Shield-blocking coordination: wait if shield is paused
+        if (isShieldBlocking()) {
+            onProgress({
+                phase: "cloud",
+                description: "Waiting for shield to resume...",
+                percentage: 0,
+                isPaused: false
+            });
+            while (isShieldBlocking()) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+
         Logger.debug("SYNC", `Streaming upsync: uploading batch of ${batch.length} files`);
 
         // Write batch to temporary file list
@@ -101,7 +114,7 @@ export async function runStreamingCloudPhase(
             isPaused: getIsSyncPaused(),
             ...stats,
             percentage: stats.percentage ?? 0
-        }), undefined, "upload");
+        }), undefined, "upload", "cloud");
 
         totalUploaded += batch.length;
     }

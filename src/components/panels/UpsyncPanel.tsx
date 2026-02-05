@@ -18,6 +18,7 @@ interface UpsyncPanelProps {
     upsyncEnabled: boolean;
     onPause?: () => void;
     onResume?: () => void;
+    isPhasePaused?: (phase: 'pull' | 'shield' | 'cloud') => boolean;
     height?: number;
     maxFiles?: number;
     transfers?: 4 | 6 | 8;
@@ -36,6 +37,7 @@ export const UpsyncPanel = React.memo(({
     upsyncEnabled,
     onPause,
     onResume,
+    isPhasePaused,
     height: _height = 10,
     maxFiles = 5,
     transfers = 4,
@@ -47,12 +49,14 @@ export const UpsyncPanel = React.memo(({
 }: UpsyncPanelProps) => {
     const isActive = progress.phase !== "done" && progress.phase !== "error";
     const isGlobalPaused = progress.isPaused;
+    const isShieldPaused = isPhasePaused?.('shield') ?? false;
 
     const status: PanelStatus = !upsyncEnabled ? "idle" :
-        isGlobalPaused ? "paused" :
-            isActive ? "active" :
-                (progress.phase === "pull" || progress.phase === "clean") ? "waiting" :
-                    progress.phase === "done" ? "complete" : "idle";
+        isShieldPaused ? "blocked" :
+            isGlobalPaused ? "paused" :
+                isActive ? "active" :
+                    (progress.phase === "pull" || progress.phase === "clean") ? "waiting" :
+                        progress.phase === "done" ? "complete" : "idle";
 
     const uploadQueue = progress.uploadQueue || [];
     const maxFilesToShow = maxFiles;
