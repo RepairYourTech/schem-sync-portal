@@ -5,7 +5,7 @@ import { useTheme } from "../lib/theme";
 import { useKeyboard } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import { Hotkey } from "./Hotkey";
-import { type ViewName } from "../index";
+import { type ViewName } from "../hooks/useAppState";
 
 interface ManualFontGuideProps {
     returnView: ViewName;

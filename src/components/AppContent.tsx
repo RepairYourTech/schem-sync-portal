@@ -18,7 +18,7 @@ import { Hotkey } from "./Hotkey";
 import { FontInstaller } from "./FontInstaller";
 import { ManualFontGuide } from "./ManualFontGuide";
 import { FontMissingBanner } from "./FontMissingBanner";
-import { ShieldManager } from "../lib/cleanup";
+import { ShieldManager } from "../lib/shield/ShieldManager";
 import { FlexBVIcon } from "./FlexBVIcon";
 import { SlimeIcon } from "./SlimeIcon";
 import { useAppState } from "../hooks/useAppState";

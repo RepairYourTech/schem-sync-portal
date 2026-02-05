@@ -220,7 +220,7 @@ describe("Hotkey Focus Propagation", () => {
 });
 
 // Helper function
-function render(_element: React.ReactElement) {
+function render(_element: React.ReactNode) {
     return {
         container: null,
         rerender: () => { },
