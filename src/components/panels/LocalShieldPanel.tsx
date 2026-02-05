@@ -76,7 +76,7 @@ export const LocalShieldPanel = React.memo(({
             />
 
             {/* Shield Stats Body */}
-            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1} overflow="hidden">
+            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1} flexShrink={1}>
                 {/* Visual Status Indicator */}
                 <box flexDirection="row" alignItems="center" gap={1} height={1} paddingLeft={1} paddingRight={1}>
                     <text fg={status === 'active' ? colors.setup : (status === 'complete' ? colors.success : colors.dim)} flexShrink={0}>
@@ -127,7 +127,7 @@ export const LocalShieldPanel = React.memo(({
             </box>
 
             {/* ACTION BAR (Bottom-docked) */}
-            <box marginTop="auto" paddingLeft={1} paddingRight={1}>
+            <box marginTop="auto" paddingLeft={1} paddingRight={1} flexShrink={0}>
                 <PanelControls
                     onPause={(isActive && !isGlobalPaused) ? onPause : undefined}
                     onResume={isGlobalPaused ? onResume : undefined}
