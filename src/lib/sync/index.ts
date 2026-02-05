@@ -69,10 +69,14 @@ export async function runSync(
     let pullFinished = false;
 
     const wrapProgress = (p: Partial<SyncProgress>) => {
-        // Track phase completion in parallel mode
-        if (p.phase === "pull" && p.percentage === 100) pullFinished = true;
-
         const incomingPhase = p.phase || currentProgress.phase;
+
+        // Track phase completion in parallel mode
+        // Pull is finished if it explicitly reaches 100% OR if we transitioned out of it to cloud/done
+        if ((p.phase === "pull" || (!p.phase && incomingPhase === "pull")) && p.percentage === 100) {
+            pullFinished = true;
+        }
+
         let effectivePhase = incomingPhase;
 
         // In parallel mode, use the "syncing" phase to indicate dual activity.
@@ -81,7 +85,8 @@ export async function runSync(
             effectivePhase = "syncing";
         }
 
-        const phasePct = p.percentage || 0;
+        const currentPct = p.percentage !== undefined ? p.percentage : currentProgress.percentage;
+        const phasePct = currentPct || 0;
         let baseWeight = 0;
 
         // Dynamic weight calculation based on the effective phase
@@ -116,86 +121,92 @@ export async function runSync(
         resetSessionState();
         resetExecutorState();
 
+        const tasks: Promise<void>[] = [];
+        let pullDone = false;
+        let shieldError: Error | null = null;
+
         if (showPull) {
-            await runPullPhase(config, wrapProgress);
+            tasks.push((async () => {
+                try {
+                    await runPullPhase(config, wrapProgress);
+                } catch (err) {
+                    shieldError = err as Error;
+                    throw err;
+                } finally {
+                    pullDone = true;
+                }
+            })());
         } else if (config.enable_malware_shield) {
-            const excludeFile = Env.getExcludeFilePath(config.local_dir);
-            const cleanupStats: CleanupStats = {
-                phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
-                cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0,
-                policyMode: config.malware_policy || "purge"
-            };
-            await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
-                if ("phase" in cStats && cStats.phase && !("scannedArchives" in cStats)) {
-                    wrapProgress(cStats as Partial<SyncProgress>);
-                    return;
-                }
-                Object.assign(cleanupStats, cStats);
-                wrapProgress({
-                    phase: "clean",
-                    description: `Shield: Sweep... ${cleanupStats.flaggedArchives} threats purged.`,
-                    cleanupStats
-                });
-            }, undefined, cleanupStats);
-
-            // STANDALONE SHIELD PATH: Generate manifest after cleanup
-            Logger.info("SYNC", "Standalone shield run: Generating manifest after cleanup");
-            const approvedFiles: string[] = [];
-            const scan = (dir: string, base: string) => {
-                if (!existsSync(dir)) return;
-                const entries = readdirSync(dir, { withFileTypes: true });
-                for (const entry of entries) {
-                    const relPath = join(base, entry.name);
-                    if (entry.isDirectory()) {
-                        scan(join(dir, entry.name), relPath);
-                    } else if (entry.isFile()) {
-                        const filename = entry.name;
-                        if (!filename.startsWith(".") && filename !== "manifest.txt" && filename !== "upsync-manifest.txt") {
-                            approvedFiles.push(relPath);
+            tasks.push((async () => {
+                try {
+                    const excludeFile = Env.getExcludeFilePath(config.local_dir);
+                    const cleanupStats: CleanupStats = {
+                        phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+                        cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0,
+                        policyMode: config.malware_policy || "purge"
+                    };
+                    await runCleanupSweep(config.local_dir, excludeFile, config.malware_policy || "purge", (cStats) => {
+                        if ("phase" in cStats && cStats.phase && !("scannedArchives" in cStats)) {
+                            wrapProgress(cStats as Partial<SyncProgress>);
+                            return;
                         }
+                        Object.assign(cleanupStats, cStats);
+                        wrapProgress({
+                            phase: "clean",
+                            description: `Shield: Sweep... ${cleanupStats.flaggedArchives} threats purged.`,
+                            cleanupStats
+                        });
+                    }, undefined, cleanupStats);
+
+                    // STANDALONE SHIELD PATH: Generate manifest after cleanup
+                    Logger.info("SYNC", "Standalone shield run: Generating manifest after cleanup");
+                    const approvedFiles: string[] = [];
+                    const scan = (dir: string, base: string) => {
+                        if (!existsSync(dir)) return;
+                        const entries = readdirSync(dir, { withFileTypes: true });
+                        for (const entry of entries) {
+                            const relPath = join(base, entry.name);
+                            if (entry.isDirectory()) {
+                                scan(join(dir, entry.name), relPath);
+                            } else if (entry.isFile()) {
+                                const filename = entry.name;
+                                if (!filename.startsWith(".") && filename !== "manifest.txt" && filename !== "upsync-manifest.txt") {
+                                    approvedFiles.push(relPath);
+                                }
+                            }
+                        }
+                    };
+                    scan(config.local_dir, "");
+
+                    // Include any files extracted from archives
+                    if (cleanupStats.extractedFilePaths) {
+                        cleanupStats.extractedFilePaths.forEach(f => {
+                            if (!approvedFiles.includes(f)) approvedFiles.push(f);
+                        });
                     }
+
+                    const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, approvedFiles, config.malware_policy || "purge");
+                    wrapProgress({ manifestInfo });
+                } catch (err) {
+                    shieldError = err as Error;
+                    throw err;
+                } finally {
+                    pullDone = true;
                 }
-            };
-            scan(config.local_dir, "");
-
-            // Include any files extracted from archives
-            if (cleanupStats.extractedFilePaths) {
-                cleanupStats.extractedFilePaths.forEach(f => {
-                    if (!approvedFiles.includes(f)) approvedFiles.push(f);
-                });
-            }
-
-            const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, approvedFiles, config.malware_policy || "purge");
-            wrapProgress({ manifestInfo });
+            })());
+        } else {
+            pullDone = true;
         }
 
         if (showCloud) {
-            // CLOUD PHASE SAFETY: Ensure manifest exists before proceeding
-            const manifestPath = join(config.local_dir, "upsync-manifest.txt");
-            if (!existsSync(manifestPath)) {
-                Logger.warn("SYNC", "Upsync manifest missing before cloud phase - attempting to generate default");
-                const approvedFiles: string[] = [];
-                const scan = (dir: string, base: string) => {
-                    if (!existsSync(dir)) return;
-                    const entries = readdirSync(dir, { withFileTypes: true });
-                    for (const entry of entries) {
-                        const relPath = join(base, entry.name);
-                        if (entry.isDirectory()) {
-                            scan(join(dir, entry.name), relPath);
-                        } else if (entry.isFile()) {
-                            const filename = entry.name;
-                            if (!filename.startsWith(".") && filename !== "manifest.txt" && filename !== "upsync-manifest.txt") {
-                                approvedFiles.push(relPath);
-                            }
-                        }
-                    }
-                };
-                scan(config.local_dir, "");
-                const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, approvedFiles, config.malware_policy || "purge");
-                wrapProgress({ manifestInfo });
-            }
-            await runManifestCloudPhase(config, wrapProgress);
+            tasks.push(runManifestCloudPhase(config, wrapProgress, () => pullDone));
         }
+
+        if (tasks.length > 0) {
+            await Promise.all(tasks);
+        }
+
+        if (shieldError) throw shieldError;
 
         wrapProgress({
             phase: "done",

@@ -305,11 +305,10 @@ export async function runPullPhase(
             approvedFiles.add(filename);
 
             // INCREMENTAL UPDATE: Update manifest in batches (e.g., every 8 files)
-            if (approvedFiles.size % 8 === 0) {
-                const manifestInfo = ShieldManager.updateUpsyncManifest(config.local_dir, [filename]);
-                onProgress({ manifestInfo });
-            } else {
-                // For smaller counts, just update with the single file to ensure cloud phase sees it
+            // or for every file if we're dealing with a small number of total files
+            const shouldUpdate = approvedFiles.size % 8 === 0 || (standardItems.length < 20);
+
+            if (shouldUpdate) {
                 const manifestInfo = ShieldManager.updateUpsyncManifest(config.local_dir, [filename]);
                 onProgress({ manifestInfo });
             }
