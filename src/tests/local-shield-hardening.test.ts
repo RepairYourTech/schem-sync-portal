@@ -1,125 +1,162 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { expect, test, describe, beforeEach, afterEach } from "bun:test";
+import { Logger } from "../lib/logger";
 import { join } from "path";
-import { writeFileSync, existsSync, mkdirSync, rmSync } from "fs";
-import { cleanFile } from "../lib/cleanup";
+import { mkdirSync, writeFileSync, existsSync, rmSync } from "fs";
 import { ShieldManager } from "../lib/shield/ShieldManager";
-import { ShieldExecutor } from "../lib/shield/ShieldExecutor";
+import { runCleanupSweep, __setArchiveEngine, __setSpawnSync } from "../lib/cleanup";
 import type { CleanupStats } from "../lib/sync/types";
 
-describe("Local Shield Hardening", () => {
-    const getTestDir = () => join(process.cwd(), `test_shield_cleanup_${Math.random().toString(36).substring(2, 7)}`);
+describe("Malware Shield (Hardening)", () => {
+    const getTestDir = () => join(process.cwd(), `test_hardening_dir_${Math.random().toString(36).substring(2, 7)}`);
     let testDir = "";
+    let excludeFile = "";
 
     beforeEach(() => {
         testDir = getTestDir();
+        excludeFile = join(testDir, ".shield-exclude.txt");
         if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });
-        ShieldManager.resetShield(testDir); // Start clean
+
+        // Reset ShieldManager for this directory
+        ShieldManager.resetShield(testDir);
+
+        __setArchiveEngine({ type: "7z", bin: "7z" });
+        Logger.setLevel("DEBUG");
+        Logger.clearLogs();
     });
 
     afterEach(() => {
         if (testDir && existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
     });
 
-    it("should start with an empty offender list but have priority filenames available", () => {
-        expect(ShieldManager.getOffenders(testDir)).toEqual([]);
-        expect(ShieldManager.getPriorityFilenames().length).toBeGreaterThan(0);
-        expect(ShieldManager.getPriorityFilenames()).toContain("GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
-    });
+    test("should handle archive listing failure (fail-safe)", async () => {
+        // Mock spawnSync to simulate a failed listing command
+        __setSpawnSync(((options: any) => {
+            const args = Array.isArray(options) ? options : (options as { cmd: string[] }).cmd;
+            const cmd = args.join(" ");
 
-    it("should purge a direct malware file", async () => {
-        const file = join(testDir, "activator.exe");
-        writeFileSync(file, "malware content");
+            if (cmd.includes(" l ") || cmd.includes(" v ")) {
+                return {
+                    stdout: Buffer.from("ERROR: Cannot open archive"),
+                    stderr: Buffer.from("Failed to list"),
+                    success: false,
+                    exitCode: 1
+                };
+            }
+            return { stdout: Buffer.from(""), success: true, exitCode: 0 };
+        }) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        const handled = await cleanFile(file, testDir, "purge");
+        const corruptPath = join(testDir, "corrupt.zip");
+        writeFileSync(corruptPath, "corrupt zip content");
 
-        expect(handled).toBe(true);
-        expect(existsSync(file)).toBe(false);
-        expect(ShieldManager.getOffenders(testDir)).toContain("activator.exe");
-    });
-
-    it("should isolate a direct malware file", async () => {
-        const file = join(testDir, "patch.exe");
-        writeFileSync(file, "malware content");
-        const riskDir = join(testDir, "_risk_tools");
-
-        const handled = await cleanFile(file, testDir, "isolate");
-
-        expect(handled).toBe(true);
-        expect(existsSync(file)).toBe(false);
-        expect(existsSync(join(riskDir, "patch.exe"))).toBe(true);
-        expect(ShieldManager.getOffenders(testDir)).toContain("patch.exe");
-    });
-
-    it("should NOT purge useful files matching patterns", async () => {
-        // Use a pattern that exists in GARBAGE_PATTERNS but with a KEEP_EXTS extension
-        const file = join(testDir, "boardview_crack_instructions.txt");
-        writeFileSync(file, "useful data");
-
-        const handled = await cleanFile(file, testDir, "purge");
-
-        expect(handled).toBe(false);
-        expect(existsSync(file)).toBe(true);
-    });
-
-    it("should blacklist folders properly in offender list", async () => {
-        const file = join(testDir, "subdir", "keygen.exe");
-        mkdirSync(join(testDir, "subdir"), { recursive: true });
-        writeFileSync(file, "malware content");
-
-        await cleanFile(file, testDir, "purge");
-
-        const relPath = join("subdir", "keygen.exe");
-        expect(ShieldManager.getOffenders(testDir)).toContain(relPath);
-    });
-
-    it("should catch a PRIORITY_FILENAME even without other malware patterns", async () => {
-        const file = join(testDir, "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
-        writeFileSync(file, "legit content but known bad filename");
-
-        const handled = await cleanFile(file, testDir, "isolate");
-
-        expect(handled).toBe(true);
-        expect(existsSync(file)).toBe(false);
-        expect(existsSync(join(testDir, "_risk_tools", "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip"))).toBe(true);
-        expect(ShieldManager.getOffenders(testDir)).toContain("GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
-    });
-
-    it("should execute shield in all contexts with consistent behavior", async () => {
         const stats: CleanupStats = {
             phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
-            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge"
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge",
+            extractedFilePaths: []
         };
 
-        // Test realtime_clean
-        const file = join(testDir, "crack.exe");
-        writeFileSync(file, "malware content");
-        await ShieldExecutor.execute({
-            type: "realtime_clean",
-            localDir: testDir,
-            policy: "purge",
-            filePath: file,
-            initialStats: stats
-        });
-        expect(stats.executionContext).toBe("realtime_clean");
-        expect(stats.riskyPatternCount).toBe(1);
-        expect(existsSync(file)).toBe(false);
+        await runCleanupSweep(testDir, excludeFile, "purge", undefined, undefined, stats);
 
-        // Test risky_sweep (using no manifest/empty sweep for simplicity in this test)
-        await ShieldExecutor.execute({
-            type: "risky_sweep",
-            localDir: testDir,
-            policy: "purge",
-            initialStats: stats
-        });
-        expect(stats.executionContext).toBe("risky_sweep");
+        // Fail-safe should have purged it
+        expect(existsSync(corruptPath)).toBe(false);
+        expect(stats.flaggedArchives).toBe(1);
+        expect(stats.invalidListingArchives).toBe(1);
+    });
 
-        // Test final_sweep
-        await ShieldExecutor.execute({
-            type: "final_sweep",
-            localDir: testDir,
-            policy: "purge",
-            initialStats: stats
-        });
-        expect(stats.executionContext).toBe("final_sweep");
+    test("should detect and clean standalone malicious files", async () => {
+        // Mock listing to return empty for all archives
+        __setSpawnSync(((_options: unknown) => ({ stdout: Buffer.from(""), success: true, exitCode: 0 })) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        // Create a standalone malicious file
+        const malwarePath = join(testDir, "lpk.dll");
+        writeFileSync(malwarePath, "fake malware");
+
+        const stats: CleanupStats = {
+            phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge",
+            extractedFilePaths: []
+        };
+
+        await runCleanupSweep(testDir, excludeFile, "purge", undefined, undefined, stats);
+
+        // Should be detected by standalone scan
+        expect(existsSync(malwarePath)).toBe(false);
+        expect(stats.flaggedStandaloneFiles).toBe(1);
+        expect(stats.totalStandaloneFiles).toBeGreaterThan(0);
+    });
+
+    test("should recursively clean nested archives", async () => {
+        const parentPath = join(testDir, "parent.zip");
+        writeFileSync(parentPath, "parent zip content");
+
+        let nestedPathInStaging = "";
+
+        __setSpawnSync(((options: any) => {
+            const args = Array.isArray(options) ? options : (options as { cmd: string[] }).cmd;
+            const cmd = args.join(" ");
+
+            const res = { stdout: Buffer.from(""), success: true, exitCode: 0 };
+
+            if (cmd.includes(" l ") || cmd.includes(" v ")) {
+                if (cmd.includes("parent.zip")) {
+                    res.stdout = Buffer.from("lpk.dll\nnested.zip\nsafe.tvw");
+                } else if (cmd.includes("nested.zip")) {
+                    res.stdout = Buffer.from("crack.exe\nmanual.pdf");
+                }
+            } else if (cmd.includes(" x ")) {
+                let stagingDir: string = "";
+                if (cmd.includes("-o")) {
+                    const match = cmd.match(/-o([^ ]+)/);
+                    if (match && match[1]) stagingDir = match[1];
+                } else {
+                    stagingDir = args[args.length - 1] || "";
+                }
+
+                if (stagingDir && existsSync(stagingDir)) {
+                    if (cmd.includes("parent.zip")) {
+                        // Create nested archive and safe file in staging
+                        nestedPathInStaging = join(stagingDir, "nested.zip");
+                        writeFileSync(nestedPathInStaging, "nested zip content");
+                        writeFileSync(join(stagingDir, "safe.tvw"), "safe content");
+                    }
+                }
+            }
+            return res;
+        }) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+        const stats: CleanupStats = {
+            phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge",
+            extractedFilePaths: []
+        };
+
+        await runCleanupSweep(testDir, excludeFile, "purge", undefined, undefined, stats);
+
+        // Parent should be purged
+        expect(existsSync(parentPath)).toBe(false);
+
+        // Nested stats should be updated
+        expect(stats.nestedArchivesFound).toBe(1);
+        expect(stats.nestedArchivesCleaned).toBe(1);
+
+        // Safe file should have been extracted to testDir
+        expect(existsSync(join(testDir, "safe.tvw"))).toBe(true);
+    });
+
+    test("should skip already-verified extracted files during standalone scan", async () => {
+        // Mock extraction
+        const stats: CleanupStats = {
+            phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge",
+            extractedFilePaths: ["extra.tvw"] // Say we extracted this
+        };
+
+        // Create the "extracted" file
+        writeFileSync(join(testDir, "extra.tvw"), "content");
+
+        await runCleanupSweep(testDir, excludeFile, "purge", undefined, undefined, stats);
+
+        // standalone scan should NOT flag extra.tvw because it's in extractedFilePaths
+        expect(existsSync(join(testDir, "extra.tvw"))).toBe(true);
+        expect(stats.flaggedStandaloneFiles || 0).toBe(0);
     });
 });

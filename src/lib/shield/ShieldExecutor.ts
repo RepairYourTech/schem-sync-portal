@@ -44,7 +44,13 @@ export class ShieldExecutor {
             purgedFiles: 0,
             isolatedFiles: 0,
             policyMode: policy,
-            executionContext: type
+            executionContext: type,
+            invalidListingArchives: 0,
+            nestedArchivesFound: 0,
+            nestedArchivesCleaned: 0,
+            totalStandaloneFiles: 0,
+            scannedStandaloneFiles: 0,
+            flaggedStandaloneFiles: 0
         };
         stats.executionContext = type;
 
@@ -105,7 +111,13 @@ export class ShieldExecutor {
             purgedFiles: 0,
             isolatedFiles: 0,
             policyMode: policy,
-            executionContext: "final_sweep" // Treat as final sweep for consistency
+            executionContext: "final_sweep", // Treat as final sweep for consistency
+            invalidListingArchives: 0,
+            nestedArchivesFound: 0,
+            nestedArchivesCleaned: 0,
+            totalStandaloneFiles: 0,
+            scannedStandaloneFiles: 0,
+            flaggedStandaloneFiles: 0
         };
 
         const wrapProgress = (s: CleanupStats | Partial<SyncProgress>) => {
