@@ -204,7 +204,7 @@ export async function runPullPhase(
         await executeRclone(riskyArgs, (stats) => {
             onProgress({
                 phase: "pull",
-                description: `Shield: Neutralizing prioritized threats (${riskyItems.length})...`,
+                description: `Shield: Neutralizing prioritized threats (Archives + Nested + Standalone)...`,
                 manifestStats,
                 filesTransferred: getSessionCompletionsSize(),
                 isPaused: getIsSyncPaused(),

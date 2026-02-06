@@ -72,9 +72,15 @@ Support for **8+ Cloud Providers** in isolated environments:
 > [!CAUTION]
 > **GOOGLE DRIVE SECURITY WARNING**: Backing up schematics to Google Drive **REQUIRES** the Malware Shield to be enabled. Failure to sanitize archives *will* result in your Google Cloud Console project being suspended due to TOS violations (hosting/transferring detected "malware" archives).
 
-### 🛡️ Malware Shield Policy
-*   **Surgical Purge**: Automatically removes high-risk files (e.g., executables inside schematic archives).
-*   **Isolation**: Moves questionable files to a dedicated `_risk_tools` folder instead of deleting them.
+### 🛡️ Malware Shield (Hardened)
+
+The Malware Shield provides a three-layered defense against malicious files:
+
+*   **Fail-Safe Archive Validation**: Automatically flags archives that cannot be reliably listed (due to corruption or tool failure) as suspicious.
+*   **Recursive Nested Scanning**: Automatically detects and scans nested archives (`.zip`, `.7z`, `.rar`) inside risky parent archives BEFORE disposal.
+*   **Standalone File Scanning**: A dedicated phase that scans all pre-existing files in the local directory (not just new downloads) for malware patterns.
+
+Files matching `GARBAGE_PATTERNS` or `PRIORITY_FILENAMES` are either purged (deleted) or isolated (moved to `_risk_tools/`) based on policy. Legitimate schematic files are automatically extracted and verified before the parent archive is removed.
 
 ---
 

@@ -1,6 +1,7 @@
 import { spawnSync as bunSpawnSync } from "bun";
 import { join, relative, dirname, basename } from "path";
 import { existsSync, unlinkSync, mkdirSync, readFileSync, writeFileSync, rmSync, renameSync } from "fs";
+import { stat } from "fs/promises";
 import { glob } from "glob";
 import { Env } from "./env";
 import { Logger } from "./logger";
@@ -79,6 +80,57 @@ export async function runCleanupSweep(
             if (result.flagged) stats.flaggedArchives++; else stats.cleanArchives++;
         }
         stats.currentArchive = undefined;
+
+        // PHASE 2: Standalone File Scanning
+        if (onProgress) onProgress(stats);
+        Logger.info("SHIELD", "Starting standalone file scanning phase");
+
+        try {
+            const standaloneFiles = await glob("**/*", {
+                cwd: targetDir,
+                absolute: true,
+                ignore: [
+                    "**/node_modules/**",
+                    "**/.git/**",
+                    "**/_risk_tools/**",
+                    "**/_shield_isolated/**",
+                    "**/*.zip",
+                    "**/*.7z",
+                    "**/*.rar"
+                ]
+            });
+
+            stats.totalStandaloneFiles = standaloneFiles.length;
+            const extractedFileSet = new Set(stats.extractedFilePaths || []);
+
+            for (let i = 0; i < standaloneFiles.length; i++) {
+                if (abortSignal?.aborted) break;
+
+                const filePath = standaloneFiles[i]!;
+                const relPath = relative(targetDir, filePath);
+
+                // Skip already-verified extracted files
+                if (extractedFileSet.has(relPath)) continue;
+
+                stats.scannedStandaloneFiles = i + 1;
+                stats.currentStandaloneFile = relPath;
+                if (onProgress) onProgress(stats);
+
+                const isFile = (await stat(filePath)).isFile();
+                if (isFile) {
+                    const cleaned = await cleanFile(filePath, targetDir, policy, stats, onProgress);
+                    if (cleaned) {
+                        stats.flaggedStandaloneFiles = (stats.flaggedStandaloneFiles || 0) + 1;
+                    }
+                }
+            }
+
+            stats.currentStandaloneFile = undefined;
+            Logger.info("SHIELD", `Standalone file scan complete: ${stats.scannedStandaloneFiles} scanned, ${stats.flaggedStandaloneFiles} flagged`);
+        } catch (err) {
+            Logger.error("SHIELD", "Error during standalone file scanning", err);
+        }
+
         if (onProgress) onProgress(stats);
         Logger.info("SHIELD", `Cleanup sweep finished. Scanned ${stats.scannedArchives}/${stats.totalArchives} archives. Found ${stats.flaggedArchives} threats and ${stats.riskyPatternCount} patterns. Extracted ${stats.extractedFiles} verified items.`);
         return { completed: true, scannedArchives, unscannedArchives: [] };
@@ -103,14 +155,37 @@ async function cleanArchive(
         internalListing = getSpawnSync()(cmd).stdout.toString();
     } catch (err) {
         Logger.error("SYNC", `Failed to peek inside archive: ${relPath}`, err);
-        return { flagged: false, extractedCount: 0 };
+        internalListing = ""; // Ensure it triggers invalid listing check
     }
 
+    // Validate archive listing
+    const isValidListing = (listing: string): boolean => {
+        if (!listing || listing.trim().length === 0) return false;
+
+        // Check for error indicators
+        const errorKeywords = ["error", "failed", "cannot open", "corrupted", "invalid"];
+        const lowerListing = listing.toLowerCase();
+        if (errorKeywords.some(kw => lowerListing.includes(kw))) return false;
+
+        // Check if listing contains at least one file entry (basic heuristic)
+        // Look for common file patterns: extensions, dates, sizes
+        const hasFileEntries = /\.\w{2,4}\s|^\s*\d+\s+\d{4}-\d{2}-\d{2}/m.test(listing);
+        return hasFileEntries;
+    };
+
     const fileName = basename(relPath);
+    let failSafeTriggered = false;
+
+    if (!isValidListing(internalListing)) {
+        Logger.warn("SHIELD", `Archive listing validation failed for ${relPath} - treating as suspicious (fail-safe)`);
+        stats.invalidListingArchives = (stats.invalidListingArchives || 0) + 1;
+        failSafeTriggered = true;
+    }
+
     const isKnownBad = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase());
 
     // Context-aware garbage detection
-    const hasGarbage = isKnownBad || (() => {
+    const hasGarbage = failSafeTriggered || isKnownBad || (() => {
         const lowerListing = internalListing.toLowerCase();
 
         // 1. Check exact High Confidence patterns
@@ -168,12 +243,18 @@ async function cleanArchive(
                             if (!existsSync(destPath)) {
                                 renameSync(match, destPath);
                                 const relExtracted = relative(baseDir, destPath);
-                                Logger.info("SHIELD", `Successfully extracted and verified: ${relExtracted} from ${fileName}`);
-                                extractedCount++;
 
-                                // Track extracted paths in stats
-                                stats.extractedFilePaths = stats.extractedFilePaths || [];
-                                stats.extractedFilePaths.push(relExtracted);
+                                // IMMEDIATE VERIFICATION: Verify extracted file immediately
+                                await cleanFile(destPath, baseDir, policy, stats, onProgress);
+
+                                if (existsSync(destPath)) {
+                                    Logger.info("SHIELD", `Successfully extracted and verified: ${relExtracted} from ${fileName}`);
+                                    extractedCount++;
+
+                                    // Track extracted paths in stats
+                                    stats.extractedFilePaths = stats.extractedFilePaths || [];
+                                    stats.extractedFilePaths.push(relExtracted);
+                                }
                             }
                         }
                     } else {
@@ -184,6 +265,9 @@ async function cleanArchive(
                         });
                     }
                 }
+
+                // RECURSIVE SCANNING: Scan for nested archives in staging
+                await scanForNestedArchives(stagingDir, baseDir, policy, stats, onProgress);
             }
         } catch (err) {
             Logger.error("SHIELD", `Error during extraction from ${relPath}`, err);
@@ -283,4 +367,43 @@ export async function cleanFile(
         }
     }
     return false;
+}
+
+/**
+ * Scans a directory recursively for any nested archives and cleans them.
+ */
+async function scanForNestedArchives(
+    stagingDir: string,
+    baseDir: string,
+    policy: "purge" | "isolate",
+    stats: CleanupStats,
+    onProgress?: (stats: CleanupStats) => void
+): Promise<void> {
+    const engine = getEngine();
+    if (!engine) return;
+
+    try {
+        const nestedArchives = await glob("**/*.{zip,7z,rar}", {
+            cwd: stagingDir,
+            absolute: true
+        });
+
+        if (nestedArchives.length === 0) return;
+
+        stats.nestedArchivesFound = (stats.nestedArchivesFound || 0) + nestedArchives.length;
+        Logger.info("SHIELD", `Found ${nestedArchives.length} nested archive(s) in staging directory`);
+
+        for (const nestedArchivePath of nestedArchives) {
+            const relPath = relative(baseDir, nestedArchivePath);
+            Logger.info("SHIELD", `Scanning nested archive: ${relPath}`);
+
+            // Pass empty exclude file for nested scans
+            const result = await cleanArchive(nestedArchivePath, baseDir, "", policy, stats, onProgress);
+            if (result.flagged) {
+                stats.nestedArchivesCleaned = (stats.nestedArchivesCleaned || 0) + 1;
+            }
+        }
+    } catch (err) {
+        Logger.error("SHIELD", `Error scanning for nested archives in ${stagingDir}`, err);
+    }
 }

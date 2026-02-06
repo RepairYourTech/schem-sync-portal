@@ -43,6 +43,15 @@ export interface CleanupStats {
     extractedFilePaths?: string[]; // NEW: Track actual extracted files
     executionContext?: "risky_sweep" | "realtime_clean" | "final_sweep";
     policyMode: "purge" | "isolate";
+
+    // NEW HARDENING FIELDS
+    invalidListingArchives?: number;      // Archives with failed/empty listings
+    nestedArchivesFound?: number;         // Nested archives discovered inside risky archives
+    nestedArchivesCleaned?: number;       // Nested archives that were cleaned
+    totalStandaloneFiles?: number;        // Total standalone files scanned
+    scannedStandaloneFiles?: number;      // Standalone files scanned so far
+    flaggedStandaloneFiles?: number;      // Standalone files flagged as malicious
+    currentStandaloneFile?: string;       // Currently scanning standalone file
 }
 
 /**
