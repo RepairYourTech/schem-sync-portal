@@ -16,6 +16,11 @@ Welcome to the **Schematic Sync Portal**. We prioritize security, TUI aesthetics
 4.  **Tests**: Added or modified logic should be covered by `bun test`.
 5.  **Submit PR**: Ensure your PR passes the automated GitHub Action verification.
 
+## 🤖 Agent Tooling
+If you are contributing using an AI agent, please utilize the local resources in the `.agent/` directory:
+*   **Workflows**: Use `/push-changes` to automate the branching, changeset, and PR creation process.
+*   **Skills**: Ensure your agent loads the `opentui` and `git-release-management` skills to maintain project standards.
+
 ## 📐 Coding Standards
 *   **OpenTUI Patterns**: We use `ink` with `@opentui/react`. Stick to the curated color palette and layout primitives.
 *   **Cross-Platform**: Do not hardcode paths. Use the [Env utility](file:///src/lib/env.ts) for OS-specific resolutions.
