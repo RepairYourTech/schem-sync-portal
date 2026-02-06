@@ -104,6 +104,15 @@ graph LR
 
 ---
 
+## 🤖 Agent-Assisted Development
+
+This repository includes specialized tools for contributors using AI agents (e.g., Roo-Code, Windsurf, Cursor). 
+
+*   **Local Skills**: Found in `.agent/skills/`, these provide agents with deep project context, including OpenTUI patterns and release management standards.
+*   **Standardized Workflows**: Found in `.agent/workflows/`, these allow agents to automate complex tasks like pushing changes and creating PRs consistently.
+
+---
+
 ## 🔧 Troubleshooting
 
 *   **Browser Auth Fails**: Ensure your default browser is accessible; Rclone requires it for the OAuth callback.
