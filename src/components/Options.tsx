@@ -315,8 +315,8 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                 <box flexDirection="column" gap={0} marginTop={1}>
                     <text fg={colors.primary}>CREDITS:</text>
                     <text fg={colors.fg}>• BirdMan & RepairYourTech Contributors</text>
-                    <text fg={colors.fg}>• Slime (Collaboration & Security Architecture)</text>
-                    <text fg={colors.fg}>• PD (FlexBV Integration Support)</text>
+                    <text fg={colors.fg}>• Slime (IYKYK)</text>
+                    <text fg={colors.fg}>• Paul Daniels (FlexBV Developer)</text>
                 </box>
 
                 <box border borderStyle="single" borderColor={colors.border} padding={1} marginTop={1} flexDirection="column" gap={1}>
