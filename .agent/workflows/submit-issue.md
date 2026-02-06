@@ -22,6 +22,9 @@ gh issue create --title "bug: [component] description" --body "Steps to reproduc
 gh issue create --title "feat: [component] description" --body "Proposed feature..." --label "enhancement"
 ```
 
+> [!TIP]
+> Use the `using-tmux-for-interactive-commands` skill for the `gh issue create` command if you need to handle interactive prompts for title or body.
+
 ### 3. Mandatory Assignment
 Traycer.ai only reviews issues assigned to `repairyourtech`.
 // turbo

@@ -82,6 +82,7 @@ Before taking ANY action on a task, you MUST follow this exact sequence:
 | **Skill Centricity** | Leverage/create skills for tasks | `find-skills`, `task-prd-creator` | `list_dir` (.agent/skills) | `search_web` |
 | **Zero Lint Policy** | No errors or warnings | N/A | `run_command` (bun lint) | N/A |
 | **Lifelong Learning** | Evolve codebase and skills | `self-improving-agent` | `multi_replace_file_content` | `search_web` |
+| **Interactive CLI** | Use tmux for interactive tools | `using-tmux-for-interactive-commands` | `run_command` (tmux) | N/A |
 
 ### MANDATORY EXECUTION SEQUENCE (Embedded Guidance)
 
@@ -94,7 +95,8 @@ Before taking ANY action on a task, you MUST follow this exact sequence:
 7. **PLAN**: Draft `implementation_plan.md` using `writing-plans`.
 8. **EXECUTE**: Use `multi_replace_file_content` for non-contiguous edits.
 9. **VERIFY**: `bun run lint` and `bun test` are MANDATORY.
-10. **LEARN**: Trigger `self-improving-agent` to finalize the session.
+10. **INTERACT**: Use `using-tmux-for-interactive-commands` skill for any command requiring real-time input.
+11. **LEARN**: Trigger `self-improving-agent` to finalize the session.
 
 **NEVER:**
 - Jump straight to coding without assessing available resources

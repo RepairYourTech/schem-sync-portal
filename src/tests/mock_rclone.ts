@@ -96,8 +96,17 @@ async function simulate() {
         // Destination is usually the argument after the remote source
         const copytoIdx = args.indexOf("copyto");
         const dest = (copytoIdx !== -1) ? args[copytoIdx + 2] : null;
+        const src = (copytoIdx !== -1) ? args[copytoIdx + 1] : null;
         if (dest && !dest.startsWith("-")) {
-            writeFileSync(dest, "file1.bin\nfile2.bin\nfile3.bin\n");
+            console.error(JSON.stringify({ level: "info", msg: `MockRclone: copyto ${src} -> ${dest}`, time: new Date().toISOString() }));
+            // Simulate downloading a remote manifest (contains file1, 2, 3)
+            if (src && src.includes("remote-manifest.txt")) {
+                writeFileSync(dest, "file1.bin\nfile2.bin\nfile3.bin\n");
+            } else if (src && existsSync(src)) {
+                // Simulate uploading a local manifest
+                const content = readFileSync(src, "utf8");
+                writeFileSync(dest, content);
+            }
         }
     }
 

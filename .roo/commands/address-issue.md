@@ -15,6 +15,9 @@ Find the issue you need to address using the GitHub CLI.
 gh issue list
 ```
 
+> [!TIP]
+> If any command requires interactive input (e.g., selecting from a list), consider using the `using-tmux-for-interactive-commands` skill.
+
 ### 2. Verify Assignment
 **Traycer.ai** only reviews issues assigned to `repairyourtech`. Ensure the target issue is correctly assigned.
 // turbo

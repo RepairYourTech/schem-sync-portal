@@ -27,6 +27,9 @@ bun run src/index.tsx    # Direct execution
 bun test                 # Run full test suite
 bun run lint             # MANDATORY: Check for errors/warnings
 bun run lint:fix         # Auto-fix linting issues
+
+# Interactivity
+# Use 'using-tmux-for-interactive-commands' skill for interactive CLI tools (vim, bun changeset, REPLs)
 ```
 
 ---

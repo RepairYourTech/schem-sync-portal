@@ -1,7 +1,7 @@
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, rmSync } from "fs";
 import { Env } from "../env";
-import { executeRclone, RETRY_FLAGS, getIsSyncPaused, getCurrentSessionId, setSessionId } from "./utils";
+import { executeRclone, executeRcloneSimple, RETRY_FLAGS, getIsSyncPaused, getCurrentSessionId, setSessionId } from "./utils";
 import { clearActiveTransfers } from "./progress";
 import type { PortalConfig } from "../config";
 import type { SyncProgress } from "./types";
@@ -23,6 +23,9 @@ export async function runManifestCloudPhase(
     const manifestPath = join(config.local_dir, "upsync-manifest.txt");
     const destPath = config.backup_dir || (config.backup_provider === "gdrive" ? "SchematicsBackup" : "");
     const destRemote = `${Env.REMOTE_PORTAL_BACKUP}:${destPath}`;
+    const remoteManifestName = "upsync-remote-manifest.txt";
+    const remoteManifestPath = `${destRemote}/${remoteManifestName}`;
+    const localRemoteManifestPath = join(config.local_dir, "remote-manifest-cache.txt");
     const batchListPath = join(config.local_dir, ".upsync-batch.txt");
 
     Logger.info("SYNC", "Cloud Phase: Waiting for initial manifest...");
@@ -59,6 +62,33 @@ export async function runManifestCloudPhase(
     }
 
     const uploadedFiles = new Set<string>(state.uploadedFiles || []);
+
+    // 1.5 Remote Manifest Verification (Anti-Duplication)
+    try {
+        Logger.info("SYNC", "Cloud Phase: Checking for remote manifest...");
+        await executeRcloneSimple(["copyto", remoteManifestPath, localRemoteManifestPath]);
+        if (existsSync(localRemoteManifestPath)) {
+            const remoteContent = readFileSync(localRemoteManifestPath, "utf8");
+            const remoteFiles = remoteContent.split("\n")
+                .map(l => l.trim())
+                .filter(l => l.length > 0 && !l.startsWith("#"));
+
+            let reconciledCount = 0;
+            for (const f of remoteFiles) {
+                if (!uploadedFiles.has(f)) {
+                    uploadedFiles.add(f);
+                    reconciledCount++;
+                }
+            }
+            if (reconciledCount > 0) {
+                Logger.info("SYNC", `Cloud Phase: Reconciled ${reconciledCount} files from remote manifest.`);
+                onProgress({ phase: "cloud", description: `Reconciled ${reconciledCount} files from remote.` });
+            }
+            rmSync(localRemoteManifestPath, { force: true });
+        }
+    } catch {
+        Logger.info("SYNC", "Cloud Phase: No remote manifest found or inaccessible. Proceeding with local state.");
+    }
 
     if (uploadedFiles.size > 0) {
         Logger.info("SYNC", `Cloud Phase: Resuming from in-progress session. ${uploadedFiles.size} files already marked as uploaded.`);
@@ -114,6 +144,14 @@ export async function runManifestCloudPhase(
                 state.upsyncStatus = "running";
                 saveSyncState(config.local_dir, state);
 
+                // Handshake: Upload current manifest as remote manifest
+                try {
+                    await executeRcloneSimple(["copyto", manifestPath, remoteManifestPath]);
+                    Logger.debug("SYNC", "Cloud Phase: Remote manifest updated.");
+                } catch (err) {
+                    Logger.error("SYNC", `Failed to update remote manifest: ${err instanceof Error ? err.message : String(err)}`);
+                }
+
                 needsUpload = true;
             } else {
                 // Report stats even if no files need upload right now
@@ -123,6 +161,11 @@ export async function runManifestCloudPhase(
                     cloudManifestStats
                 });
             }
+            // Always report stats at least once per loop if we have them
+            onProgress({
+                phase: "cloud",
+                cloudManifestStats
+            });
         } catch (err) {
             Logger.error("SYNC", `Error in cloud phase polling: ${err instanceof Error ? err.message : String(err)}`);
         }
@@ -142,6 +185,15 @@ export async function runManifestCloudPhase(
     // Mark as complete
     state.upsyncStatus = "complete";
     saveSyncState(config.local_dir, state);
+
+    // Final handshake: Ensure remote manifest is identical to final local manifest
+    try {
+        if (existsSync(manifestPath)) {
+            await executeRcloneSimple(["copyto", manifestPath, remoteManifestPath]);
+        }
+    } catch (err) {
+        Logger.debug("SYNC", `Final handshake failed (non-critical): ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     // Cleanup batch file
     try {

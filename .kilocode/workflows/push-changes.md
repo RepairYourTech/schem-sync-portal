@@ -24,9 +24,17 @@ git checkout -b feature/your-feature-name
 
 ### 3. Add Changeset
 Document your changes for the changelog.
+> [!TIP]
+> Use the `using-tmux-for-interactive-commands` skill for the `bun changeset` command to handle interactive prompts.
+
 // turbo
 ```bash
+# If using manual mode:
 bun changeset
+
+# If using tmux skill:
+# tmux new-session -d -s changeset "bun changeset add"
+# tmux send-keys -t changeset Enter ...
 ```
 
 ### 4. Commit and Push
