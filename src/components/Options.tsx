@@ -313,6 +313,11 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                 </box>
 
                 <box flexDirection="column" gap={0} marginTop={1}>
+                    <text fg={colors.primary}>CHANGELOG:</text>
+                    <text fg={colors.fg}>https://github.com/RepairYourTech/schem-sync-portal/releases</text>
+                </box>
+
+                <box flexDirection="column" gap={0} marginTop={1}>
                     <text fg={colors.primary}>CREDITS:</text>
                     <text fg={colors.fg}>• BirdMan & RepairYourTech Contributors</text>
                     <text fg={colors.fg}>• Slime (IYKYK)</text>
