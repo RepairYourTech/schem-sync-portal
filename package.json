@@ -1,6 +1,7 @@
 {
   "name": "schem-sync-portal",
   "version": "2.0.0",
+  "license": "MIT",
   "module": "src/index.tsx",
   "type": "module",
   "private": true,
