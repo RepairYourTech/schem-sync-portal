@@ -46,6 +46,9 @@ test_deploy_root/
 .agent/
 .agents/
 .claude/
+.github/
+memory/
+skills/
 .cline/
 .codebuddy/
 .codex/
