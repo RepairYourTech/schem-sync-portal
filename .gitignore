@@ -48,6 +48,8 @@ test_shield_dir/
 
 # AI Agent Specifics
 .agent/
+!.agent/skills/
+!.agent/workflows/
 .agents/
 .claude/
 memory/
