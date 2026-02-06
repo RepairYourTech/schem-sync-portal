@@ -65,6 +65,15 @@ export interface CloudSyncStats {
     trashEnabled?: boolean;
 }
 
+/**
+ * Statistics for the cloud manifest progress.
+ */
+export interface CloudManifestStats {
+    totalFiles: number;
+    uploadedFiles: number;
+    pendingFiles: number;
+}
+
 export interface SyncProgress {
     phase: "pull" | "clean" | "cloud" | "syncing" | "done" | "error";
     description: string;
@@ -83,7 +92,22 @@ export interface SyncProgress {
     downloadQueue?: FileTransferItem[];
     uploadQueue?: FileTransferItem[];
     cleanupStats?: CleanupStats;
+    downloadStats?: {
+        transferSpeed?: string;
+        eta?: string;
+        bytesTransferred?: string;
+        rawBytesTransferred?: number;
+        rawTotalBytes?: number;
+    };
+    uploadStats?: {
+        transferSpeed?: string;
+        eta?: string;
+        bytesTransferred?: string;
+        rawBytesTransferred?: number;
+        rawTotalBytes?: number;
+    };
     cloudStats?: CloudSyncStats;
+    cloudManifestStats?: CloudManifestStats;
     transferSlots?: { active: number; total: number };
     manifestInfo?: {
         generatedAt: string;

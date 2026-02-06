@@ -16,6 +16,10 @@ export function startNewSession(): string {
     return currentSessionId;
 }
 
+export function setSessionId(id: string): void {
+    currentSessionId = id;
+}
+
 export function getCurrentSessionId(): string | null {
     return currentSessionId;
 }

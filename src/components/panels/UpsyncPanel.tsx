@@ -1,6 +1,7 @@
 /** @jsxImportSource @opentui/react */
 import React from "react";
 import { TextAttributes } from "@opentui/core";
+import { formatBytes } from "../../lib/sync/utils";
 import type { SyncProgress } from "../../lib/sync";
 import {
     PanelHeader,
@@ -113,15 +114,40 @@ export const UpsyncPanel = React.memo(({
 
             {/* Footer Stats Row */}
             <box flexDirection="column" gap={0} paddingLeft={1} paddingRight={1} marginTop={1}>
-                <box flexDirection="row" gap={2} height={1}>
-                    <text fg={colors.dim}>Sent: {String(stats?.updatedFiles || progress.filesTransferred || 0)}</text>
-                    <box flexDirection="row">
-                        <text fg={colors.dim}>Spd: </text>
-                        <text fg={colors.accent}>{String(progress.transferSpeed || "0 B/s")}</text>
-                    </box>
-                    <box flexDirection="row">
-                        <text fg={colors.dim}>ETA: </text>
-                        <text fg={colors.accent}>{String(progress.eta || "--")}</text>
+                <box flexDirection="column" gap={0}>
+                    {!!progress.cloudManifestStats && (
+                        <box flexDirection="row" gap={2} height={1}>
+                            <box flexDirection="row">
+                                <text fg={colors.dim}>Total: </text>
+                                <text fg={colors.accent}>{String(progress.cloudManifestStats.totalFiles)}</text>
+                            </box>
+                            <box flexDirection="row">
+                                <text fg={colors.dim}>Sent: </text>
+                                <text fg={colors.accent}>{String(progress.cloudManifestStats.uploadedFiles)}</text>
+                            </box>
+                            <box flexDirection="row">
+                                <text fg={colors.dim}>Rem: </text>
+                                <text fg={colors.accent}>{String(progress.cloudManifestStats.pendingFiles)}</text>
+                            </box>
+                        </box>
+                    )}
+                    <box flexDirection="row" gap={2} height={1}>
+                        <box flexDirection="row">
+                            <text fg={colors.dim}>Sent: </text>
+                            <text fg={colors.accent}>
+                                {String(progress.uploadStats?.rawBytesTransferred !== undefined ?
+                                    formatBytes(progress.uploadStats.rawBytesTransferred) :
+                                    (stats?.updatedFiles || progress.filesTransferred || 0))}
+                            </text>
+                        </box>
+                        <box flexDirection="row">
+                            <text fg={colors.dim}>Spd: </text>
+                            <text fg={colors.accent}>{String(progress.uploadStats?.transferSpeed || progress.transferSpeed || "0 B/s")}</text>
+                        </box>
+                        <box flexDirection="row">
+                            <text fg={colors.dim}>ETA: </text>
+                            <text fg={colors.accent}>{String(progress.uploadStats?.eta || progress.eta || "--")}</text>
+                        </box>
                     </box>
                 </box>
             </box>

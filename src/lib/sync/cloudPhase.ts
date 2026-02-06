@@ -1,11 +1,13 @@
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, rmSync } from "fs";
 import { Env } from "../env";
-import { executeRclone, RETRY_FLAGS, getIsSyncPaused } from "./utils";
+import { executeRclone, RETRY_FLAGS, getIsSyncPaused, getCurrentSessionId, setSessionId } from "./utils";
 import { clearActiveTransfers } from "./progress";
 import type { PortalConfig } from "../config";
 import type { SyncProgress } from "./types";
 import { Logger } from "../logger";
+import { loadSyncState, saveSyncState, createEmptyState } from "../syncState";
+import type { SyncSessionState } from "../syncState";
 
 
 /**
@@ -35,7 +37,32 @@ export async function runManifestCloudPhase(
         onProgress({ phase: "cloud", description: "Waiting for shield..." });
     }
 
-    const uploadedFiles = new Set<string>();
+    const state: SyncSessionState = loadSyncState(config.local_dir) || createEmptyState();
+    let currentSessionId = getCurrentSessionId();
+
+    // Comment 1: Adopt session ID if just started and upsync was not complete
+    if (!currentSessionId && state.sessionId && state.upsyncStatus !== "complete") {
+        setSessionId(state.sessionId);
+        currentSessionId = state.sessionId;
+        Logger.info("SYNC", `Cloud Phase: Adopting incomplete session ${state.sessionId} from state.`);
+    }
+
+    // Comment 1: Only clear uploadedFiles if intentionally new (session ID mismatch) or previous was complete
+    if ((currentSessionId && state.sessionId !== currentSessionId) || state.upsyncStatus === "complete") {
+        if (state.uploadedFiles && state.uploadedFiles.length > 0) {
+            Logger.info("SYNC", `Cloud Phase: New session or previous complete. Resetting upload tracking for ${state.uploadedFiles.length} files.`);
+        }
+        state.uploadedFiles = [];
+        state.sessionId = currentSessionId || state.sessionId;
+        state.upsyncStatus = "running";
+        saveSyncState(config.local_dir, state);
+    }
+
+    const uploadedFiles = new Set<string>(state.uploadedFiles || []);
+
+    if (uploadedFiles.size > 0) {
+        Logger.info("SYNC", `Cloud Phase: Resuming from in-progress session. ${uploadedFiles.size} files already marked as uploaded.`);
+    }
 
     // 2. Polling Loop
     while (true) {
@@ -48,6 +75,12 @@ export async function runManifestCloudPhase(
 
             const newFiles = files.filter(f => !uploadedFiles.has(f));
 
+            const cloudManifestStats = {
+                totalFiles: files.length,
+                uploadedFiles: uploadedFiles.size,
+                pendingFiles: newFiles.length
+            };
+
             if (newFiles.length > 0) {
                 Logger.info("SYNC", `Cloud Phase: Found ${newFiles.length} new files in manifest. Starting batch upload.`);
                 writeFileSync(batchListPath, newFiles.join("\n"), "utf8");
@@ -55,7 +88,7 @@ export async function runManifestCloudPhase(
                 const cloudArgs = [
                     "copy", config.local_dir, destRemote,
                     "--files-from", batchListPath,
-                    "--size-only", "--fast-list",
+                    "--checksum", "--fast-list",
                     "--transfers", String(config.upsync_transfers || 4),
                     "--checkers", "16",
                     ...RETRY_FLAGS
@@ -69,12 +102,26 @@ export async function runManifestCloudPhase(
                         ...p,
                         phase: "cloud",
                         description: `Uploading batch (${newFiles.length} files)...`,
-                        isPaused: getIsSyncPaused()
+                        isPaused: getIsSyncPaused(),
+                        cloudManifestStats
                     });
                 }, undefined, "upload", "cloud");
 
                 newFiles.forEach(f => uploadedFiles.add(f));
+
+                // Update and save state
+                state.uploadedFiles = Array.from(uploadedFiles);
+                state.upsyncStatus = "running";
+                saveSyncState(config.local_dir, state);
+
                 needsUpload = true;
+            } else {
+                // Report stats even if no files need upload right now
+                onProgress({
+                    phase: "cloud",
+                    description: "Monitoring manifest for updates...",
+                    cloudManifestStats
+                });
             }
         } catch (err) {
             Logger.error("SYNC", `Error in cloud phase polling: ${err instanceof Error ? err.message : String(err)}`);
@@ -90,6 +137,10 @@ export async function runManifestCloudPhase(
         onProgress({ phase: "cloud", description: "Monitoring manifest for updates..." });
         await new Promise(resolve => setTimeout(resolve, 2000));
     }
+
+    // Mark as complete
+    state.upsyncStatus = "complete";
+    saveSyncState(config.local_dir, state);
 
     // Cleanup batch file
     try {

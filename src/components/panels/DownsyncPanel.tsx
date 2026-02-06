@@ -1,6 +1,7 @@
 /** @jsxImportSource @opentui/react */
 import React from "react";
 import { TextAttributes } from "@opentui/core";
+import { formatBytes } from "../../lib/sync/utils";
 import type { SyncProgress } from "../../lib/sync";
 import {
     PanelHeader,
@@ -106,26 +107,42 @@ export const DownsyncPanel = React.memo(({
 
             {/* Footer Stats */}
             <box flexDirection="column" gap={0} paddingLeft={1} paddingRight={1} marginTop={1}>
-                <box flexDirection="row" gap={2} height={1}>
-                    {progress.manifestStats ? (
-                        <>
-                            <text fg={colors.dim}>Rem: {String(progress.manifestStats.remoteFileCount)}</text>
-                            <text fg={colors.dim}>Loc: {String(progress.manifestStats.localFileCount)}</text>
-                            <text fg={colors.dim}>Mis: {String(progress.manifestStats.missingFileCount)}</text>
-                        </>
-                    ) : (
-                        <text fg={colors.dim}>Files: {String(progress.filesTransferred || 0)}/{String(progress.totalFiles || "?")}</text>
+                <box flexDirection="column" gap={0}>
+                    {!!progress.manifestStats && (
+                        <box flexDirection="row" gap={2} height={1}>
+                            <box flexDirection="row">
+                                <text fg={colors.dim}>Rem: </text>
+                                <text fg={colors.accent}>{String(progress.manifestStats.remoteFileCount)}</text>
+                            </box>
+                            <box flexDirection="row">
+                                <text fg={colors.dim}>Loc: </text>
+                                <text fg={colors.accent}>{String(progress.manifestStats.localFileCount)}</text>
+                            </box>
+                            <box flexDirection="row">
+                                <text fg={colors.dim}>Mis: </text>
+                                <text fg={colors.accent}>{String(progress.manifestStats.missingFileCount)}</text>
+                            </box>
+                        </box>
                     )}
-                </box>
-                <box flexDirection="row" justifyContent="space-between" height={1}>
-                    <text fg={colors.dim}>
-                        {String(progress.transferSpeed || "0 B/s")} | {String(progress.eta || "--")}
-                    </text>
-                    {progress.manifestStats ? (
-                        <text fg={colors.dim}>
-                            {String(progress.filesTransferred || 0)}/{String(progress.totalFiles || 0)}
-                        </text>
-                    ) : null}
+                    <box flexDirection="row" gap={2} height={1}>
+                        <box flexDirection="row">
+                            <text fg={colors.dim}>Recv: </text>
+                            <text fg={colors.accent}>
+                                {String(progress.downloadStats?.bytesTransferred ||
+                                    (progress.downloadStats?.rawBytesTransferred !== undefined ?
+                                        `${formatBytes(progress.downloadStats.rawBytesTransferred)}/${formatBytes(progress.downloadStats.rawTotalBytes || 0)}` :
+                                        `${progress.filesTransferred || 0}/${progress.totalFiles || 0}`))}
+                            </text>
+                        </box>
+                        <box flexDirection="row">
+                            <text fg={colors.dim}>Spd: </text>
+                            <text fg={colors.accent}>{String(progress.downloadStats?.transferSpeed || progress.transferSpeed || "0 B/s")}</text>
+                        </box>
+                        <box flexDirection="row">
+                            <text fg={colors.dim}>ETA: </text>
+                            <text fg={colors.accent}>{String(progress.downloadStats?.eta || progress.eta || "--")}</text>
+                        </box>
+                    </box>
                 </box>
             </box>
         </box>

@@ -172,21 +172,27 @@ export async function parseJsonLog(
         const bytes = (stats?.bytes as number) || 0;
         const total = (stats?.totalBytes as number) || 0;
 
-        const queueUpdate: Partial<SyncProgress> = {
-            percentage: percentage ?? undefined,
+        const statsData = {
             transferSpeed: speed ? formatSpeed(speed) : undefined,
             eta: eta ? formatEta(eta) : undefined,
             bytesTransferred: total > 0 ? `${formatBytes(bytes)}/${formatBytes(total)}` : undefined,
             rawBytesTransferred: bytes,
             rawTotalBytes: total,
+        };
+
+        const queueUpdate: Partial<SyncProgress> = {
+            percentage: percentage ?? undefined,
+            ...statsData,
             filesTransferred: sessionCompletions.size,
             transferSlots: { active: queue.filter(t => t.status === "active").length, total: 8 },
         };
 
         if (type === "download") {
             queueUpdate.downloadQueue = queue;
+            queueUpdate.downloadStats = statsData;
         } else {
             queueUpdate.uploadQueue = queue;
+            queueUpdate.uploadStats = statsData;
         }
 
         onUpdate(queueUpdate);
