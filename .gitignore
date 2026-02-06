@@ -41,6 +41,10 @@ test_sync_dir/
 test_cleanup_dir/
 test_shield_cleanup/
 test_deploy_root/
+test_sync_flow_*/
+test_exclusion_dir/
+tmp_manifest_test/
+test_shield_dir/
 
 # AI Agent Specifics
 .agent/
