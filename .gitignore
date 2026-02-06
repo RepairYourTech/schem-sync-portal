@@ -52,6 +52,7 @@ test_shield_dir/
 !.agent/workflows/
 .agents/
 .claude/
+!.claude/skills/
 memory/
 skills/
 .cline/
@@ -64,7 +65,12 @@ skills/
 .factory/
 .gemini/
 .goose/
+.kilo/
+!.kilo/skills/
+!.kilo/workflows/
 .kilocode/
+!.kilocode/skills/
+!.kilocode/workflows/
 .kiro/
 .mcpjam/
 .mux/
@@ -75,6 +81,8 @@ skills/
 .qoder/
 .qwen/
 .roo/
+!.roo/skills/
+!.roo/commands/
 .trae/
 .windsurf/
 .zencoder/
