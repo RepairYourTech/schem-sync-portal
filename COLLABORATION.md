@@ -15,6 +15,7 @@ Welcome to the **Schematic Sync Portal**. We prioritize security, TUI aesthetics
     *   **Rule**: All numeric renders in JSX must be stringified (e.g., `{String(count)}`).
 4.  **Tests**: Added or modified logic should be covered by `bun test`.
 5.  **Submit PR**: Ensure your PR passes the automated GitHub Action verification.
+6.  **CodeRabbit Review**: All PRs require a review from **CodeRabbit**. You must address all critical feedback and the review must pass before merging.
 
 ## 🤖 Agent Tooling
 If you are contributing using an AI agent, please utilize the local resources in the `.agent/` directory:

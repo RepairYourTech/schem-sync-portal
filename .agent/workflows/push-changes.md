@@ -45,7 +45,10 @@ Open a PR on GitHub using the `gh` CLI.
 gh pr create --title "feat: your description" --body "Detailed description of changes"
 ```
 
-### 6. Finalizing (On Main after Merge)
+### 6. CodeRabbit Review
+Wait for **CodeRabbit** to provide feedback. Address all critical items and ensure the review is approved/passed before proceeding to merge.
+
+### 7. Finalizing (On Main after Merge)
 Once the PR is merged, run this to finalize the version bump:
 // turbo
 ```bash
