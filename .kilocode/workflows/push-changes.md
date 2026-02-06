@@ -66,6 +66,6 @@ bun changeset version
 # Manually update README.md version strings/badges
 git add package.json CHANGELOG.md README.md
 git commit -m "chore: version bump and doc sync"
-git tag v$(node -p "require('./package.json').version")
-git push origin main --tags
+git push origin main
+gh release create v$(node -p "require('./package.json').version") --generate-notes
 ```
