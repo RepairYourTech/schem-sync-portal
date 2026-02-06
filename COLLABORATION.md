@@ -25,6 +25,10 @@ Welcome to the **Schematic Sync Portal**. We prioritize security, TUI aesthetics
 *   **License**: This project uses the **BirdMan-Slime Attribution License**. 
 *   **Mandatory Attribution**: You MUST credit **BirdMan**, **Slime**, and **PD (FlexBV)** in all forks.
 *   **Link Persistence**: The **FlexBV** and **Slime** links in the TUI footer are protected. Removal of these links is a violation of the license.
+*   **CODEOWNERS**: Review from `@RepairYourTech` is mandatory for security-sensitive modules.
+
+---
+*Keep Right to Repair alive and thriving.*
 
 ---
 *Keep Right to Repair alive and thriving.*
