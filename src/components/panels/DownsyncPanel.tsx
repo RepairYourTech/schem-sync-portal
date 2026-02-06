@@ -63,7 +63,7 @@ export const DownsyncPanel = React.memo(({
             border
             borderStyle="single"
             borderColor={isFocused ? colors.success : "transparent"}
-            title={`[ ${String(sourceType).toUpperCase()} ]`}
+            title={sourceType}
             onMouseOver={() => onFocus?.(true)}
             onMouseDown={(e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
                 if (!e || e.currentTarget === e.target) {
@@ -75,7 +75,7 @@ export const DownsyncPanel = React.memo(({
             overflow="hidden"
         >
             <PanelHeader
-                title={`DOWNSYNC: ${sourceType}`}
+                title={`Source: ${sourceType}`}
                 status={status}
                 accentColor={colors.primary}
                 colors={colors}

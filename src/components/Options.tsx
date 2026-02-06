@@ -28,7 +28,7 @@ interface OptionsProps {
 
 export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, onScan, onForensic, onBack, focusArea, onFocusChange, tabTransition, config, onUpdateConfig }: OptionsProps) => {
     const { colors } = useTheme();
-    const [subView, setSubView] = useState<"menu" | "about" | "logs">("menu");
+    const [subView, setSubView] = useState<"menu" | "about" | "logs" | "debug" | "shield">("menu");
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [logSelectedIndex, setLogSelectedIndex] = useState(0);
     const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -36,16 +36,14 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
     const [logs, setLogs] = useState<string[]>([]);
     const [copyStatus, setCopyStatus] = useState("");
 
-    const options = [
-        { label: "SYSTEM DIAGNOSTICS", action: onDoctor, description: "Verify dependencies and system health.", key: "1" },
-        { label: "EDIT SETUP", action: onSetup, description: "Jump directly to specific settings without a full restart.", key: "2" },
+    const debugOptions = [
         {
             label: `DEBUG MODE: [${config.debug_mode ? "ON" : "OFF"}]`,
             action: () => {
                 onUpdateConfig({ ...config, debug_mode: !config.debug_mode });
             },
             description: "Enable internal system telemetry and developer view.",
-            key: "3"
+            key: "1"
         },
         {
             label: `LOG LEVEL: [${config.log_level || "NORMAL"}]`,
@@ -56,10 +54,14 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                 onUpdateConfig({ ...config, log_level: next });
             },
             description: "Cycle logging verbosity (NORMAL, DEBUG, VERBOSE).",
-            key: "4"
+            key: "2"
         },
+        { label: "LOG VIEWER", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "3" },
+    ];
+
+    const shieldOptions = [
         {
-            label: `MALWARE SHIELD: [${config.enable_malware_shield ? (config.backup_provider === "gdrive" ? "MANDATORY" : "ON") : "OFF"}]`,
+            label: `SHIELD POLICY: [${config.enable_malware_shield ? config.malware_policy.toUpperCase() : "OFF"}]`,
             action: () => {
                 if (config.backup_provider === "gdrive") {
                     Logger.warn("UI", "Shield cannot be disabled for Google Drive backups.");
@@ -78,16 +80,23 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
             },
             description: config.backup_provider === "gdrive"
                 ? "Shield is REQUIRED for Google Drive to prevent account suspension."
-                : `Surgical security policy: ${config.enable_malware_shield ? config.malware_policy.toUpperCase() : "DISABLED"}.`,
-            key: "6"
+                : `Security policy: ${config.enable_malware_shield ? config.malware_policy.toUpperCase() : "DISABLED"}.`,
+            key: "1"
         },
-        { label: "LOG VIEWER", action: () => { setLogs(Logger.getRecentLogs(25)); setSubView("logs"); }, description: "View or Clear System Logs.", key: "5" },
-        { label: "REGENERATE MANIFEST", action: onScan, description: "Full local scan to rebuild the upsync manifest.", key: "m" },
-        { label: "FORENSIC SWEEP", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "f" },
-        { label: "RESET SHIELD", action: onResetShield, description: "Clear identified threats & revert to defaults.", key: "7" },
-        { label: "RESET CONFIGURATION", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "8" },
-        { label: "SAVE & EXIT", action: onBack, description: "Persist change and return to dashboard.", key: "v" }
+        { label: "FORENSIC SWEEP", action: onForensic, description: "Deep-scan local files & quarantine risks locally.", key: "2" },
+        { label: "RESET SHIELD", action: onResetShield, description: "Clear identified threats & revert to defaults.", key: "3" },
     ];
+
+    const mainOptions = [
+        { label: "SYSTEM DIAGNOSTICS", action: onDoctor, description: "Verify dependencies and system health.", key: "1" },
+        { label: "EDIT SETUP", action: onSetup, description: "Jump directly to specific settings without a full restart.", key: "2" },
+        { label: "LOCAL SHIELD...", action: () => { setSubView("shield"); setSelectedIndex(0); }, description: "Manage security policies and forensic scanning.", key: "3" },
+        { label: "DEBUG TOOLS...", action: () => { setSubView("debug"); setSelectedIndex(0); }, description: "Access internal telemetry and logs.", key: "4" },
+        { label: "REGENERATE MANIFEST", action: onScan, description: "Full local scan to rebuild the upsync manifest.", key: "5" },
+        { label: "RESET CONFIGURATION", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "6" },
+    ];
+
+    const options = subView === "menu" ? mainOptions : (subView === "debug" ? debugOptions : (subView === "shield" ? shieldOptions : []));
 
     const handleUpdate = useCallback(async () => {
         setIsUpdating(true);
@@ -103,11 +112,11 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                 setSelectedIndex(0);
                 setLogSelectedIndex(0);
             } else {
-                setSelectedIndex(options.length - 1);
-                setLogSelectedIndex(1); // Refresh (0), Copy (1), or Clear (2)? Let's say Copy.
+                setSelectedIndex(options.length); // Back button index
+                setLogSelectedIndex(1);
             }
         }
-    }, [focusArea, tabTransition, subView]);
+    }, [focusArea, tabTransition, subView, options.length]);
 
     const handleClearLogs = () => {
         Logger.clearLogs();
@@ -140,45 +149,37 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
     useKeyboard((e) => {
         if (focusArea === "body") {
             if (e.name === "tab") {
-                if (subView === "menu") {
+                if (subView === "logs") {
+                    if (logSelectedIndex === 0 && !e.shift) setLogSelectedIndex(1);
+                    else if (logSelectedIndex === 1 && e.shift) setLogSelectedIndex(0);
+                    else onFocusChange("footer");
+                } else if (subView !== "about") {
                     if (e.shift) {
                         if (selectedIndex === 0) onFocusChange("footer");
                         else setSelectedIndex(prev => prev - 1);
                     } else {
-                        if (selectedIndex === options.length - 1) onFocusChange("footer");
+                        if (selectedIndex === options.length) onFocusChange("footer");
                         else setSelectedIndex(prev => prev + 1);
                     }
-                } else if (subView === "logs") {
-                    if (logSelectedIndex === 0 && !e.shift) setLogSelectedIndex(1);
-                    else if (logSelectedIndex === 1 && e.shift) setLogSelectedIndex(0);
-                    else onFocusChange("footer");
                 } else {
-                    // About view (1 interaction: Back)
                     onFocusChange("footer");
                 }
                 return;
             }
 
-            if (subView === "menu" && focusArea === "body") {
-                // Hotkeys trigger actions IMMEDIATELY
-                const hotkeyMap: Record<string, number> = {
-                    "1": 0, "2": 1, "3": 2, "4": 3, "5": 4, "m": 5, "f": 6, "7": 7, "8": 8, "v": 9
-                };
-
-                const hotkeyIdx = hotkeyMap[e.name];
-                if (hotkeyIdx !== undefined && options[hotkeyIdx]) {
-                    setSelectedIndex(hotkeyIdx);
-                    options[hotkeyIdx].action();
-                    return;
+            if ((subView === "menu" || subView === "debug" || subView === "shield") && focusArea === "body") {
+                // Hotkey triggers for list items
+                if (e.name >= "1" && e.name <= "6") {
+                    const idx = parseInt(e.name) - 1;
+                    if (options[idx]) {
+                        setSelectedIndex(idx);
+                        options[idx].action();
+                        return;
+                    }
                 }
 
-                if (e.name === "b") {
+                if (e.name === "v") {
                     onBack();
-                    return;
-                }
-
-                if (e.name === "a") {
-                    setSubView("about");
                     return;
                 }
 
@@ -188,15 +189,15 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                     setSelectedIndex(prev => (prev < options.length ? prev + 1 : 0));
                 } else if (e.name === "return") {
                     if (selectedIndex === options.length) {
-                        onBack();
+                        if (subView === "menu") onBack();
+                        else setSubView("menu");
                     } else {
                         const selectedOpt = options[selectedIndex];
                         if (selectedOpt) selectedOpt.action();
                     }
-                } else if (e.name === "escape") {
-                    // index.tsx handles the 2-step ESC logic usually, 
-                    // but we'll let this be a shortcut to focusing the footer.
-                    onFocusChange("footer");
+                } else if (e.name === "escape" || e.name === "backspace") {
+                    if (subView !== "menu") setSubView("menu");
+                    else onFocusChange("footer");
                 }
             } else if (subView === "logs" && focusArea === "body") {
                 if (e.name === "left") {
@@ -217,10 +218,9 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                     else if (logSelectedIndex === 1) handleCopyLogs();
                     else if (logSelectedIndex === 2) handleClearLogs();
                 } else if (e.name === "escape" || e.name === "backspace") {
-                    setSubView("menu");
+                    setSubView("debug");
                 }
-            } else {
-                // About view
+            } else if (subView === "about" && focusArea === "body") {
                 if (e.name === "escape" || e.name === "backspace" || (e.name === "b" && !isUpdating)) {
                     setSubView("menu");
                     setUpdateStatus(null);
@@ -348,8 +348,10 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
         );
     }
 
+    const title = subView === "menu" ? "PORTAL OPTIONS" : (subView === "debug" ? "DEBUG TOOLS" : "LOCAL SHIELD");
+
     return (
-        <box flexDirection="column" flexGrow={1} padding={1} border borderStyle="double" borderColor={colors.primary} title="[ PORTAL OPTIONS ]" gap={1}>
+        <box flexDirection="column" flexGrow={1} padding={1} border borderStyle="double" borderColor={colors.primary} title={`[ ${title} ]`} gap={1}>
             <box flexDirection="column" gap={0} flexGrow={1}>
                 {options.map((opt, i) => {
                     const isSelected = i === selectedIndex && focusArea === "body";
@@ -375,28 +377,57 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                     );
                 })}
             </box>
+
             <box marginTop="auto" flexDirection="column" gap={1}>
+                {/* Description Context */}
                 <box padding={1} border borderStyle="single" borderColor={colors.border}>
-                    <text fg={focusArea === "body" ? colors.fg : colors.dim}>{String(options[selectedIndex]?.description || "")}</text>
+                    <text fg={focusArea === "body" ? colors.fg : colors.dim}>
+                        {String(selectedIndex === options.length ? "Return to the previous screen." : (options[selectedIndex]?.description || ""))}
+                    </text>
                 </box>
 
-                <box
-                    onMouseOver={() => {
-                        onFocusChange("body");
-                        setSelectedIndex(options.length); // Special index for Back
-                    }}
-                    onMouseDown={onBack}
-                    paddingLeft={2}
-                    border={focusArea === "body" && selectedIndex === options.length}
-                    borderStyle="single"
-                    borderColor={(focusArea === "body" && selectedIndex === options.length) ? colors.success : "transparent"}
-                    height={3}
-                    alignItems="center"
-                >
-                    <Hotkey keyLabel="b" label="BACK TO DASHBOARD" isFocused={focusArea === "body" && selectedIndex === options.length} />
+                {/* Sub-menu / Main Footer */}
+                <box flexDirection="row" gap={2} alignItems="center">
+                    <box
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setSelectedIndex(options.length);
+                        }}
+                        onMouseDown={() => {
+                            if (subView === "menu") onBack();
+                            else setSubView("menu");
+                        }}
+                        paddingLeft={2}
+                        paddingRight={2}
+                        border={focusArea === "body" && selectedIndex === options.length}
+                        borderStyle="single"
+                        borderColor={(focusArea === "body" && selectedIndex === options.length) ? colors.success : "transparent"}
+                        height={3}
+                        alignItems="center"
+                    >
+                        <Hotkey
+                            keyLabel={subView === "menu" ? "b" : "esc"}
+                            label={subView === "menu" ? "BACK TO DASHBOARD" : "RETURN TO MENU"}
+                            isFocused={focusArea === "body" && selectedIndex === options.length}
+                        />
+                    </box>
+
+                    {subView === "menu" && (
+                        <box
+                            onMouseOver={() => onFocusChange("body")}
+                            onMouseDown={onBack}
+                            paddingLeft={2}
+                            paddingRight={2}
+                            border={false}
+                            height={3}
+                            alignItems="center"
+                            marginLeft="auto"
+                        >
+                            <Hotkey keyLabel="v" label="SAVE & EXIT" isFocused={false} />
+                        </box>
+                    )}
                 </box>
             </box>
-
         </box>
     );
 });
