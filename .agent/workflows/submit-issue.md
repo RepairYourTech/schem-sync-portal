@@ -33,5 +33,10 @@ gh issue edit $(gh issue list --limit 1 --json number --jq '.[0].number') --add-
 ### 4. Wait for Traycer
 Monitor the issue until **Traycer.ai** provides an automated analysis and suggested code changes.
 
-### 5. Transition to Implementation
-Once Traycer has responded, proceed with the [/push-changes](file:///home/birdman/schem-sync-portal/.agent/workflows/push-changes.md) workflow to implement the fix.
+### 5. Iterate (Optional)
+If the suggested plan needs changes:
+- Reply to Traycer's comment with `@traycerai generate <your feedback>`.
+- Wait for the updated plan.
+
+### 6. Transition to Implementation
+Once Traycer has responded with a satisfactory plan, proceed with the [/push-changes](file:///home/birdman/schem-sync-portal/.agent/workflows/push-changes.md) workflow to implement the fix.

@@ -19,12 +19,18 @@ For Traycer to review an issue, it **MUST** be assigned to the repository owner.
 ### 2. The Analysis Wait
 Once an issue is created and assigned:
 - Traycer will typically respond with a comment within minutes.
-- Wait for a comment from `@traycer-ai` (or similar bot identity) containing the technical breakdown.
+- Wait for a comment from `@traycerai` (or similar bot identity) containing the technical breakdown.
 
 ### 3. Reviewing Suggestions
 Before starting work:
 - Review Traycer's proposal for alignment with **OpenTUI patterns** and **Surgical Isolation** principles.
 - Use Traycer's steps as the foundation for your `implementation_plan.md`.
+
+### 4. Iterating on the Plan
+If Traycer's initial proposal needs refinement or if you have specific constraints to add:
+- **Reply**: Post a comment on the issue starting with `@traycerai generate` followed by your refinement requests.
+- **Trigger**: This command forces Traycer to re-evaluate the issue and update its suggested plan.
+- **Repeat**: Continue iterating until the technical breakdown is satisfactory.
 
 ## 🐙 workflow Integration
 
