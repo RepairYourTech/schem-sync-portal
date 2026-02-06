@@ -15,6 +15,12 @@ Follow a standard feature-branch workflow:
 - `fix/*`: Bug fixes.
 - `chore/*`: Maintenance tasks, dependency updates, or internal tooling changes.
 
+## 🧠 Issue & Intelligence (Traycer.ai)
+
+Before starting any feature or fix, ensure an issue exists and has been reviewed by **Traycer.ai**.
+- **Process**: Follow the [issue-management-intel](file:///home/birdman/schem-sync-portal/.agent/skills/issue-management-intel/SKILL.md) guidelines.
+- **Trigger**: New issues should be created using the `/submit-issue` workflow and assigned to `repairyourtech`.
+
 ## 💬 Commit Standards
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):

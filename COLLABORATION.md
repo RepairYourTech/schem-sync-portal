@@ -19,8 +19,10 @@ Welcome to the **Schematic Sync Portal**. We prioritize security, TUI aesthetics
 
 ## 🤖 Agent Tooling
 If you are contributing using an AI agent, please utilize the local resources in the `.agent/` directory:
-*   **Workflows**: Use `/push-changes` to automate the branching, changeset, and PR creation process.
-*   **Skills**: Ensure your agent loads the `opentui` and `git-release-management` skills to maintain project standards.
+*   **Workflows**: 
+    *   Use `/submit-issue` to report bugs and trigger **Traycer.ai** analysis.
+    *   Use `/push-changes` to automate the branching, changeset, and PR creation process.
+*   **Skills**: Ensure your agent loads the `opentui`, `git-release-management`, and `issue-management-intel` skills to maintain project standards.
 
 ## 📐 Coding Standards
 *   **OpenTUI Patterns**: We use `ink` with `@opentui/react`. Stick to the curated color palette and layout primitives.
