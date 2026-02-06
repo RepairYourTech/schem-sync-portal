@@ -25,6 +25,7 @@ describe("E2E: Sync Flow", () => {
     beforeEach(() => {
         // Point to our mock rclone script
         process.env.MOCK_RCLONE = "src/tests/mock_rclone.ts";
+        process.env.SYNC_POLL_INTERVAL_MS = "100";
         clearSyncSession();
         mockSaveConfig.mockClear();
     });
