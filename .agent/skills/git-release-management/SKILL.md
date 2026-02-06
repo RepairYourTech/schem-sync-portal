@@ -26,10 +26,10 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## 🦋 Changeset Usage
 
-We use `@changesets/cli` to automate versioning and changelogs.
+We use `@changesets/cli` to automate versioning and changelogs. To ensure portability across environments without global installs, we use `bunx` via `package.json` scripts.
 
-1. **Add a Changeset**: Run `bun changeset` before pushing your feature branch.
-2. **Version Bump**: Once a PR is merged into `main`, run `bun changeset version` locally on `main` to update `package.json` and `CHANGELOG.md`.
+1. **Add a Changeset**: Run `bun changeset` (which executes `bunx @changesets/cli`) before pushing your feature branch.
+2. **Version Bump**: Once a PR is merged into `main`, run `bun changeset version` locally on `main` to update `package.json`, `CHANGELOG.md`, and `README.md`.
 
 ## 🐙 GitHub Integration
 
