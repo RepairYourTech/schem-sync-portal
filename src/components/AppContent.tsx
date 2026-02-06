@@ -25,6 +25,7 @@ import { SlimeIcon } from "./SlimeIcon";
 import { useAppState } from "../hooks/useAppState";
 import { useViewNavigation } from "../hooks/useViewNavigation";
 import { Logger } from "../lib/logger";
+import pkg from "../../package.json";
 
 export function AppContent() {
     const {
@@ -469,7 +470,7 @@ export function AppContent() {
                 </box>
                 <box alignSelf="center" marginTop={1} flexDirection="column" alignItems="center" width="100%">
                     <text attributes={TextAttributes.DIM} fg={colors.dim}>TAB: Cycle Areas | ARROWS: Navigate | ENTER: Select</text>
-                    <text attributes={TextAttributes.DIM} fg={colors.dim}>Hotkey + ENTER to confirm</text>
+                    <text attributes={TextAttributes.DIM} fg={colors.dim}>v{String(pkg.version)} | Hotkey + ENTER to confirm</text>
                 </box>
             </box>
         </box>

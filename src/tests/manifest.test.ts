@@ -18,14 +18,14 @@ describe("Phase 1: Manifest System", () => {
     it("should parse a valid manifest with comments", () => {
         const content = `
 # Generated: 2026-02-05T12:00:00Z
-# Shield version: 2.0.0
+# Shield version: 1.0.0-alpha.1
 # Policy: isolate
 file_a.txt
 file_b.bin
         `.trim();
 
         const manifest = ManifestParser.parse(content);
-        expect(manifest.version).toBe("2.0.0");
+        expect(manifest.version).toBe("1.0.0-alpha.1");
         expect(manifest.policy).toBe("isolate");
         expect(manifest.files).toContain("file_a.txt");
         expect(manifest.files).toContain("file_b.bin");
@@ -35,7 +35,7 @@ file_b.bin
     it("should stringify and parse back correctly", () => {
         const original = {
             generatedAt: new Date().toISOString(),
-            version: "2.0.0",
+            version: "1.0.0-alpha.1",
             policy: "purge" as const,
             files: ["z.txt", "a.txt"]
         };
@@ -45,7 +45,7 @@ file_b.bin
 
         expect(parsed.files).toEqual(["a.txt", "z.txt"]); // Should be sorted
         expect(parsed.policy).toBe("purge");
-        expect(parsed.version).toBe("2.0.0");
+        expect(parsed.version).toBe("1.0.0-alpha.1");
     });
 
     it("should correctly diff two manifests", () => {

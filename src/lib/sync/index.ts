@@ -178,19 +178,20 @@ export async function runSync(
                         for (const entry of entries) {
                             const relPath = join(base, entry.name);
                             if (entry.isDirectory()) {
-                                // CRITICAL: Skip _risk_tools to prevent malware from being upsynced
-                                if (entry.name === "_risk_tools") {
-                                    Logger.info("SHIELD", `Skipping isolated directory: ${relPath}`);
+                                // CRITICAL: Skip isolated directories to prevent malware from being upsynced
+                                if (entry.name === "_risk_tools" || entry.name === "_shield_isolated") {
+                                    Logger.info("SHIELD", `Skipping isolated directory: ${entry.name}`);
                                     continue;
                                 }
                                 scan(join(dir, entry.name), relPath);
                             } else if (entry.isFile()) {
                                 const filename = entry.name;
-                                // Skip dotfiles, manifests, and anything in _risk_tools path (defense in depth)
+                                // Skip dotfiles, manifests, and anything in isolated paths (defense in depth)
                                 if (filename.startsWith(".") ||
                                     filename === "manifest.txt" ||
                                     filename === "upsync-manifest.txt" ||
-                                    relPath.includes("_risk_tools")) {
+                                    relPath.startsWith("_risk_tools") ||
+                                    relPath.startsWith("_shield_isolated")) {
                                     continue;
                                 }
                                 approvedFiles.push(relPath);
