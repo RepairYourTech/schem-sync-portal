@@ -191,7 +191,9 @@ export async function runManifestCloudPhase(
         if (existsSync(manifestPath)) {
             await executeRcloneSimple(["copyto", manifestPath, remoteManifestPath]);
         }
-    } catch { /* ignore */ }
+    } catch (err) {
+        Logger.debug("SYNC", `Final handshake failed (non-critical): ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     // Cleanup batch file
     try {
