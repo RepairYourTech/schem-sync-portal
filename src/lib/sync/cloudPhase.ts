@@ -135,7 +135,8 @@ export async function runManifestCloudPhase(
 
         // Wait before next check
         onProgress({ phase: "cloud", description: "Monitoring manifest for updates..." });
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const pollInterval = parseInt(process.env.SYNC_POLL_INTERVAL_MS || "2000");
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
 
     // Mark as complete

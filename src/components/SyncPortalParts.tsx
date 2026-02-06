@@ -117,9 +117,9 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, width, 
                 paddingLeft={1}
                 paddingRight={1}
                 flexShrink={0}
-                border={!!(isFocused && subFocusIndex === 1)}
+                border={!!(isFocused && subFocusIndex === 1) || current === 4}
                 borderStyle="single"
-                borderColor={!!(isFocused && subFocusIndex === 1) ? colors.success : "transparent"}
+                borderColor={!!(isFocused && subFocusIndex === 1) ? colors.success : (current === 4 ? colors.primary : "transparent")}
             >
                 <Hotkey keyLabel="4" isFocused={!!(isFocused && subFocusIndex === 1)} hardened={true} />
             </box>
@@ -134,9 +134,9 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, width, 
                 paddingLeft={1}
                 paddingRight={1}
                 flexShrink={0}
-                border={!!(isFocused && subFocusIndex === 2)}
+                border={!!(isFocused && subFocusIndex === 2) || current === 6}
                 borderStyle="single"
-                borderColor={!!(isFocused && subFocusIndex === 2) ? colors.success : "transparent"}
+                borderColor={!!(isFocused && subFocusIndex === 2) ? colors.success : (current === 6 ? colors.primary : "transparent")}
             >
                 <Hotkey keyLabel="6" isFocused={!!(isFocused && subFocusIndex === 2)} hardened={true} />
             </box>
@@ -151,9 +151,9 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, width, 
                 paddingLeft={1}
                 paddingRight={1}
                 flexShrink={0}
-                border={!!(isFocused && subFocusIndex === 3)}
+                border={!!(isFocused && subFocusIndex === 3) || current === 8}
                 borderStyle="single"
-                borderColor={!!(isFocused && subFocusIndex === 3) ? colors.success : "transparent"}
+                borderColor={!!(isFocused && subFocusIndex === 3) ? colors.success : (current === 8 ? colors.primary : "transparent")}
             >
                 <Hotkey keyLabel="8" isFocused={!!(isFocused && subFocusIndex === 3)} hardened={true} />
             </box>
@@ -218,7 +218,6 @@ export const PanelControls = React.memo(({
             <box flexDirection="row" justifyContent="flex-start" alignItems="center" gap={1} flexWrap="wrap">
                 {/* Pause/Resume Action */}
                 <box flexDirection="row" alignItems="center" flexShrink={0}>
-                    <text fg={colors.fg}>ACTION: </text>
                     <box
                         onMouseOver={() => onFocus?.(true)}
                         onMouseDown={() => {
