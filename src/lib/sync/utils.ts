@@ -206,6 +206,37 @@ export async function executeRclone(
     });
 }
 
+/**
+ * Executes a simple rclone command without streaming progress.
+ * Useful for manifest up/down operations.
+ */
+export async function executeRcloneSimple(args: string[]): Promise<string> {
+    const fullArgs = [
+        "--config", Env.getRcloneConfigPath(),
+        ...args
+    ];
+
+    const rcloneCmd = getRcloneCmd();
+    const spawnArgs = rcloneCmd[0] === "bun" ? ["bun", ...rcloneCmd.slice(1), ...fullArgs] : ["rclone", ...fullArgs];
+    Logger.debug("SYNC", `Simple Spawning: ${spawnArgs.join(" ")}`);
+
+    const proc = spawn(spawnArgs, {
+        stdout: "pipe",
+        stderr: "pipe",
+        env: process.env as Record<string, string>
+    });
+
+    const exitCode = await proc.exited;
+    const stdout = await new Response(proc.stdout).text();
+    const stderr = await new Response(proc.stderr).text();
+
+    if (exitCode !== 0) {
+        throw new Error(`rclone simple failed (${exitCode}): ${stderr}`);
+    }
+
+    return stdout;
+}
+
 export function getIsSyncPaused(phase?: 'pull' | 'shield' | 'cloud'): boolean {
     if (phase) {
         return pauseState[phase];
