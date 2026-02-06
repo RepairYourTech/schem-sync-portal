@@ -70,7 +70,7 @@ export const UpsyncPanel = React.memo(({
             border
             borderStyle="single"
             borderColor={isFocused ? colors.success : "transparent"}
-            title={`[ ${String(destType).toUpperCase()} ]`}
+            title={destType}
             onMouseOver={() => onFocus?.(true)}
             onMouseDown={(e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
                 if (!e || e.currentTarget === e.target) {
@@ -82,7 +82,7 @@ export const UpsyncPanel = React.memo(({
             overflow="hidden"
         >
             <PanelHeader
-                title={`UPSYNC: ${destType}`}
+                title={`Backup: ${destType}`}
                 status={status}
                 accentColor={colors.accent}
                 colors={colors}

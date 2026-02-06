@@ -1,5 +1,5 @@
 import { expect, test, describe, beforeEach, mock } from "bun:test";
-import { runSync, clearSyncSession, resetSessionCompletions } from "../lib/sync";
+import { clearSyncSession, resetSessionCompletions } from "../lib/sync";
 import { startNewSession, getCurrentSessionId, isNewSession } from "../lib/sync/utils";
 import { parseJsonLog, getSessionCompletionsSize } from "../lib/sync/progress";
 import type { PortalConfig } from "../lib/config";
@@ -12,7 +12,7 @@ describe("Sync Session Persistence", () => {
         upsync_enabled: true,
         enable_malware_shield: true,
         malware_policy: "purge"
-    } as any;
+    } as unknown as PortalConfig;
 
     beforeEach(() => {
         clearSyncSession();
@@ -31,6 +31,7 @@ describe("Sync Session Persistence", () => {
 
     test("Stats persist when reusing session ID", async () => {
         const sessionId = startNewSession();
+        expect(sessionId).toBeDefined();
 
         // Mock some transfers in progress
         await parseJsonLog({
@@ -46,6 +47,7 @@ describe("Sync Session Persistence", () => {
         // Run sync with same session ID - should NOT reset state
         // We mock everything to exit quickly
         const onProgress = mock(() => { });
+        expect(onProgress).toBeDefined();
 
         // Note: we don't actually call runSync here because it spawns processes, 
         // we just test the logic inside runSync or the state behavior.
@@ -63,9 +65,10 @@ describe("Sync Session Persistence", () => {
         // Scenario: New Session (No ID)
         // If we were in runSync:
         const incomingSessionId = undefined;
-        if (!incomingSessionId || isNewSession(incomingSessionId as any)) {
+        if (!incomingSessionId || isNewSession(incomingSessionId as string)) {
             clearSyncSession();
         }
+        expect(mockConfig).toBeDefined();
         expect(getSessionCompletionsSize()).toBe(0);
 
         // Scenario: Resume (Same ID)

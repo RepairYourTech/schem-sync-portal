@@ -34,4 +34,53 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .DS_Store
 
 # User Configuration
-config.jsontest_sync_dir/
+config.json
+
+# Test Directories
+test_sync_dir/
+test_cleanup_dir/
+test_shield_cleanup/
+test_deploy_root/
+
+# AI Agent Specifics
+.agent/
+.agents/
+.claude/
+.cline/
+.codebuddy/
+.codex/
+.commandcode/
+.continue/
+.crush/
+.cursor/
+.factory/
+.gemini/
+.goose/
+.kilocode/
+.kiro/
+.mcpjam/
+.mux/
+.neovate/
+.opencode/
+.openhands/
+.pi/
+.qoder/
+.qwen/
+.roo/
+.trae/
+.windsurf/
+.zencoder/
+CLAUDE.md
+
+# Temporary Test Artifacts
+*_test_output.txt
+*_logs.txt
+full_test_results.txt
+test_results.log
+test_results.txt
+test_run_logs.txt
+ultra_final_logs.txt
+stderr.log
+system.log
+isolation_manual_check.ts
+restore_wizard_loops.js

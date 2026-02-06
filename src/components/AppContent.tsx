@@ -449,7 +449,7 @@ export function AppContent() {
                     <box flexDirection="column">
                         <box flexDirection="row" alignItems="center" gap={1}>
                             <FlexBVIcon />
-                            <text onMouseDown={() => spawn(process.platform === "win32" ? "start" : (process.platform === "darwin" ? "open" : "xdg-open"), ["https://pldaniels.com/flexbv5/"], { detached: true, stdio: "ignore" })} fg="#3a7af5" attributes={TextAttributes.UNDERLINE}>Best Used With FlexBV</text>
+                            <text onMouseDown={() => spawn(process.platform === "win32" ? "start" : (process.platform === "darwin" ? "open" : "xdg-open"), ["https://pldaniels.com/flexbv5/?rfid=schport"], { detached: true, stdio: "ignore" })} fg="#3a7af5" attributes={TextAttributes.UNDERLINE}>Best Used With FlexBV</text>
                         </box>
                         <box flexDirection="row" alignItems="center" gap={1}>
                             <SlimeIcon version={activeFontVersion} />

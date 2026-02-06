@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
 import { runSync, clearSyncSession, type SyncProgress } from "../../lib/sync";
 import { createMockConfig } from "../ui-test-helpers";
 import { join } from "path";
-import { existsSync, rmSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, rmSync, mkdirSync } from "fs";
 
 const mockSaveConfig = mock(() => Promise.resolve());
 mock.module("../../lib/config", () => ({

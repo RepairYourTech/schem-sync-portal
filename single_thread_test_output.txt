@@ -1,8 +1,0 @@
-bun test v1.3.8-canary.1 (b64edcb4)
-The following filters did not match any test files:
- 1
-200 files were searched [4.00ms]
-
-note: Tests need ".test", "_test_", ".spec" or "_spec_" in the filename (ex: "MyApp.test.ts")
-
-Learn more about bun test: https://bun.com/docs/cli/test

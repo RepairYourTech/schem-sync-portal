@@ -9,6 +9,7 @@ import { DownsyncPanel } from "./panels/DownsyncPanel";
 import { LocalShieldPanel } from "./panels/LocalShieldPanel";
 import { UpsyncPanel } from "./panels/UpsyncPanel";
 import { Hotkey } from "./Hotkey";
+import { getProviderDisplayName } from "../lib/providerUtils";
 
 interface SyncPortalProps {
     config: PortalConfig;
@@ -68,8 +69,8 @@ export const SyncPortal = React.memo(({
     const isError = progress.phase === "error";
     const isDone = progress.phase === "done";
 
-    const sourceType = config.source_provider === "copyparty" ? "SERVER" : "CLOUD";
-    const destType = config.backup_provider === "copyparty" ? "SERVER" : "CLOUD";
+    const sourceType = getProviderDisplayName(config.source_provider);
+    const destType = getProviderDisplayName(config.backup_provider);
 
     const showSource = config.source_provider !== "none";
     const showShield = config.enable_malware_shield === true;
