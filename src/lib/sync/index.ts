@@ -11,6 +11,7 @@ import { Env } from "../env";
 import { ShieldManager } from "../shield/ShieldManager";
 import { existsSync, readdirSync } from "fs";
 import { join } from "path";
+import { loadSyncState } from "../syncState";
 
 import {
     stopSync,
@@ -19,6 +20,7 @@ import {
     getIsSyncPaused,
     resetExecutorState,
     startNewSession,
+    setSessionId,
     getCurrentSessionId,
     isNewSession
 } from "./utils";
@@ -123,13 +125,28 @@ export async function runSync(
     };
 
     try {
-        if (!sessionId || isNewSession(sessionId)) {
+        const state = loadSyncState(config.local_dir);
+
+        // Comment 2: Respect provided sessionId or adopt persisted one
+        if (sessionId) {
+            setSessionId(sessionId);
+        } else if (!getCurrentSessionId() && state && state.upsyncStatus !== "complete") {
+            setSessionId(state.sessionId);
+            Logger.info("SYNC", `Adopting incomplete session from state: ${state.sessionId}`);
+        }
+
+        const activeSessionId = getCurrentSessionId() || "";
+        const isResumingMatch = state && activeSessionId === state.sessionId && state.upsyncStatus !== "complete";
+
+        if (!isResumingMatch && (!sessionId || isNewSession(sessionId))) {
+            // New session or no session ID: Clear any stale state
             resetSessionState();
             resetExecutorState();
             startNewSession();
             Logger.info("SYNC", "Starting new sync session");
         } else {
-            Logger.info("SYNC", `Resuming existing session: ${sessionId}`);
+            // Resuming: The cloudPhase will load its own state internally
+            Logger.info("SYNC", `Resuming existing session: ${getCurrentSessionId()}`);
         }
 
         const tasks: Promise<void>[] = [];
