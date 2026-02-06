@@ -5,6 +5,7 @@ import { Env } from "../env";
 import { ManifestParser } from "./manifestParser";
 import { type ShieldManifest } from "./types";
 import { PRIORITY_FILENAMES } from "./patterns";
+import pkg from "../../../package.json";
 
 export interface ShieldMetadata {
     generatedAt: string;
@@ -43,12 +44,19 @@ export const ShieldManager = {
             policy: policy as "purge" | "isolate"
         };
 
+        const filteredFiles = files.filter(f => {
+            const low = f.toLowerCase();
+            return !low.startsWith("_risk_tools") && !low.startsWith("_shield_isolated");
+        });
+
         const manifest: ShieldManifest = {
             generatedAt: new Date(metadata.timestamp).toISOString(),
-            version: "2.0.0",
+            version: pkg.version,
             policy: policy as "purge" | "isolate",
-            files
+            files: filteredFiles
         };
+
+        metadata.fileCount = filteredFiles.length;
 
         try {
             writeFileSync(manifestPath, ManifestParser.stringify(manifest), "utf8");
@@ -112,7 +120,7 @@ export const ShieldManager = {
         if (!existsSync(manifestPath)) {
             return {
                 generatedAt: new Date(0).toISOString(),
-                version: "2.0.0",
+                version: "1.0.0-alpha.1",
                 policy: "purge",
                 files: []
             };
@@ -125,7 +133,7 @@ export const ShieldManager = {
             Logger.error("SHIELD", `Failed to load manifest from ${manifestPath}`, err as Error);
             return {
                 generatedAt: new Date(0).toISOString(),
-                version: "2.0.0",
+                version: "1.0.0-alpha.1",
                 policy: "purge",
                 files: []
             };

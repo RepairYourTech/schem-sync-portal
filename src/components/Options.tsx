@@ -93,7 +93,8 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
         { label: "LOCAL SHIELD...", action: () => { setSubView("shield"); setSelectedIndex(0); }, description: "Manage security policies and forensic scanning.", key: "3" },
         { label: "DEBUG TOOLS...", action: () => { setSubView("debug"); setSelectedIndex(0); }, description: "Access internal telemetry and logs.", key: "4" },
         { label: "REGENERATE MANIFEST", action: onScan, description: "Full local scan to rebuild the upsync manifest.", key: "5" },
-        { label: "RESET CONFIGURATION", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "6" },
+        { label: "ABOUT PORTAL", action: () => { setSubView("about"); setSelectedIndex(0); }, description: "View version, repo, and credits.", key: "6" },
+        { label: "RESET CONFIGURATION", action: () => { Logger.clearLogs(); onReset(); }, description: "Wipe settings AND logs to start fresh.", key: "7" },
     ];
 
     const options = subView === "menu" ? mainOptions : (subView === "debug" ? debugOptions : (subView === "shield" ? shieldOptions : []));
@@ -308,13 +309,14 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
 
                 <box flexDirection="column" gap={0}>
                     <text fg={colors.primary}>REPO:</text>
-                    <text fg={colors.fg}>https://github.com/opentui/schem-sync-portal</text>
+                    <text fg={colors.fg}>https://github.com/RepairYourTech/schem-sync-portal</text>
                 </box>
 
                 <box flexDirection="column" gap={0} marginTop={1}>
                     <text fg={colors.primary}>CREDITS:</text>
-                    <text fg={colors.fg}>• OpenTUI Engineering Team</text>
-                    <text fg={colors.fg}>• DeepMind Advanced Agentic Coding (AAC)</text>
+                    <text fg={colors.fg}>• BirdMan & RepairYourTech Contributors</text>
+                    <text fg={colors.fg}>• Slime (Collaboration & Security Architecture)</text>
+                    <text fg={colors.fg}>• PD (FlexBV Integration Support)</text>
                 </box>
 
                 <box border borderStyle="single" borderColor={colors.border} padding={1} marginTop={1} flexDirection="column" gap={1}>

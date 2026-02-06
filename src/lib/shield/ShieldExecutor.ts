@@ -131,7 +131,12 @@ export class ShieldExecutor {
             const entries = readdirSync(dir, { withFileTypes: true });
             for (const entry of entries) {
                 const relPath = join(base, entry.name);
+                // Skip isolated/quarantine directories
                 if (entry.isDirectory()) {
+                    if (entry.name === "_risk_tools" || entry.name === "_shield_isolated") {
+                        Logger.info("SHIELD", `Skipping isolated directory: ${entry.name}`);
+                        continue;
+                    }
                     scan(join(dir, entry.name), relPath);
                 } else if (entry.isFile()) {
                     const filename = entry.name;
@@ -149,7 +154,11 @@ export class ShieldExecutor {
         }
 
         // 3. Save Manifest
-        const manifestInfo = ShieldManager.saveUpsyncManifest(localDir, Array.from(approvedFiles), policy);
+        const filteredApprovedFiles = Array.from(approvedFiles).filter(f => {
+            const low = f.toLowerCase();
+            return !low.startsWith("_risk_tools") && !low.startsWith("_shield_isolated");
+        });
+        const manifestInfo = ShieldManager.saveUpsyncManifest(localDir, filteredApprovedFiles, policy);
 
         Logger.info("SHIELD", `Standalone scan complete. Manifest generated with ${approvedFiles.size} files.`);
         if (onProgress) {

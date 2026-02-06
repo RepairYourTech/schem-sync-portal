@@ -1,0 +1,3 @@
+file1.bin
+file2.bin
+file3.bin

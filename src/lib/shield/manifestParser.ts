@@ -1,10 +1,11 @@
 import type { ShieldManifest, ManifestDiff } from "./types";
+import pkg from "../../../package.json";
 
 /**
  * Handles serialization and deserialization of Shield Manifest files.
  */
 export class ManifestParser {
-    private static readonly VERSION = "2.0.0";
+    private static readonly VERSION = pkg.version;
 
     /**
      * Parses the content of an upsync-manifest.txt file.

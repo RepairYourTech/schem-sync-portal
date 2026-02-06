@@ -63,6 +63,7 @@ function processManifest(localManifest: string, localDir: string): { remoteFiles
             for (const entry of entries) {
                 const relPath = join(base, entry.name);
                 if (entry.isDirectory()) {
+                    if (entry.name === "_risk_tools" || entry.name === "_shield_isolated") continue;
                     scan(join(dir, entry.name), relPath);
                 } else {
                     localFiles.add(relPath);
@@ -99,6 +100,7 @@ export async function runPullPhase(
             for (const entry of entries) {
                 const relPath = join(base, entry.name);
                 if (entry.isDirectory()) {
+                    if (entry.name === "_risk_tools" || entry.name === "_shield_isolated") continue;
                     scan(join(dir, entry.name), relPath);
                 } else if (entry.isFile()) {
                     verifiedFiles.push(relPath);
