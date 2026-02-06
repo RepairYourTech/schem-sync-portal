@@ -103,4 +103,20 @@ graph LR
 *   **Safe Mode (Reset)**: Launch the app and hold `ESC` on the dashboard to access the **Portal Only** reset menu.
 
 ---
+
+## 🤝 Collaboration
+
+We welcome contributions from the repair community! 
+
+*   **Want to help?** Read our [COLLABORATION.md](file:///home/birdman/schem-sync-portal/COLLABORATION.md) for technical standards.
+*   **Found a bug?** Use our [Bug Report](https://github.com/RepairYourTech/schem-sync-portal/issues/new?template=bug_report.yml) template.
+*   **Have an idea?** Submit a [Feature Request](https://github.com/RepairYourTech/schem-sync-portal/issues/new?template=feature_request.yml).
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License**. See the [LICENSE](file:///home/birdman/schem-sync-portal/LICENSE) file for details.
+
+---
 *Built for the Repair community, keep Right to Repair alive and thriving. 🦅*
