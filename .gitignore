@@ -70,6 +70,7 @@ test_deploy_root/
 .trae/
 .windsurf/
 .zencoder/
+.github/
 CLAUDE.md
 
 # Temporary Test Artifacts
