@@ -102,7 +102,7 @@ graph LR
 
 *   **Browser Auth Fails**: Ensure your default browser is accessible; Rclone requires it for the OAuth callback.
 *   **Missing Icons**: Enable a Nerd Font in your terminal settings. If not installed, use the Portal's built-in font installer.
-*   **Safe Mode (Reset)**: Launch the app and hold `ESC` on the dashboard to access the **Portal Only** reset menu.
+*   **Safe Mode (Reset)**: If configuration is broken, go to **Options** (Hotkey `o`) and select **RESET CONFIGURATION**.
 
 ---
 
