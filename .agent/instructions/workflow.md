@@ -59,15 +59,29 @@ Before taking ANY action on a task, you MUST follow this exact sequence:
 - Document your plan in scratchpad or plan.md if complex
 - **Workflow Mapping**: If a task involves a predefined workflow (e.g. `/push-changes`), you MUST explicitly map every step of that workflow into your `task.md` before execution.
 
-### 8. EXECUTE WITH AWARENESS
-- Follow your plan
-- Use the right tool for each step (skill vs MCP vs native tool)
-- Delegate to subagents when appropriate
-- Monitor your context window
-- Pause to re-assess if the task diverges from the plan
+### Bug Fixes
+1. Use `systematic-debugging` skill
+2. Use `Grep` to find related code
+3. Use `Read` to understand context
+4. Fix with `Edit` tool
+5. Run `bun run lint` and `bun test`
+6. Trigger `self-improving-agent` skill
 
-### 9. SELF-IMPROVEMENT CYCLE
-- Once the task is complete and verified, trigger the `self-improving-agent` skill
+### /address-issue
+1. Guidelines: [.agent/workflows/address-issue.md](file:///home/birdman/schem-sync-portal/.agent/workflows/address-issue.md)
+2. Guide identification, assignment to repairyourtech for Traycer.ai review, and transition to implementation.
+
+### /push-changes
+1. Guidelines: [.agent/workflows/push-changes.md](file:///home/birdman/schem-sync-portal/.agent/workflows/push-changes.md)
+2. Automated workflow for branching, changesets, and PR creation.
+
+### New Features
+1. Use `brainstorming` skill
+2. Use `EnterPlanMode` for planning
+3. Use `Grep`/`Glob` to find patterns
+4. Implement with `Edit`/`Write`
+5. Run `bun run lint` and `bun test`
+6. Trigger `self-improving-agent` skill
 - Analyze what happened, what went wrong, and what worked
 - Extract patterns and update relevant skill files with evolution markers
 - Learn from EVERY interaction to improve future performance
