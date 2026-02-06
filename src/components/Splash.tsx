@@ -2,6 +2,7 @@
 import React from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
+import pkg from "../../package.json";
 
 
 export function Splash() {
@@ -76,13 +77,13 @@ export function Splash() {
                     </box>
                 ) : (
                     <box padding={2}>
-                        <text fg="#00ffff" attributes={TextAttributes.BOLD}>SCHEMATIC SYNC PORTAL v2</text>
+                        <text fg="#00ffff" attributes={TextAttributes.BOLD}>SCHEMATIC SYNC PORTAL v{String(pkg.version)}</text>
                     </box>
                 )}
             </box>
             <box marginTop={1}>
                 <text fg="#3a7af5" attributes={TextAttributes.BOLD}>
-                    Universal Schematic Sync Portal | v1.0
+                    Universal Schematic Sync Portal | v{String(pkg.version)}
                 </text>
             </box>
         </box>
