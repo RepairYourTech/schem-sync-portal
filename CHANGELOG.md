@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1
+
+### Patch Changes
+
+- cb00f5c: This is an automated test to verify the `/push-changes` workflow integration.
+
 ## 1.0.0
 
 ### Patch Changes
