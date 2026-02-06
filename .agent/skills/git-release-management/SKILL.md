@@ -35,6 +35,7 @@ We use `@changesets/cli` to automate versioning and changelogs. To ensure portab
 
 Use the GitHub CLI (`gh`) for seamless PR management:
 - **Create PR**: `gh pr create --title "..." --body "..."`
+- **Review Requirement**: All PRs **MUST** receive a positive review from **CodeRabbit** before merging. Address all high-priority suggestions.
 - **View Status**: `gh pr status`
 - **Merge**: `gh pr merge --squash --delete-branch`
 
