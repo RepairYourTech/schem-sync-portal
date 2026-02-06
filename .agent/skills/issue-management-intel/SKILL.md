@@ -33,6 +33,11 @@ If Traycer's initial proposal needs refinement or if you have specific constrain
 - **Trigger**: This command forces Traycer to re-evaluate the issue and update its suggested plan.
 - **Repeat**: Continue iterating until the technical breakdown is satisfactory.
 
+### 5. Browserless Access (Agent Pro-Tip)
+Agents can retrieve the full plan and prompt directly via the **GitHub CLI** without navigating the browser:
+- **Command**: `gh issue view <issue_number> --json comments --jq '.comments[-1].body'`
+- **Efficiency**: This returns the raw Markdown, including all content inside `<details>` blocks, allowing you to ingest the "Prompt for AI Agents" instantly.
+
 ## 🐙 workflow Integration
 
 1. **Submit Issue**: Use [submit-issue.md](file:///home/birdman/schem-sync-portal/.agent/workflows/submit-issue.md) to report a bug or suggest a feature.
