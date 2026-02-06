@@ -77,7 +77,7 @@ export function Splash() {
                     </box>
                 ) : (
                     <box padding={2}>
-                        <text fg="#00ffff" attributes={TextAttributes.BOLD}>SCHEMATIC SYNC PORTAL v{String(pkg.version.split('.')[0])}</text>
+                        <text fg="#00ffff" attributes={TextAttributes.BOLD}>SCHEMATIC SYNC PORTAL v{String(pkg.version)}</text>
                     </box>
                 )}
             </box>
