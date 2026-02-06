@@ -1,0 +1,30 @@
+name: Feature Request
+description: Suggest an idea or enhancement for the Schematic Sync Portal
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What problem are you trying to solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Proposed Implementation
+      description: How do you imagine this working? (UI changes, new rclone flags, etc.)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: pattern_check
+    attributes:
+      label: Pattern Compliance
+      options:
+        - label: I understand that UI changes MUST follow the "No Raw Text" rule (Ink `<text>` components only).
+          required: true
+        - label: I understand that security-sensitive changes must use "Surgical Isolation" patterns.
+          required: true
