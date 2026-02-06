@@ -34,7 +34,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .DS_Store
 
 # User Configuration
-config.json
+/config.json
 
 # Test Directories
 test_sync_dir/
