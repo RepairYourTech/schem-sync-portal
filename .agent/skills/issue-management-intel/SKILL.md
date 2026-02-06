@@ -24,6 +24,7 @@ Once an issue is created and assigned:
 ### 3. Reviewing Suggestions
 Before starting work:
 - Review Traycer's proposal for alignment with **OpenTUI patterns** and **Surgical Isolation** principles.
+- **Agent Tip**: Look for the expandable **"🤖 Prompt for AI Agents"** section. This contains a high-fidelity technical plan, including file paths and Mermaid diagrams, which can be directly fed into an agent's context for execution.
 - Use Traycer's steps as the foundation for your `implementation_plan.md`.
 
 ### 4. Iterating on the Plan
