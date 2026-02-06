@@ -2,33 +2,38 @@
 
 > **The Zero-Terminal, Multi-Cloud Solution for Secure Schematic Management.**
 
-The **Schematic Sync Portal** is a high-security TUI (Terminal User Interface) application designed to bridge your local schematic archives with the cloud *without* exposing your main OS credentials or mixing environments.
+The **Schematic Sync Portal** is a high-security TUI (Terminal User Interface) application designed to bridge local schematic archives with the cloud without compromising system integrity.
 
-It supports **8+ Cloud Providers** in a completely isolated environment, ensuring your sensitive boardviews and PDFs are safe, synced, and separated from your personal data.
+---
+
+## 🏛️ The Portal Pillars
+
+| 🛡️ Surgical Isolation | ⚡ Zero-Terminal Setup | 🧼 Malware Shield |
+| :--- | :--- | :--- |
+| Dedicated Rclone remotes that never touch your global system configuration. | Complete OAuth handshake within the TUI—no manual config editing required. | Pipelined scanning that purges or isolates threats before backup. |
+
+---
 
 ## 🚀 Features
 
 ### ☁️ Multi-Cloud Sovereign Containers
-Choose your backend. The Portal creates a dedicated, isolated remote for:
+Support for **8+ Cloud Providers** in isolated environments:
 *   **Google Drive** (Project-Isolated w/ Guided Setup)
 *   **Backblaze B2** ($6/TB Pro Storage)
-*   **pCloud** (Swiss Privacy)
-*   **SFTP / Private Server** (Self-Hosted/NAS)
-*   **OneDrive** (Corporate/O365)
-*   **Dropbox** (Classic Sync)
-*   **Mega.nz** (Encrypted/Free Tier)
 *   **Cloudflare R2** (Zero Egress Fees)
+*   **SFTP / Private Server** & **pCloud**
+*   **OneDrive**, **Dropbox**, and **Mega.nz**
 
 ### 🛡️ Security First
-*   **Surgical Isolation**: Creates dedicated remotes that never touch your system's global `rclone.conf` `[drive]` configuration.
-*   **Zero-Terminal Handshake**: Handles OAuth and token exchanges interactively within the UI—no manual config editing required.
-*   **Rclone CLI Backend**: Leverages the industry-standard `rclone` binary for robust, obfuscated credential management.
-*   **Malware Policy**: Optional "Surgical Purge" or "Isolate" modes for handling questionable files often found in schematic dumps.
+*   **Config Sandboxing**: Uses private `rclone.conf` paths to prevent credential leakage.
+*   **Rclone CLI Engine**: Leverages industry-standard binaries for robust transfer management.
+*   **Multi-Stage Policy**: Granular control over questionable files (Purge vs. Isolate).
 
 ### 🖥️ Native Experience
-*   **TUI Wizard**: A beautiful, mouse-supported terminal interface.
-*   **Desktop Integration**: Auto-creates `.desktop` entries or Start Menu shortcuts.
-*   **Input-Lag Free**: Optimized input handling for rapid navigation.
+*   **Modern TUI**: A beautiful, mouse-supported terminal interface built with Ink.
+*   **Integration**: Auto-creates `.desktop` entries and Start Menu shortcuts.
+
+---
 
 ## 📦 Installation & Usage
 
@@ -42,24 +47,45 @@ bun install
 bun dev
 ```
 
-The First-Run Wizard will guide you through:
-1.  **shortcut integration**: Adding the app to your system menu.
-2.  **Source Config**: Setting your schematic source URL.
-3.  **Cloud Provider Selection**: Choosing and authenticating your preferred cloud provider.
+The First-Run Wizard will guide you through system integration, source configuration, and provider authentication.
 
-## 🔧 Architecture
+---
 
-*   **Frontend**: React TUI (Ink/OpenTUI)
+## 📐 Architecture
+
+The portal uses a **Three-Phase Sync Engine** optimized for parallel processing.
+
+```mermaid
+graph LR
+    A[Source] -- Pull Phase --> B(Local Staging)
+    B -- Malware Shield --> C{Sanitized?}
+    C -- Yes --> D[Cloud Backup]
+    C -- No --> E[Purge/Isolate]
+    
+    subgraph "The Shield"
+    B
+    C
+    E
+    end
+```
+
+*   **Frontend**: React TUI ([OpenTUI](https://github.com/opentui))
 *   **Backend**: Bun + Rclone CLI Wrapper
 *   **State**: `~/.config/schem-sync-portal/config.json`
-*   **Logs**: `./logs/auth_debug.log`
 
-## ⚠️ Safe Mode (Reset)
+---
 
-If you need to nuke the Portal's configuration without touching your other system backups:
-1.  Launch the app.
-2.  Hold `ESC` on the dashboard to access the reset menu.
-3.  Select **Portal Only** reset.
+## 🔧 Troubleshooting
+
+### Common Setup Issues
+*   **Browser Auth Fails**: Ensure your default browser is accessible. Rclone opens a local port for the OAuth callback.
+*   **API Rate Limits**: Large schematic dumps can hit GDrive/OneDrive rate limits. The Portal automatically handles retries with exponential backoff.
+*   **Missing Icons**: Ensure you are using a **Nerd Font** in your terminal for the best visual experience.
+
+### ⚠️ Safe Mode (Reset)
+If you need to reset the Portal's configuration:
+1.  Launch the app and hold `ESC` on the dashboard.
+2.  Select **Portal Only** reset to clear configuration without affecting other system backups.
 
 ---
 *Built for the Repair community, keep Right to Repair alive and thriving. 🦅*
