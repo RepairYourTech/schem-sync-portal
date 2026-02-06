@@ -1,0 +1,27 @@
+name: Verify PR
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Lint TUI & ESLint
+        run: bun run lint
+
+      - name: Run Core Tests
+        run: bun test src/tests/rclone.test.ts
