@@ -14,40 +14,65 @@ The **Schematic Sync Portal** is a high-security TUI (Terminal User Interface) a
 
 ---
 
-## 🚀 Features
+## 🌎 Supported Platforms
 
-### ☁️ Multi-Cloud Sovereign Containers
-Support for **8+ Cloud Providers** in isolated environments:
-*   **Google Drive** (Project-Isolated w/ Guided Setup)
-*   **Backblaze B2** ($6/TB Pro Storage)
-*   **Cloudflare R2** (Zero Egress Fees)
-*   **SFTP / Private Server** & **pCloud**
-*   **OneDrive**, **Dropbox**, and **Mega.nz**
-
-### 🛡️ Security First
-*   **Config Sandboxing**: Uses private `rclone.conf` paths to prevent credential leakage.
-*   **Rclone CLI Engine**: Leverages industry-standard binaries for robust transfer management.
-*   **Multi-Stage Policy**: Granular control over questionable files (Purge vs. Isolate).
-
-### 🖥️ Native Experience
-*   **Modern TUI**: A beautiful, mouse-supported terminal interface built with Ink.
-*   **Integration**: Auto-creates `.desktop` entries and Start Menu shortcuts.
+| Linux 🐧 | Windows 🪟 | macOS 🍎 |
+| :--- | :--- | :--- |
+| XDG compliant. Standard `.desktop` integration. | `APPDATA` based config. Start Menu shortcuts. | `Application Support` storage. `.command` launcher. |
 
 ---
 
-## 📦 Installation & Usage
+## 🛠️ Technical Dependencies
 
-**Prerequisites:** `bun` (Runtime) and `rclone` (Backend).
+### System Requirements
+*   **Runtime**: [Bun](https://bun.sh) (v1.0+) — Fast JavaScript runtime & package manager.
+*   **Backend**: [Rclone](https://rclone.org) — The "Swiss army knife" of cloud storage. Must be in your system `PATH`.
+*   **Extraction & Shielding**: `7z`, `7za`, or `unzip` — **Critical Core Dependency**. Used by the Malware Shield to surgically sanitize archives and by the Font Installer.
+*   **Visuals**: A terminal with **Nerd Font** support (e.g., JetBrainsMono, FiraCode) is required for icon rendering.
 
+### Desktop Integration
+*   The Portal can automatically create system shortcuts (`.desktop`, `.bat`, or `.command`) for one-click access.
+
+---
+
+## � Installation & Setup
+
+### 1. Quick Start (Development)
 ```bash
-# 1. Install Dependencies
+# Clone the repository
+git clone https://github.com/RepairYourTech/schem-sync-portal.git
+cd schem-sync-portal
+
+# Install dependencies
 bun install
 
-# 2. Run the Portal
+# Run the portal
 bun dev
 ```
 
-The First-Run Wizard will guide you through system integration, source configuration, and provider authentication.
+### 2. First-Run Wizard
+Upon first launch, the Portal will guide you through:
+1.  **System Integration**: Creating a desktop/launcher shortcut.
+2.  **Visual Audit**: Verifying Nerd Font support (and offering auto-install if missing).
+3.  **Source Config**: Connecting to your schematic source (HTTP/WebDAV).
+4.  **Cloud Selection**: Authenticating with your preferred provider (8+ supported).
+
+---
+
+## 🛡️ Features & Security
+
+### ☁️ Sovereign Cloud Containers
+The Portal is specifically optimized for **Slime's CopyParty server** (Primary Source). All other source options are currently considered **BETA**.
+
+Support for **8+ Cloud Providers** in isolated environments:
+*   **GDrive**, **Backblaze B2**, **Cloudflare R2**, **pCloud**, **OneDrive**, **Dropbox**, **Mega.nz**, and **SFTP**.
+
+> [!CAUTION]
+> **GOOGLE DRIVE SECURITY WARNING**: Backing up schematics to Google Drive **REQUIRES** the Malware Shield to be enabled. Failure to sanitize archives *will* result in your Google Cloud Console project being suspended due to TOS violations (hosting/transferring detected "malware" archives).
+
+### 🛡️ Malware Shield Policy
+*   **Surgical Purge**: Automatically removes high-risk files (e.g., executables inside schematic archives).
+*   **Isolation**: Moves questionable files to a dedicated `_risk_tools` folder instead of deleting them.
 
 ---
 
@@ -69,23 +94,13 @@ graph LR
     end
 ```
 
-*   **Frontend**: React TUI ([OpenTUI](https://github.com/opentui))
-*   **Backend**: Bun + Rclone CLI Wrapper
-*   **State**: `~/.config/schem-sync-portal/config.json`
-
 ---
 
 ## 🔧 Troubleshooting
 
-### Common Setup Issues
-*   **Browser Auth Fails**: Ensure your default browser is accessible. Rclone opens a local port for the OAuth callback.
-*   **API Rate Limits**: Large schematic dumps can hit GDrive/OneDrive rate limits. The Portal automatically handles retries with exponential backoff.
-*   **Missing Icons**: Ensure you are using a **Nerd Font** in your terminal for the best visual experience.
-
-### ⚠️ Safe Mode (Reset)
-If you need to reset the Portal's configuration:
-1.  Launch the app and hold `ESC` on the dashboard.
-2.  Select **Portal Only** reset to clear configuration without affecting other system backups.
+*   **Browser Auth Fails**: Ensure your default browser is accessible; Rclone requires it for the OAuth callback.
+*   **Missing Icons**: Enable a Nerd Font in your terminal settings. If not installed, use the Portal's built-in font installer.
+*   **Safe Mode (Reset)**: Launch the app and hold `ESC` on the dashboard to access the **Portal Only** reset menu.
 
 ---
 *Built for the Repair community, keep Right to Repair alive and thriving. 🦅*
