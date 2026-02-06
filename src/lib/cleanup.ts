@@ -38,17 +38,10 @@ export async function runCleanupSweep(
     abortSignal?: AbortSignal,
     initialStats?: CleanupStats
 ): Promise<CleanupResult> {
-    const engine = getEngine();
-    if (!engine) {
-        Logger.error("SYSTEM", "Cleanup failed: No tools found.");
-        if (onProgress) {
-            onProgress({ phase: "clean", description: "Shield: Skipped (Tools not found)", percentage: 0 });
-            onProgress({ phase: "clean", description: "Shield: Skipped (Tools not found)", percentage: 100 });
-        }
-        return { completed: true, scannedArchives: [], unscannedArchives: [] };
-    }
     const scannedArchives: string[] = [];
     const unscannedArchives: string[] = [];
+    const engine = getEngine();
+
     try {
         const archives = await glob("**/*.{zip,7z,rar}", { cwd: targetDir, absolute: true, ignore: ["**/node_modules/**", "**/.git/**"] });
 
@@ -60,24 +53,32 @@ export async function runCleanupSweep(
         // Ensure totalArchives is updated if reusing stats
         stats.totalArchives = archives.length;
         if (onProgress) onProgress(stats);
-        for (let i = 0; i < archives.length; i++) {
-            const archivePath = archives[i]!;
-            const relPath = relative(targetDir, archivePath);
-            if (abortSignal?.aborted) {
-                for (let j = i; j < archives.length; j++) unscannedArchives.push(relative(targetDir, archives[j]!));
-                return { completed: false, scannedArchives, unscannedArchives };
+
+        // PHASE 1: Archive Scanning
+        if (engine) {
+            for (let i = 0; i < archives.length; i++) {
+                const archivePath = archives[i]!;
+                const relPath = relative(targetDir, archivePath);
+                if (abortSignal?.aborted) {
+                    for (let j = i; j < archives.length; j++) unscannedArchives.push(relative(targetDir, archives[j]!));
+                    return { completed: false, scannedArchives, unscannedArchives };
+                }
+                stats.currentArchive = relPath;
+                stats.scannedArchives++;
+                if (onProgress) onProgress(stats);
+                const result = await cleanArchive(archivePath, targetDir, excludeFile, policy, stats, onProgress);
+                scannedArchives.push(relPath);
+                if (result.failed) {
+                    Logger.error("SYNC", `Shield: CRITICAL FAILURE during ${policy} of ${relPath}.`);
+                    if (onProgress) onProgress({ ...stats, phase: "clean", description: `Shield ERROR: Failed to ${policy} ${relPath}.` });
+                    return { completed: false, scannedArchives, unscannedArchives: archives.slice(i + 1).map(a => relative(targetDir, a)) };
+                }
+                if (result.flagged) stats.flaggedArchives++; else stats.cleanArchives++;
             }
-            stats.currentArchive = relPath;
-            stats.scannedArchives++;
-            if (onProgress) onProgress(stats);
-            const result = await cleanArchive(archivePath, targetDir, excludeFile, policy, stats, onProgress);
-            scannedArchives.push(relPath);
-            if (result.failed) {
-                Logger.error("SYNC", `Shield: CRITICAL FAILURE during ${policy} of ${relPath}.`);
-                if (onProgress) onProgress({ ...stats, phase: "clean", description: `Shield ERROR: Failed to ${policy} ${relPath}.` });
-                return { completed: false, scannedArchives, unscannedArchives: archives.slice(i + 1).map(a => relative(targetDir, a)) };
-            }
-            if (result.flagged) stats.flaggedArchives++; else stats.cleanArchives++;
+        } else {
+            Logger.warn("SYSTEM", "Shield Archive Loop: Skipped (Tools not found).");
+            // If no engine, all archives are unscanned
+            for (const a of archives) unscannedArchives.push(relative(targetDir, a));
         }
         stats.currentArchive = undefined;
 
@@ -229,40 +230,40 @@ async function cleanArchive(
             if (!existsSync(stagingDir)) mkdirSync(stagingDir, { recursive: true });
             const engine = getEngine();
             if (engine) {
-                for (const ext of KEEP_EXTS) {
+                // Determine patterns to extract: schematic files + nested archives
+                const extractPatterns = [...KEEP_EXTS, ".zip", ".7z", ".rar"];
+
+                for (const ext of extractPatterns) {
                     const extractCmd = engine.type === "7z"
                         ? [engine.bin, "x", archivePath, `*${ext}`, `-o${stagingDir}`, "-r", "-y"]
                         : [engine.bin, "x", "-r", "-y", archivePath, `*${ext}`, stagingDir];
 
                     const spawnRes = getSpawnSync()(extractCmd);
                     if (spawnRes.success) {
-                        // Verification sweep in staging
-                        const matches = await glob(`**/*${ext}`, { cwd: stagingDir, absolute: true });
-                        for (const match of matches) {
-                            const destPath = join(dirPath, basename(match));
-                            if (!existsSync(destPath)) {
-                                renameSync(match, destPath);
-                                const relExtracted = relative(baseDir, destPath);
+                        // Verification sweep in staging - only for KEEP_EXTS (legitimate schematic files)
+                        if (KEEP_EXTS.includes(ext)) {
+                            const matches = await glob(`**/*${ext}`, { cwd: stagingDir, absolute: true });
+                            for (const match of matches) {
+                                const destPath = join(dirPath, basename(match));
+                                if (!existsSync(destPath)) {
+                                    renameSync(match, destPath);
+                                    const relExtracted = relative(baseDir, destPath);
 
-                                // IMMEDIATE VERIFICATION: Verify extracted file immediately
-                                await cleanFile(destPath, baseDir, policy, stats, onProgress);
+                                    // IMMEDIATE VERIFICATION: Verify extracted file immediately
+                                    await cleanFile(destPath, baseDir, policy, stats, onProgress);
 
-                                if (existsSync(destPath)) {
-                                    Logger.info("SHIELD", `Successfully extracted and verified: ${relExtracted} from ${fileName}`);
-                                    extractedCount++;
+                                    if (existsSync(destPath)) {
+                                        Logger.info("SHIELD", `Successfully extracted and verified: ${relExtracted} from ${fileName}`);
+                                        extractedCount++;
 
-                                    // Track extracted paths in stats
-                                    stats.extractedFilePaths = stats.extractedFilePaths || [];
-                                    stats.extractedFilePaths.push(relExtracted);
+                                        // Track extracted paths in stats
+                                        const paths = stats.extractedFilePaths || [];
+                                        paths.push(relExtracted);
+                                        stats.extractedFilePaths = paths;
+                                    }
                                 }
                             }
                         }
-                    } else {
-                        const res = spawnRes as { stderr?: Buffer; exitCode?: number };
-                        const errMsg = res.stderr ? res.stderr.toString() : "Unknown error";
-                        Logger.error("SHIELD", `Extraction failed for pattern *${ext} in ${fileName}: ${errMsg}`, {
-                            exitCode: res.exitCode
-                        });
                     }
                 }
 

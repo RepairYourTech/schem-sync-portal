@@ -30,7 +30,7 @@ describe("Malware Shield (Hardening)", () => {
 
     test("should handle archive listing failure (fail-safe)", async () => {
         // Mock spawnSync to simulate a failed listing command
-        __setSpawnSync(((options: any) => {
+        __setSpawnSync(((options: string[] | { cmd: string[] }) => {
             const args = Array.isArray(options) ? options : (options as { cmd: string[] }).cmd;
             const cmd = args.join(" ");
 
@@ -90,7 +90,7 @@ describe("Malware Shield (Hardening)", () => {
 
         let nestedPathInStaging = "";
 
-        __setSpawnSync(((options: any) => {
+        __setSpawnSync(((options: string[] | { cmd: string[] }) => {
             const args = Array.isArray(options) ? options : (options as { cmd: string[] }).cmd;
             const cmd = args.join(" ");
 
@@ -158,5 +158,26 @@ describe("Malware Shield (Hardening)", () => {
         // standalone scan should NOT flag extra.tvw because it's in extractedFilePaths
         expect(existsSync(join(testDir, "extra.tvw"))).toBe(true);
         expect(stats.flaggedStandaloneFiles || 0).toBe(0);
+    });
+
+    test("should run standalone scan even without archive engine", async () => {
+        // Disable engine
+        __setArchiveEngine(null);
+
+        // Create a standalone malicious file
+        const malwarePath = join(testDir, "lpk.dll");
+        writeFileSync(malwarePath, "fake malware");
+
+        const stats: CleanupStats = {
+            phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge",
+            extractedFilePaths: []
+        };
+
+        // This should NOT throw and should clean the file
+        await runCleanupSweep(testDir, excludeFile, "purge", undefined, undefined, stats);
+
+        expect(existsSync(malwarePath)).toBe(false);
+        expect(stats.flaggedStandaloneFiles).toBe(1);
     });
 });

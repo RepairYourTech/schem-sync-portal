@@ -73,12 +73,12 @@ export class ShieldExecutor {
         try {
             if (type === "realtime_clean") {
                 if (!context.filePath) throw new Error("filePath is required for realtime_clean");
-                const result = await cleanFile(context.filePath, localDir, policy, stats, (s) => wrapProgress(s));
+                const result = await cleanFile(context.filePath, localDir, policy, stats, wrapProgress);
                 Logger.info("SHIELD", `Completed ${type} for ${context.filePath} | result=${result}`);
                 return result;
             } else {
                 const excludeFile = context.excludeFile || "";
-                const result = await runCleanupSweep(localDir, excludeFile, policy, (s) => wrapProgress(s), undefined, stats);
+                const result = await runCleanupSweep(localDir, excludeFile, policy, wrapProgress, undefined, stats);
                 Logger.info("SHIELD", `Completed ${type} | scanned=${stats.scannedArchives} threats=${stats.riskyPatternCount} extracted=${stats.extractedFiles}`);
                 return result;
             }
