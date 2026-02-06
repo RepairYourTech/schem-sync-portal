@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+### Patch Changes
+
+- c633051: fix: prevent cloud sync duplication by introducing remote manifest verification and session persistence hardening.
+
 ## 1.0.1
 
 ### Patch Changes

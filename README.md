@@ -1,7 +1,7 @@
 # 🦅 Schematic Sync Portal - ****ALPHA****
 > **Surgical Cloud Isolation for the Repair Community**
 
-![Version](https://img.shields.io/badge/version-1.0.1-green)
+![Version](https://img.shields.io/badge/version-1.0.2-green)
 ![License](https://img.shields.io/badge/license-Custom--Attribution-blue)
 
 The **Schematic Sync Portal** is a high-security TUI (Terminal User Interface) application designed to bridge local schematic archives with the cloud without compromising system integrity.
