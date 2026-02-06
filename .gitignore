@@ -46,7 +46,6 @@ test_deploy_root/
 .agent/
 .agents/
 .claude/
-.github/
 memory/
 skills/
 .cline/
@@ -73,7 +72,6 @@ skills/
 .trae/
 .windsurf/
 .zencoder/
-.github/
 CLAUDE.md
 
 # Temporary Test Artifacts
