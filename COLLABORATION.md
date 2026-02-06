@@ -21,11 +21,10 @@ Welcome to the **Schematic Sync Portal**. We prioritize security, TUI aesthetics
 *   **Cross-Platform**: Do not hardcode paths. Use the [Env utility](file:///src/lib/env.ts) for OS-specific resolutions.
 *   **Documentation**: If you add a new provider or feature, update the README appropriately.
 
-## 🔒 Branch Protection
-To maintain stability:
-*   Direct pushes to `main` are **BLOCKED**.
-*   All changes must come through a Pull Request.
-*   PRs must pass the `verify` workflow (Lint + Test).
+## ⚖️ Governance & Redistribution
+*   **License**: This project uses the **BirdMan-Slime Attribution License**. 
+*   **Mandatory Attribution**: You MUST credit **BirdMan**, **Slime**, and **PD (FlexBV)** in all forks.
+*   **Link Persistence**: The **FlexBV** and **Slime** links in the TUI footer are protected. Removal of these links is a violation of the license.
 
 ---
 *Keep Right to Repair alive and thriving.*
