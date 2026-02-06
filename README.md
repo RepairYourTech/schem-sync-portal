@@ -114,9 +114,10 @@ We welcome contributions from the repair community!
 
 ---
 
-## 📄 License
-
-This project is licensed under the **MIT License**. See the [LICENSE](file:///home/birdman/schem-sync-portal/LICENSE) file for details.
+## ⚖️ Governance & Redistribution
+*   **License**: This project uses the **BirdMan-Slime Attribution License**. 
+*   **Mandatory Attribution**: You MUST credit **BirdMan**, **Slime**, and **PD (FlexBV)** in all forks.
+See the [LICENSE](file:///home/birdman/schem-sync-portal/LICENSE) file for details.
 
 ---
 *Built for the Repair community, keep Right to Repair alive and thriving. 🦅*

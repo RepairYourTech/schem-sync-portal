@@ -1,6 +1,6 @@
-MIT License
+BirdMan-Slime Attribution License (Modified MIT)
 
-Copyright (c) 2026 RepairYourTech
+Copyright (c) 2026 BirdMan & RepairYourTech Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -11,6 +11,25 @@ furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
+
+### ADDITIONAL TERMS & CONDITIONS
+
+1. **Mandatory Attribution**: Any redistribution, derivative work, or commercial 
+   use of this software MUST provide prominent attribution to the following 
+   original contributors:
+   - **BirdMan**
+   - **Slime**
+   - **PD (FlexBV)**
+
+2. **Link Persistence**: The following URLs and their associated branding/icons 
+   within the software UI MUST NOT be removed, shadowed, or obscured in any 
+   redistribution or derivative work:
+   - **FlexBV Software**: https://pldaniels.com/flexbv5/
+   - **Slime's Wallet/Bio**: https://slimeinacloak.github.io/crypto
+   - **RepairYourTech**: Any associated links to the project's original maintainers.
+
+3. **Termination**: Failure to comply with these additional terms results in the 
+   immediate and automatic termination of all rights granted under this license.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
