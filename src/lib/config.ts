@@ -36,10 +36,7 @@ export interface PortalConfig {
     debug_mode: boolean;
     log_level?: LogLevel;
     nerd_font_version?: 2 | 3;
-    cookie?: string;
     copyparty_method?: "webdav" | "http";
-    webdav_user?: string;
-    webdav_pass?: string;
 
     // Font Presence tracking
     nerd_font_auto_install?: boolean;
@@ -103,6 +100,11 @@ export function loadConfig(): PortalConfig {
                 parsed.log_level = "NORMAL";
             }
 
+            // MIGRATION: SECURITY HARDENING - Remove plaintext credentials (Issue #12)
+            if (parsed.cookie) delete parsed.cookie;
+            if (parsed.webdav_user) delete parsed.webdav_user;
+            if (parsed.webdav_pass) delete parsed.webdav_pass;
+
             return { ...EMPTY_CONFIG, ...parsed };
         }
     } catch (err: unknown) {
@@ -136,10 +138,7 @@ export function saveConfig(config: PortalConfig): void {
             debug_mode: config.debug_mode,
             log_level: config.log_level || "NORMAL",
             nerd_font_version: config.nerd_font_version,
-            cookie: config.cookie,
             copyparty_method: config.copyparty_method,
-            webdav_user: config.webdav_user,
-            webdav_pass: config.webdav_pass,
             nerd_font_auto_install: config.nerd_font_auto_install,
             nerd_font_auto_install_dismissed: config.nerd_font_auto_install_dismissed,
             nerd_font_installed_family: config.nerd_font_installed_family,

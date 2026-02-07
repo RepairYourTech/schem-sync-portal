@@ -48,7 +48,7 @@ export function useWizardAuth({
             if (method === "webdav") {
                 const { createWebDavRemote } = await import("../lib/rclone");
                 await createWebDavRemote(Env.REMOTE_PORTAL_SOURCE, url, user || "", pass || "");
-                updateConfig(prev => ({ ...prev, source_provider: "copyparty", copyparty_method: "webdav", webdav_user: user, webdav_pass: pass }));
+                updateConfig(prev => ({ ...prev, source_provider: "copyparty", copyparty_method: "webdav" }));
                 next();
             } else {
                 if (!pass) { setAuthStatus("⚠️ Password required."); setIsAuthLoading(false); return; }
@@ -56,7 +56,7 @@ export function useWizardAuth({
                 if (cookie) {
                     const { createHttpRemote } = await import("../lib/rclone");
                     await createHttpRemote(Env.REMOTE_PORTAL_SOURCE, url, cookie);
-                    updateConfig(prev => ({ ...prev, source_provider: "copyparty", copyparty_method: "http", cookie }));
+                    updateConfig(prev => ({ ...prev, source_provider: "copyparty", copyparty_method: "http" }));
                     next();
                 } else setAuthStatus("❌ Auth failed.");
             }
