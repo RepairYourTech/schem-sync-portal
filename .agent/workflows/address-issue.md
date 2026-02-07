@@ -39,3 +39,6 @@ If the existing plan requires adjustment, remediation of errors, or missing logi
 
 ### 5. Transition to Implementation
 Once the plan is approved and finalized by Traycer, switch to the [/push-changes](file:///home/birdman/schem-sync-portal/.agent/workflows/push-changes.md) workflow to begin writing and submitting the code.
+
+> [!IMPORTANT]
+> You **MUST** load and use the `minimalist-surgical-development` skill during the implementation phase to ensure changes are surgical and non-invasive.

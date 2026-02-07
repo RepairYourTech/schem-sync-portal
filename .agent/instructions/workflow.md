@@ -63,7 +63,7 @@ Before taking ANY action on a task, you MUST follow this exact sequence:
 1. Use `systematic-debugging` skill
 2. Use `Grep` to find related code
 3. Use `Read` to understand context
-4. Fix with `Edit` tool
+4. Fix with `Edit` tool. **Enable**: `minimalist-surgical-development` skill.
 5. Run `bun run lint` and `bun test`
 6. Trigger `self-improving-agent` skill
 
@@ -79,7 +79,7 @@ Before taking ANY action on a task, you MUST follow this exact sequence:
 1. Use `brainstorming` skill
 2. Use `EnterPlanMode` for planning
 3. Use `Grep`/`Glob` to find patterns
-4. Implement with `Edit`/`Write`
+4. Implement with `Edit`/`Write`. **Enable**: `minimalist-surgical-development` skill.
 5. Run `bun run lint` and `bun test`
 6. Trigger `self-improving-agent` skill
 - Analyze what happened, what went wrong, and what worked
@@ -107,7 +107,7 @@ Before taking ANY action on a task, you MUST follow this exact sequence:
 5. **SUBAGENTS**: Use `dispatching-parallel-agents` if 2+ independent tasks.
 6. **HOOKS**: Compliance check.
 7. **PLAN**: Draft `implementation_plan.md` using `writing-plans`.
-8. **EXECUTE**: Use `multi_replace_file_content` for non-contiguous edits.
+8. **EXECUTE**: Use `multi_replace_file_content` for non-contiguous edits. **MANDATORY**: For existing codebases, you MUST load and use the `minimalist-surgical-development` skill to ensure non-invasive changes.
 9. **VERIFY**: `bun run lint` and `bun test` are MANDATORY.
 10. **INTERACT**: Use `using-tmux-for-interactive-commands` skill for any command requiring real-time input.
 11. **LEARN**: Trigger `self-improving-agent` to finalize the session.
