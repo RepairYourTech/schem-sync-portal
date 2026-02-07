@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3
+
+### Patch Changes
+
+- 6ea2f48: patch
+- 6ea2f48: remediate security findings discovered by CodeQL
+
 ## 1.0.2
 
 ### Patch Changes
