@@ -37,7 +37,7 @@ describe("Version Checker Logic", () => {
                 html_url: "https://github.com/RepairYourTech/schem-sync-portal/releases/tag/v9.9.9",
                 published_at: "2026-02-06T12:00:00Z",
                 body: "Great updates"
-            }), { status: 200 }))) as any;
+            }), { status: 200 }))) as unknown as typeof fetch;
 
             const info = await checkForUpdates(true);
             expect(info).not.toBeNull();
@@ -51,7 +51,7 @@ describe("Version Checker Logic", () => {
     test("checkForUpdates should handle rate limiting", async () => {
         const originalFetch = global.fetch;
         try {
-            global.fetch = mock(() => Promise.resolve(new Response(null, { status: 403 }))) as any;
+            global.fetch = mock(() => Promise.resolve(new Response(null, { status: 403 }))) as unknown as typeof fetch;
 
             const info = await checkForUpdates(true);
             expect(info).toBeNull();
