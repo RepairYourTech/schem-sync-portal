@@ -171,15 +171,15 @@ export const SyncPortal = React.memo(({
     // Adaptive height calculation to prevent overflow
     const { height: termHeight } = useTerminalDimensions();
     const headerHeight = 5;
-    const footerHeight = 2; // Approximate footer space
-    const spacing = (visiblePanelCount > 2 && !canFit3) ? (gapSize * 2) : gapSize;
-    const availableHeight = termHeight - headerHeight - footerHeight - (paddingOffset * 2) - spacing;
+    const APP_FOOTER_HEIGHT = 10;
+    const PORTAL_FIXED_OVERHEAD = paddingOffset + 2; // Portal border/padding (6) + spacing (2)
+    const availableHeight = termHeight - headerHeight - APP_FOOTER_HEIGHT - PORTAL_FIXED_OVERHEAD;
 
     // In stage B (2+1), top panels share height, bottom is full. 
     // In stage A (3 side-by-side), all share height.
     const getDynamicHeight = (idx: number, type: "source" | "shield" | "dest") => {
         // Shield panel MUST stay compact (approx 10-11 rows for ultra-condensed stats + controls)
-        if (type === "shield") return isRunning ? 11 : 12;
+        if (type === "shield") return 11;
 
         if (visiblePanelCount <= 1) return Math.max(12, availableHeight);
         if (visiblePanelCount === 2) {
@@ -198,9 +198,9 @@ export const SyncPortal = React.memo(({
 
     // Dynamic Row Budgeting for Files
     const PANEL_OVERHEAD = {
-        source: width < 38 ? 10 : 9,  // Extra row for wrapped controls
-        shield: width < 38 ? 11 : 10,
-        dest: width < 38 ? 10 : 9
+        source: width < 38 ? 12 : 11,  // Header(1) + Label(1) + Controls(3-4) + Stats(2-3) + Gaps(3-4)
+        shield: width < 38 ? 13 : 12,
+        dest: width < 38 ? 12 : 11
     };
 
     const getMaxFiles = (panelHeight: number, type: keyof typeof PANEL_OVERHEAD) => {
@@ -208,7 +208,7 @@ export const SyncPortal = React.memo(({
     };
 
     return (
-        <box flexDirection="column" gap={1} height="100%" border borderStyle="double" borderColor={colors.primary} title="[ SYNC PORTAL ]" padding={1}>
+        <box flexDirection="column" gap={1} height={availableHeight + headerHeight + gapSize + paddingOffset} border borderStyle="double" borderColor={colors.primary} title="[ SYNC PORTAL ]" padding={1} overflow="hidden">
             {/* === GLOBAL HEADER === */}
             <box
                 flexDirection="row"
@@ -287,7 +287,7 @@ export const SyncPortal = React.memo(({
                             onPause={onPausePull || onPause}
                             onResume={onResumePull || onResume}
                             isPhasePaused={isPhasePaused}
-                            height={isRunning ? getDynamicHeight(0, "source") : 12}
+                            height={getDynamicHeight(0, "source")}
                             maxFiles={getMaxFiles(getDynamicHeight(0, "source"), "source")}
                             transfers={config.downsync_transfers}
                             onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, downsync_transfers: rate })}
@@ -304,7 +304,7 @@ export const SyncPortal = React.memo(({
                         {(() => {
                             const shieldIdx = showSource ? 1 : 0;
                             const baseHeight = getDynamicHeight(shieldIdx, "shield");
-                            const shieldHeight = isRunning ? baseHeight : 12;
+                            const shieldHeight = baseHeight;
                             return (
                                 <LocalShieldPanel
                                     progress={progress}
@@ -337,7 +337,7 @@ export const SyncPortal = React.memo(({
                             onPause={onPauseCloud || onPause}
                             onResume={onResumeCloud || onResume}
                             isPhasePaused={isPhasePaused}
-                            height={isRunning ? getDynamicHeight(visiblePanelCount - 1, "dest") : 12}
+                            height={getDynamicHeight(visiblePanelCount - 1, "dest")}
                             maxFiles={getMaxFiles(getDynamicHeight(visiblePanelCount - 1, "dest"), "dest")}
                             transfers={config.upsync_transfers}
                             onRateChange={(rate: 4 | 6 | 8) => onUpdateConfig({ ...config, upsync_transfers: rate })}

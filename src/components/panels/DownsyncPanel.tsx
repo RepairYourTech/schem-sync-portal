@@ -83,14 +83,15 @@ export const DownsyncPanel = React.memo(({
                 isFocused={isFocused}
             />
 
-            {/* DOWNLOAD QUEUE */}
-            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1}>
+            {/* DOWNLOAD QUEUE AREA (Scrollable) */}
+            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1} overflow="hidden">
                 <text fg={colors.dim} paddingLeft={1} attributes={TextAttributes.BOLD}>DOWNLOAD QUEUE</text>
                 <FileQueue files={downloadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} isUpsync={false} />
             </box>
 
-            {/* ACTION BAR (Bottom-docked) */}
-            <box marginTop="auto">
+            {/* FIXED FOOTER (Controls + Stats) */}
+            <box flexDirection="column" gap={0} flexShrink={0} marginTop="auto">
+                {/* ACTION BAR */}
                 <PanelControls
                     onPause={(isActive && !isPullPaused) ? onPause : undefined}
                     onResume={isPullPaused ? onResume : undefined}
@@ -103,44 +104,44 @@ export const DownsyncPanel = React.memo(({
                     onSubFocusIndexChange={_onSubFocusIndexChange}
                     onFocus={onFocus}
                 />
-            </box>
 
-            {/* Footer Stats */}
-            <box flexDirection="column" gap={0} paddingLeft={1} paddingRight={1} marginTop={1}>
-                <box flexDirection="column" gap={0}>
-                    {!!progress.manifestStats && (
+                {/* Footer Stats */}
+                <box flexDirection="column" gap={0} paddingLeft={1} paddingRight={1} marginTop={1}>
+                    <box flexDirection="column" gap={0}>
+                        {!!progress.manifestStats && (
+                            <box flexDirection="row" gap={2} height={1}>
+                                <box flexDirection="row">
+                                    <text fg={colors.dim}>Rem: </text>
+                                    <text fg={colors.accent}>{String(progress.manifestStats.remoteFileCount)}</text>
+                                </box>
+                                <box flexDirection="row">
+                                    <text fg={colors.dim}>Loc: </text>
+                                    <text fg={colors.accent}>{String(progress.manifestStats.localFileCount)}</text>
+                                </box>
+                                <box flexDirection="row">
+                                    <text fg={colors.dim}>Mis: </text>
+                                    <text fg={colors.accent}>{String(progress.manifestStats.missingFileCount)}</text>
+                                </box>
+                            </box>
+                        )}
                         <box flexDirection="row" gap={2} height={1}>
                             <box flexDirection="row">
-                                <text fg={colors.dim}>Rem: </text>
-                                <text fg={colors.accent}>{String(progress.manifestStats.remoteFileCount)}</text>
+                                <text fg={colors.dim}>Recv: </text>
+                                <text fg={colors.accent}>
+                                    {String(progress.downloadStats?.bytesTransferred ||
+                                        (progress.downloadStats?.rawBytesTransferred !== undefined ?
+                                            `${formatBytes(progress.downloadStats.rawBytesTransferred)}/${formatBytes(progress.downloadStats.rawTotalBytes || 0)}` :
+                                            `${progress.filesTransferred || 0}/${progress.totalFiles || 0}`))}
+                                </text>
                             </box>
                             <box flexDirection="row">
-                                <text fg={colors.dim}>Loc: </text>
-                                <text fg={colors.accent}>{String(progress.manifestStats.localFileCount)}</text>
+                                <text fg={colors.dim}>Spd: </text>
+                                <text fg={colors.accent}>{String(progress.downloadStats?.transferSpeed || progress.transferSpeed || "0 B/s")}</text>
                             </box>
                             <box flexDirection="row">
-                                <text fg={colors.dim}>Mis: </text>
-                                <text fg={colors.accent}>{String(progress.manifestStats.missingFileCount)}</text>
+                                <text fg={colors.dim}>ETA: </text>
+                                <text fg={colors.accent}>{String(progress.downloadStats?.eta || progress.eta || "--")}</text>
                             </box>
-                        </box>
-                    )}
-                    <box flexDirection="row" gap={2} height={1}>
-                        <box flexDirection="row">
-                            <text fg={colors.dim}>Recv: </text>
-                            <text fg={colors.accent}>
-                                {String(progress.downloadStats?.bytesTransferred ||
-                                    (progress.downloadStats?.rawBytesTransferred !== undefined ?
-                                        `${formatBytes(progress.downloadStats.rawBytesTransferred)}/${formatBytes(progress.downloadStats.rawTotalBytes || 0)}` :
-                                        `${progress.filesTransferred || 0}/${progress.totalFiles || 0}`))}
-                            </text>
-                        </box>
-                        <box flexDirection="row">
-                            <text fg={colors.dim}>Spd: </text>
-                            <text fg={colors.accent}>{String(progress.downloadStats?.transferSpeed || progress.transferSpeed || "0 B/s")}</text>
-                        </box>
-                        <box flexDirection="row">
-                            <text fg={colors.dim}>ETA: </text>
-                            <text fg={colors.accent}>{String(progress.downloadStats?.eta || progress.eta || "--")}</text>
                         </box>
                     </box>
                 </box>
