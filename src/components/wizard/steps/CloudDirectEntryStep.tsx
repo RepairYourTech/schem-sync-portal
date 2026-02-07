@@ -51,7 +51,8 @@ export const CloudDirectEntryStep = ({
 
     const isConnectFocused = direct_entry_index === fields.length && focusArea === "body";
 
-    const handleAction = () => {
+    const handleAction = (e?: React.MouseEvent | React.KeyboardEvent) => {
+        if (e) e.stopPropagation();
         if (isAuthLoading) return; // Prevent double-trigger
 
         if (provider === "onedrive" || provider === "dropbox") {
@@ -94,6 +95,7 @@ export const CloudDirectEntryStep = ({
                             placeholder={f.placeholder}
                             onKeyDown={(e) => {
                                 if (e.name === "return" || e.name === "down") {
+                                    if (e.name === "return") e.stopPropagation();
                                     set_direct_entry_index(i + 1);
                                 } else if (e.name === "up" && i > 0) {
                                     set_direct_entry_index(i - 1);
@@ -106,7 +108,8 @@ export const CloudDirectEntryStep = ({
                 <box
                     marginTop={1}
                     onMouseOver={() => { onFocusChange("body"); set_direct_entry_index(fields.length); }}
-                    onMouseDown={handleAction}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    onMouseDown={(e: { stopPropagation: () => void }) => handleAction(e as any)}
                     border
                     borderStyle="double"
                     borderColor={isConnectFocused ? colors.success : colors.dim}

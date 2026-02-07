@@ -26,12 +26,15 @@ interface WizardAuthProps {
     abortAuth: () => void;
 }
 
+import { useRef } from "react";
+
 export function useWizardAuth({
     next, updateConfig, config, setAuthStatus, setIsAuthLoading,
     urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef,
     authAbortControllerRef, oauthTokenRef,
     wizardContext, pendingSourceProviderRef, pendingBackupProviderRef, abortAuth
 }: WizardAuthProps) {
+    const activeAuthRequestRef = useRef<boolean>(false);
 
     const handleAuth = useCallback(async () => {
         setIsAuthLoading(true);
@@ -68,6 +71,8 @@ export function useWizardAuth({
     }, [next, updateConfig, config.copyparty_method, setAuthStatus, setIsAuthLoading, urlRef, userRef, passRef]);
 
     const handleGdriveAuth = useCallback(async (clientId: string, clientSecret: string) => {
+        if (activeAuthRequestRef.current) return;
+        activeAuthRequestRef.current = true;
         abortAuth(); setIsAuthLoading(true); setAuthStatus("🔄 Launching Google Handshake...");
         const controller = new AbortController(); authAbortControllerRef.current = controller;
         try {
@@ -85,6 +90,7 @@ export function useWizardAuth({
         } catch (err) {
             if (!controller.signal.aborted) setAuthStatus(`❌ Error: ${(err as Error).message}`);
         } finally {
+            activeAuthRequestRef.current = false;
             if (authAbortControllerRef.current === controller) {
                 authAbortControllerRef.current = null;
                 setIsAuthLoading(false);
@@ -93,6 +99,8 @@ export function useWizardAuth({
     }, [wizardContext, next, updateConfig, abortAuth, setAuthStatus, setIsAuthLoading, authAbortControllerRef, oauthTokenRef, pendingSourceProviderRef, pendingBackupProviderRef]);
 
     const startGenericAuth = useCallback(async (provider: string) => {
+        if (activeAuthRequestRef.current) return;
+        activeAuthRequestRef.current = true;
         abortAuth(); setIsAuthLoading(true); setAuthStatus(`🚀 Launching ${provider.toUpperCase()} Auth...`);
         const controller = new AbortController(); authAbortControllerRef.current = controller;
         try {
@@ -109,6 +117,7 @@ export function useWizardAuth({
         } catch (err) {
             if (!controller.signal.aborted) setAuthStatus(`❌ Error: ${(err as Error).message}`);
         } finally {
+            activeAuthRequestRef.current = false;
             if (authAbortControllerRef.current === controller) {
                 authAbortControllerRef.current = null;
                 setIsAuthLoading(false);
@@ -117,6 +126,7 @@ export function useWizardAuth({
     }, [wizardContext, next, updateConfig, abortAuth, setAuthStatus, setIsAuthLoading, authAbortControllerRef, oauthTokenRef, pendingSourceProviderRef, pendingBackupProviderRef]);
 
     const dispatchDirectAuth = useCallback((provider: PortalProvider) => {
+        if (activeAuthRequestRef.current) return;
         const meta = getProviderMetadata(provider);
         if (meta.directAuthHandler) {
             meta.directAuthHandler({
