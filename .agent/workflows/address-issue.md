@@ -27,11 +27,14 @@ gh issue edit <number> --add-assignee repairyourtech
 ```
 
 ### 3. Review Traycer's Analysis
-Wait for **Traycer.ai** to provide its automated analysis and suggested implementation plan in the issue comments.
+Wait for **Traycer.ai** to provide its automated analysis and suggested implementation plan in the issue comments. 
+
+> [!IMPORTANT]
+> If a plan already exists, **assess it immediately**. Do not proceed to Step 4 unless the plan is objectively insufficient.
 
 ### 4. Provide Feedback / Refine Plan (Optional)
-If the plan requires adjustment:
-- Comment on the issue: `@traycerai generate <your feedback>`
+If the existing plan requires adjustment, remediation of errors, or missing logic:
+- Comment on the issue: `@traycerai generate <describe exactly what needs to be changed or added>`
 - Wait for the updated plan.
 
 ### 5. Transition to Implementation

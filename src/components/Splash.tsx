@@ -3,9 +3,10 @@ import React from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import { TextAttributes } from "@opentui/core";
 import pkg from "../../package.json";
+import { UpdateNotice } from "./UpdateNotice";
+import { type UpdateInfo } from "../lib/versionChecker";
 
-
-export function Splash() {
+export function Splash({ updateInfo }: { updateInfo?: UpdateInfo | null }) {
     const { width } = useTerminalDimensions();
 
     const schematic = [
@@ -77,13 +78,17 @@ export function Splash() {
                     </box>
                 ) : (
                     <box padding={2}>
-                        <text fg="#00ffff" attributes={TextAttributes.BOLD}>SCHEMATIC SYNC PORTAL v{String(pkg.version)}</text>
+                        <text fg="#00ffff" attributes={TextAttributes.BOLD}>
+                            SCHEMATIC SYNC PORTAL v{String(pkg.version)}
+                            <UpdateNotice available={updateInfo?.available} />
+                        </text>
                     </box>
                 )}
             </box>
             <box marginTop={1}>
                 <text fg="#3a7af5" attributes={TextAttributes.BOLD}>
                     Universal Schematic Sync Portal | v{String(pkg.version)}
+                    <UpdateNotice available={updateInfo?.available} />
                 </text>
             </box>
         </box>

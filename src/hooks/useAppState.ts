@@ -3,6 +3,7 @@ import { loadConfig, saveConfig, isConfigComplete, isConfigEmpty, type PortalCon
 import { checkDependencies, type DependencyStatus } from "../lib/doctor";
 import { checkFontGuard } from "../lib/fontGuard";
 import { Logger } from "../lib/logger";
+import { useUpdateCheck } from "./useUpdateCheck";
 
 export type ViewName = "dashboard" | "wizard" | "doctor" | "options" | "sync" | "forensic" | "fontinstaller" | "fontguide";
 export type WizardMode = "continue" | "restart" | "edit";
@@ -23,6 +24,7 @@ export function useAppState() {
     const [showFontInstallPrompt, setShowFontInstallPrompt] = useState(false);
     const [fontInstallerReturnView, setFontInstallerReturnView] = useState<ViewName>("doctor");
     const [glyphHighlight, setGlyphHighlight] = useState(false);
+    const updateCheck = useUpdateCheck();
 
     const configRef = useRef<PortalConfig>(config);
     const tabDirection = useRef<"forward" | "backward" | null>(null);
@@ -93,6 +95,7 @@ export function useAppState() {
         showFontInstallPrompt, setShowFontInstallPrompt,
         fontInstallerReturnView, setFontInstallerReturnView,
         glyphHighlight, setGlyphHighlight,
+        updateCheck,
         isComplete: isConfigComplete(config),
         isEmpty: isConfigEmpty(config)
     };

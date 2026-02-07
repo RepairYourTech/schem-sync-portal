@@ -36,16 +36,20 @@ gh issue edit <issue-number> --add-assignee repairyourtech
 ```
 
 ### 3. Reviewing Traycer's Plan
-Once assigned, **Traycer.ai** will analyze the issue and post its findings and a suggested implementation plan as a comment. You must carefully review this plan for:
+Once assigned, **Traycer.ai** will analyze the issue and post its findings and a suggested implementation plan as a comment. 
+
+**CRITICAL:** If a plan already exists from a previous generation, you MUST assess it first. DO NOT trigger a new generation unless you determine the existing plan is missing critical information or requires significant changes.
+
+Review the plan for:
 - Correctness and technical feasibility.
 - Alignment with the project's architecture and design patterns.
 - Thoroughness of the proposed changes and verification steps.
 
 ### 4. Plan Iteration
-If Traycer's proposed plan is incomplete or requires adjustment, you can interact with the bot by commenting on the issue.
+If the existing plan is incomplete, requires adjustment, or clarification, you can interact with the bot by commenting on the issue. **Only use this if a meaningful change to the plan is required.**
 
 **Interaction Pattern:**
-- Post a comment: `@traycerai generate <describe the changes or clarifications you need>`
+- Post a comment: `@traycerai generate <describe the EXACT changes, omissions, or clarifications needed>`
 - Wait for Traycer to respond with a revised plan.
 
 ### 5. Moving to Implementation

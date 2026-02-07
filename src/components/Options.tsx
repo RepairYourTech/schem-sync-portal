@@ -10,6 +10,8 @@ import { TextAttributes } from "@opentui/core";
 
 import { Logger } from "../lib/logger";
 import { Clipboard } from "../lib/clipboard";
+import { UpdateNotice } from "./UpdateNotice";
+import { type UpdateInfo } from "../lib/versionChecker";
 
 interface OptionsProps {
     onDoctor: () => void;
@@ -24,9 +26,15 @@ interface OptionsProps {
     tabTransition?: "forward" | "backward" | null;
     config: PortalConfig;
     onUpdateConfig: (config: PortalConfig) => void;
+    updateCheck: {
+        updateInfo: UpdateInfo | null;
+        isChecking: boolean;
+        error: string | null;
+        refresh: () => void;
+    };
 }
 
-export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, onScan, onForensic, onBack, focusArea, onFocusChange, tabTransition, config, onUpdateConfig }: OptionsProps) => {
+export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, onScan, onForensic, onBack, focusArea, onFocusChange, tabTransition, config, onUpdateConfig, updateCheck }: OptionsProps) => {
     const { colors } = useTheme();
     const [subView, setSubView] = useState<"menu" | "about" | "logs" | "debug" | "shield">("menu");
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -227,7 +235,11 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                     setUpdateStatus(null);
                 }
                 if (e.name === "u" && !isUpdating) {
-                    handleUpdate();
+                    if (updateCheck.updateInfo?.available) {
+                        handleUpdate();
+                    } else {
+                        updateCheck.refresh();
+                    }
                 }
             }
         }
@@ -303,8 +315,14 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
         return (
             <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ ABOUT & UPDATES ]" gap={1}>
                 <box flexDirection="column" gap={0} marginBottom={1}>
-                    <text fg={colors.fg} attributes={TextAttributes.BOLD}>Schematic Sync Portal v{String(pkg.version)}</text>
+                    <text fg={colors.fg} attributes={TextAttributes.BOLD}>
+                        Schematic Sync Portal v{String(pkg.version)}
+                        <UpdateNotice available={updateCheck.updateInfo?.available} />
+                    </text>
                     <text fg={colors.dim}>Universal Sync Client for CopyParty</text>
+                    {!!updateCheck.updateInfo?.available && (
+                        <text fg={colors.success}>Latest: {updateCheck.updateInfo.latestVersion} ({new Date(updateCheck.updateInfo.publishedAt).toLocaleDateString()})</text>
+                    )}
                 </box>
 
                 <box flexDirection="column" gap={0}>
@@ -329,7 +347,11 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                     <box flexDirection="row" gap={2}>
                         <box
                             onMouseOver={() => onFocusChange("body")}
-                            onMouseDown={() => !isUpdating && handleUpdate()}
+                            onMouseDown={() => {
+                                if (isUpdating || updateCheck.isChecking) return;
+                                if (updateCheck.updateInfo?.available) handleUpdate();
+                                else updateCheck.refresh();
+                            }}
                             border={isUpdateActionFocused}
                             borderStyle="single"
                             borderColor={isUpdateActionFocused ? colors.success : "transparent"}
@@ -338,7 +360,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                         >
                             <Hotkey
                                 keyLabel="u"
-                                label={isUpdating ? "UPDATING..." : "Check for Updates"}
+                                label={isUpdating ? "UPDATING..." : (updateCheck.isChecking ? "CHECKING..." : (updateCheck.updateInfo?.available ? "Install Update" : "Check for Updates"))}
                                 isFocused={isUpdateActionFocused}
                             />
                         </box>

@@ -22,6 +22,7 @@ import { ShieldManager } from "../lib/shield/ShieldManager";
 import { ShieldExecutor } from "../lib/shield/ShieldExecutor";
 import { FlexBVIcon } from "./FlexBVIcon";
 import { SlimeIcon } from "./SlimeIcon";
+import { UpdateNotice } from "./UpdateNotice";
 import { useAppState } from "../hooks/useAppState";
 import { useViewNavigation } from "../hooks/useViewNavigation";
 import { Logger } from "../lib/logger";
@@ -44,6 +45,7 @@ export function AppContent() {
         showFontInstallPrompt, setShowFontInstallPrompt,
         fontInstallerReturnView, setFontInstallerReturnView,
         glyphHighlight, setGlyphHighlight,
+        updateCheck,
         isComplete, isEmpty
     } = useAppState();
 
@@ -427,7 +429,7 @@ export function AppContent() {
     return (
         <box flexDirection="column" height={height} width={width} backgroundColor="transparent" padding={1}>
             <box flexDirection="column" flexGrow={1} paddingBottom={1}>
-                {view === "dashboard" && !isRunning ? <Splash /> : null}
+                {view === "dashboard" && !isRunning ? <Splash updateInfo={updateCheck.updateInfo} /> : null}
                 {view === "dashboard" ? renderDashboard() : null}
                 {showFontInstallPrompt && view === "dashboard" ? (
                     <FontMissingBanner
@@ -438,7 +440,7 @@ export function AppContent() {
                 ) : null}
                 {view === "sync" ? <SyncPortal config={config} progress={progress} isRunning={isRunning} onStop={stop} onStart={handleStartSync} onPause={pause} onResume={resume} onPausePull={() => pausePhase('pull')} onResumePull={() => resumePhase('pull')} onPauseShield={() => pausePhase('shield')} onResumeShield={() => resumePhase('shield')} onPauseCloud={() => pausePhase('cloud')} onResumeCloud={() => resumePhase('cloud')} isPhasePaused={isPhasePaused} configLoaded={!isEmpty} focusArea={focusArea} onFocusChange={setFocusArea} focusIndex={syncFocusIndex} onFocusIndexChange={setSyncFocusIndex} subFocusIndex={syncSubFocusIndex} onSubFocusIndexChange={setSyncSubFocusIndex} onUpdateConfig={(nc) => { setConfig(nc); saveConfig(nc); }} /> : null}
                 {view === "wizard" ? <Wizard initialConfig={config} mode={wizardMode} onUpdate={onUpdateWizard} onComplete={onWizardComplete} onCancel={() => setView("dashboard")} onQuit={() => renderer.destroy()} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} backSignal={backSignal} /> : null}
-                {view === "options" ? <Options onDoctor={() => setView("doctor")} onSetup={() => { setView("wizard"); setWizardMode("edit"); }} onScan={onScan} onForensic={() => setView("forensic")} onReset={onReset} onResetShield={onResetShield} onBack={() => setView("dashboard")} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} config={config} onUpdateConfig={(nc) => { saveConfig(nc); setConfig(nc); }} /> : null}
+                {view === "options" ? <Options onDoctor={() => setView("doctor")} onSetup={() => { setView("wizard"); setWizardMode("edit"); }} onScan={onScan} onForensic={() => setView("forensic")} onReset={onReset} onResetShield={onResetShield} onBack={() => setView("dashboard")} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} config={config} onUpdateConfig={(nc) => { saveConfig(nc); setConfig(nc); }} updateCheck={updateCheck} /> : null}
                 {view === "forensic" ? <ForensicView targetDir={config.local_dir && config.local_dir !== "none" ? config.local_dir : ""} gdriveRemote={config.source_provider === "gdrive" ? Env.REMOTE_PORTAL_SOURCE : (config.backup_provider === "gdrive" ? Env.REMOTE_PORTAL_BACKUP : null)} onComplete={() => setView("options")} onCancel={() => setView("options")} /> : null}
                 {view === "doctor" ? renderDoctor() : null}
                 {view === "fontinstaller" ? <FontInstaller returnView={fontInstallerReturnView} onComplete={async (res) => { if (res.success) { const next = { ...config, nerd_font_version: 3 as const, nerd_font_installed_family: res.installedFamily, nerd_font_last_check: Date.now() }; setConfig(next); saveConfig(next); setDeps(await checkDependencies()); } setView(fontInstallerReturnView); }} onCancel={() => setView(fontInstallerReturnView)} /> : null}
@@ -470,7 +472,7 @@ export function AppContent() {
                 </box>
                 <box alignSelf="center" marginTop={1} flexDirection="column" alignItems="center" width="100%">
                     <text attributes={TextAttributes.DIM} fg={colors.dim}>TAB: Cycle Areas | ARROWS: Navigate | ENTER: Select</text>
-                    <text attributes={TextAttributes.DIM} fg={colors.dim}>v{String(pkg.version)} | Hotkey + ENTER to confirm</text>
+                    <text attributes={TextAttributes.DIM} fg={colors.dim}>v{String(pkg.version)}<UpdateNotice available={updateCheck.updateInfo?.available} /> | Hotkey + ENTER to confirm</text>
                 </box>
             </box>
         </box>

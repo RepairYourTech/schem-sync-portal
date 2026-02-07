@@ -147,3 +147,4 @@ system.log
 isolation_manual_check.ts
 restore_wizard_loops.js
 config.json
+.update-cache.json
