@@ -62,7 +62,6 @@ export const UpsyncPanel = React.memo(({
 
     const uploadQueue = progress.uploadQueue || [];
     const maxFilesToShow = maxFiles;
-    const stats = progress.cloudStats;
 
     return (
         <box
@@ -90,14 +89,15 @@ export const UpsyncPanel = React.memo(({
                 isFocused={isFocused}
             />
 
-            {/* UPLOAD QUEUE */}
-            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1}>
+            {/* UPLOAD QUEUE AREA (Scrollable) */}
+            <box flexDirection="column" gap={0} marginTop={1} flexGrow={1} overflow="hidden">
                 <text fg={colors.dim} paddingLeft={1} attributes={TextAttributes.BOLD}>UPLOAD QUEUE</text>
                 <FileQueue files={uploadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} isUpsync={true} />
             </box>
 
-            {/* ACTION BAR (Bottom-docked) */}
-            <box marginTop="auto">
+            {/* FIXED FOOTER (Controls + Stats) */}
+            <box flexDirection="column" gap={0} flexShrink={0} marginTop="auto">
+                {/* ACTION BAR */}
                 <PanelControls
                     onPause={(isActive && !isCloudPaused) ? onPause : undefined}
                     onResume={isCloudPaused ? onResume : undefined}
@@ -110,44 +110,38 @@ export const UpsyncPanel = React.memo(({
                     onSubFocusIndexChange={onSubFocusIndexChange}
                     onFocus={onFocus}
                 />
-            </box>
 
-            {/* Footer Stats Row */}
-            <box flexDirection="column" gap={0} paddingLeft={1} paddingRight={1} marginTop={1}>
-                <box flexDirection="column" gap={0}>
-                    {!!progress.cloudManifestStats && (
+                {/* Footer Stats Row */}
+                <box flexDirection="column" gap={0} paddingLeft={1} paddingRight={1} marginTop={1}>
+                    <box flexDirection="column" gap={0}>
                         <box flexDirection="row" gap={2} height={1}>
                             <box flexDirection="row">
-                                <text fg={colors.dim}>Total: </text>
-                                <text fg={colors.accent}>{String(progress.cloudManifestStats.totalFiles)}</text>
-                            </box>
-                            <box flexDirection="row">
                                 <text fg={colors.dim}>Sent: </text>
-                                <text fg={colors.accent}>{String(progress.cloudManifestStats.uploadedFiles)}</text>
+                                <text fg={colors.accent}>
+                                    {String(progress.uploadStats?.bytesTransferred ||
+                                        (progress.uploadStats?.rawBytesTransferred !== undefined ?
+                                            `${formatBytes(progress.uploadStats.rawBytesTransferred)}/${formatBytes(progress.uploadStats.rawTotalBytes || 0)}` :
+                                            `${progress.filesTransferred || 0}/${progress.totalFiles || 0}`))}
+                                </text>
                             </box>
                             <box flexDirection="row">
-                                <text fg={colors.dim}>Rem: </text>
-                                <text fg={colors.accent}>{String(progress.cloudManifestStats.pendingFiles)}</text>
+                                <text fg={colors.dim}>Spd: </text>
+                                <text fg={colors.accent}>{String(progress.uploadStats?.transferSpeed || progress.transferSpeed || "0 B/s")}</text>
+                            </box>
+                            <box flexDirection="row">
+                                <text fg={colors.dim}>ETA: </text>
+                                <text fg={colors.accent}>{String(progress.uploadStats?.eta || progress.eta || "--")}</text>
                             </box>
                         </box>
-                    )}
-                    <box flexDirection="row" gap={2} height={1}>
-                        <box flexDirection="row">
-                            <text fg={colors.dim}>Sent: </text>
-                            <text fg={colors.accent}>
-                                {String(progress.uploadStats?.rawBytesTransferred !== undefined ?
-                                    formatBytes(progress.uploadStats.rawBytesTransferred) :
-                                    (stats?.updatedFiles || progress.filesTransferred || 0))}
-                            </text>
-                        </box>
-                        <box flexDirection="row">
-                            <text fg={colors.dim}>Spd: </text>
-                            <text fg={colors.accent}>{String(progress.uploadStats?.transferSpeed || progress.transferSpeed || "0 B/s")}</text>
-                        </box>
-                        <box flexDirection="row">
-                            <text fg={colors.dim}>ETA: </text>
-                            <text fg={colors.accent}>{String(progress.uploadStats?.eta || progress.eta || "--")}</text>
-                        </box>
+
+                        {!!isActive && (
+                            <box flexDirection="row" gap={2} height={1}>
+                                <box flexDirection="row">
+                                    <text fg={colors.dim}>Dest: </text>
+                                    <text fg={colors.accent}>{String(destType)}</text>
+                                </box>
+                            </box>
+                        )}
                     </box>
                 </box>
             </box>
