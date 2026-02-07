@@ -31,6 +31,7 @@ export interface WizardProps {
 
 export type Step =
     | "shortcut"
+    | "download_mode"
     | "source_choice"
     | "copyparty_config"
     | "dir" | "mirror"

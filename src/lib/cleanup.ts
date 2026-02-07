@@ -33,10 +33,11 @@ export interface CleanupResult { completed: boolean; scannedArchives: string[]; 
 export async function runCleanupSweep(
     targetDir: string,
     excludeFile: string,
-    policy: "purge" | "isolate" = "purge",
+    policy: "purge" | "isolate",
     onProgress?: (stats: CleanupStats | Partial<SyncProgress>) => void,
     abortSignal?: AbortSignal,
-    initialStats?: CleanupStats
+    initialStats?: CleanupStats,
+    mode: "full" | "lean" = "full"
 ): Promise<CleanupResult> {
     const scannedArchives: string[] = [];
     const unscannedArchives: string[] = [];
@@ -66,7 +67,7 @@ export async function runCleanupSweep(
                 stats.currentArchive = relPath;
                 stats.scannedArchives++;
                 if (onProgress) onProgress(stats);
-                const result = await cleanArchive(archivePath, targetDir, excludeFile, policy, stats, onProgress);
+                const result = await cleanArchive(archivePath, targetDir, excludeFile, policy, stats, onProgress, mode);
                 scannedArchives.push(relPath);
                 if (result.failed) {
                     Logger.error("SYNC", `Shield: CRITICAL FAILURE during ${policy} of ${relPath}.`);
@@ -145,7 +146,7 @@ interface CleanArchiveResult { flagged: boolean; extractedCount: number; failed?
 
 async function cleanArchive(
     archivePath: string, baseDir: string, excludeFile: string, policy: "purge" | "isolate",
-    stats: CleanupStats, onProgress?: (stats: CleanupStats) => void
+    stats: CleanupStats, onProgress?: (stats: CleanupStats) => void, mode: "full" | "lean" = "full"
 ): Promise<CleanArchiveResult> {
     const relPath = relative(baseDir, archivePath);
     let internalListing = "";
@@ -268,7 +269,7 @@ async function cleanArchive(
                 }
 
                 // RECURSIVE SCANNING: Scan for nested archives in staging
-                await scanForNestedArchives(stagingDir, baseDir, policy, stats, onProgress);
+                await scanForNestedArchives(stagingDir, baseDir, policy, stats, onProgress, mode);
             }
         } catch (err) {
             Logger.error("SHIELD", `Error during extraction from ${relPath}`, err);
@@ -308,11 +309,13 @@ async function cleanArchive(
                 if (existsSync(archivePath)) throw new Error("Isolation original removal failed.");
                 stats.isolatedFiles++;
                 Logger.info("SHIELD", `Isolated archive: ${relPath} -> _risk_tools/${fileName}`);
-            } else {
+                Logger.info("SHIELD", `Isolated archive: ${relPath} -> _risk_tools/${fileName}`);
+            } else if (policy === "purge" || mode === "lean") {
+                // LEAN MODE override: Always purge analyzed archives in lean mode
                 unlinkSync(archivePath);
                 if (existsSync(archivePath)) throw new Error("Purge failed.");
                 stats.purgedFiles++;
-                Logger.info("SHIELD", `Purged archive: ${relPath}`);
+                Logger.info("SHIELD", mode === "lean" ? `Lean Mode: Purged archive after extraction: ${relPath}` : `Purged archive: ${relPath}`);
             }
         } catch (e) {
             Logger.error("SYNC", `Failed to ${policy} original malicious archive: ${relPath}`, e);
@@ -378,7 +381,9 @@ async function scanForNestedArchives(
     baseDir: string,
     policy: "purge" | "isolate",
     stats: CleanupStats,
-    onProgress?: (stats: CleanupStats) => void
+
+    onProgress?: (stats: CleanupStats) => void,
+    mode: "full" | "lean" = "full"
 ): Promise<void> {
     const engine = getEngine();
     if (!engine) return;
@@ -399,7 +404,7 @@ async function scanForNestedArchives(
             Logger.info("SHIELD", `Scanning nested archive: ${relPath}`);
 
             // Pass empty exclude file for nested scans
-            const result = await cleanArchive(nestedArchivePath, baseDir, "", policy, stats, onProgress);
+            const result = await cleanArchive(nestedArchivePath, baseDir, "", policy, stats, onProgress, mode);
             if (result.flagged) {
                 stats.nestedArchivesCleaned = (stats.nestedArchivesCleaned || 0) + 1;
             }

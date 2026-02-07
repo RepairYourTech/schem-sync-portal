@@ -14,6 +14,7 @@ export interface PortalConfig {
     // 2. Preferences
     local_dir: string;
     strict_mirror: boolean | undefined;
+    download_mode?: "full" | "lean";
 
     // 3. Security & Policy
     enable_malware_shield: boolean;
@@ -69,6 +70,7 @@ export const EMPTY_CONFIG: PortalConfig = {
     upsync_enabled: false,
     local_dir: "",
     strict_mirror: false,
+    download_mode: "full",
     malware_policy: "purge",
     enable_malware_shield: false,
     desktop_shortcut: 0,
@@ -92,6 +94,9 @@ export function loadConfig(): PortalConfig {
             // MIGRATION: Convert legacy "none" defaults to "unconfigured" or ""
             if (parsed.source_provider === "none") parsed.source_provider = "unconfigured";
             if (parsed.local_dir === "none") parsed.local_dir = "";
+
+            // MIGRATION: Default download_mode to "full" if missing (Backward Compatibility)
+            if (!parsed.download_mode) parsed.download_mode = "full";
 
             // MIGRATION: log_level replacement for debug_mode
             if (parsed.log_level === undefined && parsed.debug_mode === true) {
@@ -130,6 +135,7 @@ export function saveConfig(config: PortalConfig): void {
             upsync_enabled: config.upsync_enabled,
             local_dir: config.local_dir,
             strict_mirror: config.strict_mirror,
+            download_mode: config.download_mode || "full",
             enable_malware_shield: config.enable_malware_shield,
             malware_policy: config.malware_policy,
             last_sync_stats: config.last_sync_stats,

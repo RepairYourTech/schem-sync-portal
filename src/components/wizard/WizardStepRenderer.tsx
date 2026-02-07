@@ -5,6 +5,7 @@ import type { WizardStepProps } from "./StepProps";
 
 // Steps
 import { ShortcutStep } from "./steps/ShortcutStep";
+import { DownloadModeStep } from "./steps/DownloadModeStep";
 import { CopypartyConfigStep } from "./steps/CopypartyConfigStep";
 import { DestCloudSelectStep } from "./steps/DestCloudSelectStep";
 import { BackupDirStep } from "./steps/BackupDirStep";
@@ -38,6 +39,7 @@ interface WizardStepRendererProps {
 export const WizardStepRenderer = React.memo(({ step, stepProps }: WizardStepRendererProps) => {
     switch (step) {
         case "shortcut": return <ShortcutStep {...stepProps} />;
+        case "download_mode": return <DownloadModeStep {...stepProps} />;
         case "source_choice": return <SourceChoice {...stepProps} />;
         case "copyparty_config": return <CopypartyConfigStep {...stepProps} />;
         case "dir": return <DirectoryConfig {...stepProps} />;

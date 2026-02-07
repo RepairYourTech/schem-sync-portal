@@ -22,6 +22,11 @@ export interface ManifestStats {
     riskyFileCount?: number;
     optimizationMode: "manifest" | "full";
     manifestSource?: "source" | "backup" | "none";
+
+    // LEAN MODE STATS
+    excludedFileCount?: number;
+    valuableFileCount?: number;
+    leanModeActive?: boolean;
 }
 
 /**
@@ -41,7 +46,7 @@ export interface CleanupStats {
     purgedFiles: number;
     isolatedFiles: number;
     extractedFilePaths?: string[]; // NEW: Track actual extracted files
-    executionContext?: "risky_sweep" | "realtime_clean" | "final_sweep";
+    executionContext?: "risky_sweep" | "realtime_clean" | "final_sweep" | "valuable_sweep";
     policyMode: "purge" | "isolate";
 
     // NEW HARDENING FIELDS

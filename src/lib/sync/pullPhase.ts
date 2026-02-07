@@ -10,6 +10,8 @@ import {
 } from "./progress";
 import { ShieldManager } from "../shield/ShieldManager";
 import { ShieldExecutor } from "../shield/ShieldExecutor";
+import { LEAN_MODE_EXCLUDE_PATTERNS, LEAN_MODE_PRIORITY_FILENAMES } from "../shield/patterns";
+import { shouldDownloadInLeanMode } from "../shield/archiveAnalyzer";
 import type { PortalConfig } from "../config";
 import type { SyncProgress, ManifestStats, CleanupStats } from "./types";
 
@@ -130,6 +132,10 @@ export async function runPullPhase(
         policyMode: config.malware_policy || "purge"
     };
 
+    const leanMode = config.download_mode === "lean";
+    let excludedFileCount = 0;
+    let valuableFileCount = 0;
+
     if (localManifest) {
         const manifestData = processManifest(localManifest, config.local_dir);
         if (manifestData) {
@@ -145,33 +151,51 @@ export async function runPullPhase(
                 }
             }
 
+            // Initial generic filtering
             const missingFiltered = manifestData.missing.filter(f => !alreadyExcluded.has(f));
 
-            // Combine priority filenames (static) with saved offenders (dynamic)
-            const savedOffenders = ShieldManager.getOffenders(config.local_dir);
-            const priorityFilenames = ShieldManager.getPriorityFilenames();
+            // LEAN MODE FILTERING
+            let candidates = missingFiltered;
+            if (leanMode) {
+                candidates = missingFiltered.filter(f => {
+                    const filename = f.split('/').pop() || f;
+                    const keep = shouldDownloadInLeanMode(filename);
+                    if (!keep) excludedFileCount++;
+                    return keep;
+                });
+            }
 
-            // Extract filenames for path-agnostic matching
-            // Remote structure is dynamic - we can only match on filenames
-            const knownOffenderFilenames = new Set([
-                ...savedOffenders.map(path => path.split('/').pop() || path),
-                ...priorityFilenames  // Already just filenames
+            // Identify Priority/Risky Items
+            // In LEAN mode: Priority = Valuable archives (forced download first)
+            // In FULL mode: Priority = Risky/Malware offenders (scan first)
+
+            const savedOffenders = ShieldManager.getOffenders(config.local_dir);
+            const priorityFilenames = leanMode ? LEAN_MODE_PRIORITY_FILENAMES : ShieldManager.getPriorityFilenames();
+
+            const knownPriorityFilenames = new Set([
+                ...(leanMode ? [] : savedOffenders.map(path => path.split('/').pop() || path)), // Only include offenders in full mode? Or both? stick to plan: lean prioritizes value.
+                ...priorityFilenames
             ]);
 
-            // Use ONLY exact filename matching - works with any remote directory structure
-            riskyItems = missingFiltered.filter(f => {
+            riskyItems = candidates.filter(f => { // "riskyItems" variable reused as "stage1Items"
                 const filename = f.split('/').pop() || f;
-                return knownOffenderFilenames.has(filename);
+                const isPriority = knownPriorityFilenames.has(filename);
+                if (leanMode && isPriority) valuableFileCount++;
+                return isPriority;
             });
-            standardItems = missingFiltered.filter(f => !riskyItems.includes(f));
+
+            standardItems = candidates.filter(f => !riskyItems.includes(f));
 
             manifestStats = {
                 remoteFileCount: manifestData.remoteFiles.length,
                 localFileCount: initialLocalCount,
-                missingFileCount: missingFiltered.length,
+                missingFileCount: missingFiltered.length, // Total missing before lean exclusion
                 riskyFileCount: riskyItems.length,
                 optimizationMode: "manifest",
-                manifestSource: "source"
+                manifestSource: "source",
+                leanModeActive: leanMode,
+                excludedFileCount,
+                valuableFileCount
             };
         }
     }
@@ -213,12 +237,13 @@ export async function runPullPhase(
 
         // Neutralize through both archive sweep AND direct file cleanup
         await ShieldExecutor.execute({
-            type: "risky_sweep",
+            type: config.download_mode === "lean" ? "valuable_sweep" : "risky_sweep",
             localDir: config.local_dir,
             policy: config.malware_policy || "purge",
             excludeFile,
             onProgress,
-            initialStats: cleanupStats
+            initialStats: cleanupStats,
+            mode: config.download_mode || "full"
         });
 
         for (const item of riskyItems) {
@@ -230,7 +255,8 @@ export async function runPullPhase(
                     policy: config.malware_policy || "purge",
                     filePath: fullPath,
                     onProgress,
-                    initialStats: cleanupStats
+                    initialStats: cleanupStats,
+                    mode: config.download_mode || "full"
                 });
 
                 if (existsSync(fullPath)) {
@@ -260,6 +286,9 @@ export async function runPullPhase(
     } else if (!localManifest) {
         // DISCOVERY MODE: No manifest - use filters and exclusion list
         standardArgs.push("--exclude-from", excludeFile, "--exclude", "_risk_tools/**");
+        if (config.download_mode === "lean") {
+            LEAN_MODE_EXCLUDE_PATTERNS.forEach(p => standardArgs.push("--exclude", `*${p}*`));
+        }
     } else {
         // Manifest exists but no missing files identified - nothing to do for standard
         releasePending();
@@ -294,7 +323,8 @@ export async function runPullPhase(
                     policy: config.malware_policy || "purge",
                     filePath: fullPath,
                     onProgress,
-                    initialStats: cleanupStats
+                    initialStats: cleanupStats,
+                    mode: config.download_mode || "full"
                 });
             }
         }
@@ -322,7 +352,8 @@ export async function runPullPhase(
             policy: config.malware_policy || "purge",
             excludeFile,
             onProgress,
-            initialStats: cleanupStats
+            initialStats: cleanupStats,
+            mode: config.download_mode || "full"
         });
 
         // After final sweep, ensure we capture extracted files
