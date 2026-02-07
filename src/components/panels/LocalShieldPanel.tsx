@@ -60,7 +60,8 @@ export const LocalShieldPanel = React.memo(({
 
     const contextLabel = stats?.executionContext === "risky_sweep" ? "PRIORITY" :
         stats?.executionContext === "realtime_clean" ? "REALTIME" :
-            stats?.executionContext === "final_sweep" ? "FINAL" : "";
+            stats?.executionContext === "valuable_sweep" ? "LEAN MODE" :
+                stats?.executionContext === "final_sweep" ? "FINAL" : "";
 
     const statusText = !shieldEnabled ? 'OFF' :
         status === 'paused' ? 'PAUSED' :
@@ -137,14 +138,21 @@ export const LocalShieldPanel = React.memo(({
 
                 <box flexDirection="row" justifyContent="space-between" height={1} paddingLeft={1} paddingRight={1}>
                     <box flexDirection="row" gap={1} flexShrink={1}>
-                        <text fg={colors.dim} flexShrink={0}>Cleaned:</text>
+                        <text fg={colors.dim} flexShrink={0}>{stats?.executionContext === "valuable_sweep" ? "Valuable:" : "Cleaned:"}</text>
                         <text fg={colors.success} attributes={TextAttributes.BOLD} flexShrink={1}>{String((stats?.extractedFiles || 0) + (stats?.purgedFiles || 0) + (stats?.isolatedFiles || 0))}</text>
                     </box>
                     {!!(stats?.riskyPatternCount && stats.riskyPatternCount > 0) ? (
                         <box flexShrink={0}>
                             <text fg={colors.danger} attributes={TextAttributes.BOLD}>[ {String(stats.riskyPatternCount)} ]</text>
                         </box>
-                    ) : null}
+                    ) : (
+                        !!progress.manifestStats?.leanModeActive ? (
+                            <box flexShrink={0}>
+                                <text fg={colors.dim}>Skip: </text>
+                                <text fg={colors.warning}>{String(progress.manifestStats.excludedFileCount || 0)}</text>
+                            </box>
+                        ) : null
+                    )}
                 </box>
 
                 {/* Manifest Metadata */}

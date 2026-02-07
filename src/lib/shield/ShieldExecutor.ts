@@ -8,7 +8,7 @@ import type { CleanupResult } from "../cleanup";
 import type { CleanupStats, SyncProgress } from "../sync/types";
 
 export interface ShieldExecutionContext {
-    type: "risky_sweep" | "realtime_clean" | "final_sweep";
+    type: "risky_sweep" | "realtime_clean" | "final_sweep" | "valuable_sweep";
     localDir: string;
     policy: "purge" | "isolate";
     onProgress?: (stats: Partial<SyncProgress>) => void;
@@ -16,6 +16,7 @@ export interface ShieldExecutionContext {
     // For realtime_clean
     filePath?: string;
     excludeFile?: string;
+    mode?: "full" | "lean";
 }
 
 export interface ScanLocalContext {
@@ -29,7 +30,7 @@ export class ShieldExecutor {
      * Execute shield operation with consistent stats and logging.
      */
     static async execute(context: ShieldExecutionContext): Promise<CleanupResult | boolean> {
-        const { type, localDir, policy, onProgress, initialStats } = context;
+        const { type, localDir, policy, onProgress, initialStats, mode = "full" } = context;
 
         // Ensure stats have the correct context
         const stats: CleanupStats = initialStats || {
@@ -78,7 +79,7 @@ export class ShieldExecutor {
                 return result;
             } else {
                 const excludeFile = context.excludeFile || "";
-                const result = await runCleanupSweep(localDir, excludeFile, policy, wrapProgress, undefined, stats);
+                const result = await runCleanupSweep(localDir, excludeFile, policy, wrapProgress, undefined, stats, mode);
                 Logger.info("SHIELD", `Completed ${type} | scanned=${stats.scannedArchives} threats=${stats.riskyPatternCount} extracted=${stats.extractedFiles}`);
                 return result;
             }

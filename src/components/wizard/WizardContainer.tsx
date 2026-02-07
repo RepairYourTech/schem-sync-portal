@@ -142,7 +142,8 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         setStep(prevStep => {
             let nextStep = prevStep;
             switch (prevStep) {
-                case "shortcut": nextStep = "source_choice"; break;
+                case "shortcut": nextStep = "download_mode"; break;
+                case "download_mode": nextStep = "source_choice"; break;
                 case "source_choice":
                     resetWizardRefs();
                     setWizardContext("source");
@@ -206,7 +207,8 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
 
     const getOptions = useCallback(() => {
         if (step === "shortcut") return isShortcutMissing ? [{ value: 1, type: "bootstrap" }, { value: 2, type: "shortcut" }, { value: 0, type: "skip" }] : [{ value: 1, type: "desktop_shortcut" }, { value: 0, type: "desktop_shortcut" }];
-        if (step === "edit_menu") return [{ value: "shortcut", type: "jump" }, { value: "source_choice", type: "jump" }, { value: "dir", type: "jump" }, { value: "mirror", type: "jump" }, { value: "upsync_ask", type: "jump" }, { value: "security", type: "jump" }, { value: "deploy", type: "jump" }];
+        if (step === "download_mode") return [{ value: "full", type: "download_mode" }, { value: "lean", type: "download_mode" }];
+        if (step === "edit_menu") return [{ value: "shortcut", type: "jump" }, { value: "download_mode", type: "jump" }, { value: "source_choice", type: "jump" }, { value: "dir", type: "jump" }, { value: "mirror", type: "jump" }, { value: "upsync_ask", type: "jump" }, { value: "security", type: "jump" }, { value: "deploy", type: "jump" }];
         if (step === "source_choice") return Object.keys(PROVIDER_REGISTRY).filter(k => !["none", "unconfigured"].includes(k)).map(v => ({ value: v, type: "source_select" }));
 
         if (step === "mirror") return [{ value: false, type: "mirror" }, { value: true, type: "mirror" }];
@@ -258,6 +260,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         if (opt.type === "intro_path") { pendingCloudPathRef.current = opt.value as "guided" | "direct"; next(); return; }
         if (opt.type === "guide_next") { next(); return; }
         if (opt.type === "desktop_shortcut") { if (opt.value === 1) bootstrapSystem(join(process.cwd(), "src/index.tsx")); updateConfig(prev => ({ ...prev, desktop_shortcut: opt.value as number })); next(); return; }
+        if (opt.type === "download_mode") { updateConfig(prev => ({ ...prev, download_mode: opt.value as "full" | "lean" })); next(); return; }
         if (opt.type === "jump") { const targetStep = opt.value as Step; if (targetStep === "source_choice" || targetStep === "copyparty_config") setWizardContext("source"); if (targetStep === "dest_cloud_select") setWizardContext("dest"); setStep(targetStep); return; }
         if (opt.type === "dir_confirm") { if (config.local_dir && config.local_dir !== "" && config.local_dir !== "none") next(); return; }
         if (opt.type === "sec_policy") { updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.value as "purge" | "isolate" })); next(); }

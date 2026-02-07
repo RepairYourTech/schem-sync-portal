@@ -122,6 +122,11 @@ export const DownsyncPanel = React.memo(({
                                     <text fg={colors.dim}>Mis: </text>
                                     <text fg={colors.accent}>{String(progress.manifestStats.missingFileCount)}</text>
                                 </box>
+                                {!!progress.manifestStats.leanModeActive ? (
+                                    <box flexDirection="row" marginLeft={1}>
+                                        <text fg={colors.success} attributes={TextAttributes.BOLD}>[LEAN]</text>
+                                    </box>
+                                ) : null}
                             </box>
                         )}
                         <box flexDirection="row" gap={2} height={1}>

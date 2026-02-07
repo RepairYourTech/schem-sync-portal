@@ -11,6 +11,7 @@ export interface SyncSessionState {
     sessionId: string;
     startedAt: number;
     lastUpdatedAt: number;
+    downloadMode?: "full" | "lean"; // Track mode for recovery
 
     // Phase statuses
     downsyncStatus: PhaseStatus;
@@ -27,6 +28,7 @@ export interface SyncSessionState {
     unscannedArchives: string[];
     totalArchives: number;
     flaggedArchives: string[];
+    excludedInLeanMode?: string[]; // Track what was skipped in lean mode
 
     // Upsync tracking
     uploadedFiles: string[];

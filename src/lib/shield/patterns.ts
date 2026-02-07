@@ -56,3 +56,51 @@ export const PRIORITY_FILENAMES = [
     "DANL9MB18F0 (tvw).rar",
     "GV-N4090GAMING-OC-24GD r1.0 boardview.zip"
 ];
+
+export const LEAN_MODE_EXCLUDE_PATTERNS = [
+    // Files/Archives to SKIP in lean mode
+    "BIOS_", "bios_", "Bios_",                 // BIOS dumps
+    "Firmware", "firmware",                    // Firmware files
+    "UPDATE", "update", "Update",              // Update tools/packages
+    "Utility", "utility",                      // Tools/Utilities
+    "Driver", "driver",                        // Drivers
+    "Software", "software",                    // Software packages
+    "ME Region", "me region",                  // ME Region dumps
+    "EC", "ec", "Ec", "KB", "kb",              // EC/KBC dumps
+    ".exe", ".EXE", ".bat", ".BAT",            // Executables/Scripts
+    ".cmd", ".CMD", ".msi", ".MSI",            // Installers/Scripts
+    ".dll", ".DLL", ".sys", ".SYS",            // System files
+    "flash_tool", "Flash_Tool", "FlashTool",   // Flasher tools
+    "Installer", "installer", "setup"          // Installers
+];
+
+export const VALUABLE_ARCHIVE_INDICATORS = [
+    // Filenames that indicate the archive likely contains Boardviews/Schematics
+    "boardview", "Boardview", "BOARDVIEW",
+    "schematic", "Schematic", "SCHEMATIC",
+    ".tvw", ".brd", ".cad", ".fz", ".asc", ".bvr", // Boardview extensions
+    ".pdf", ".PDF",                                // Schematics often in PDF
+    "BRD_", "SCH_"                                 // Common prefixes
+];
+
+export const LEAN_MODE_PRIORITY_FILENAMES = [
+    // Archives known to be valuable to prioritize in Lean Mode
+    // This flips the logic of risky sweep -> we want the GOOD stuff first
+    "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip",
+    "GV-R580GAMING-8GD-1.0-1.01 Boardview.zip",
+    "GV-RX580GAMING-4GD-1.0-1.01 Boardview.zip",
+    "GV-RX580GAMING-8GD-1.0-1.01 Boardview.zip",
+    "GV-R939XG1 GAMING-8GD-1.0-1.01 Boardview.zip",
+    "GV-R938WF2-4GD-1.0 Boardview.zip",
+    "IOT73 V3.0 TG-B75.zip",
+    "GV-R938G1 GAMING-4GD-1.02 Boardview.zip",
+    "GV-RX470G1 GAMING-4GD-0.2 Boardview.zip",
+    "GV-RX480G1 GAMING-4GD-1.1 Boardview.zip",
+    "GV-RX570AORUS-4GD-1.0 Boardview.zip",
+    "GV-RX580AORUS-4GD-0.2-1.1 Boardview.zip",
+    "GV-RX580GAMING-8GD-1.0 Boardview.zip",
+    "GV-RX590GAMING-8GD-1.0 Boardview.zip",
+    "GV-N3070EAGLE OC-8GD-1.0 Boardview.zip",
+    "DANL9MB18F0 (tvw).rar",
+    "GV-N4090GAMING-OC-24GD r1.0 boardview.zip"
+];
