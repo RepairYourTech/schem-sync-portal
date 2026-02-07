@@ -45,7 +45,7 @@ describe("Rclone Config Sanitization", () => {
     });
 
     beforeEach(() => {
-        process.env.RCLONE_CONFIG_PATH = "/home/birdman/schem-sync-portal/src/tests/rclone.test.conf";
+        process.env.RCLONE_CONFIG_PATH = "./src/tests/rclone.test.conf";
         mockSpawnSync.mockClear();
         mockSpawn.mockClear();
         mockWhich.mockClear();

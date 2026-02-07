@@ -287,8 +287,8 @@ export function AppContent() {
                 else setView("sync");
             }
             if (!isRunning) {
-                if (key.name === "s") { setWizardReturnView("dashboard"); setBodyIndex(isEmpty ? 0 : 1); }
-                if (key.name === "c" && !isEmpty && !isComplete) { setWizardReturnView("dashboard"); setBodyIndex(0); }
+                if (key.name === "s") { setBodyIndex(isEmpty ? 0 : 1); }
+                if (key.name === "c" && !isEmpty && !isComplete) { setBodyIndex(0); }
                 if (key.name === "t" && isComplete) setBodyIndex(0);
             }
         }
@@ -441,7 +441,7 @@ export function AppContent() {
                     />
                 ) : null}
                 {view === "sync" ? <SyncPortal config={config} progress={progress} isRunning={isRunning} onStop={stop} onStart={handleStartSync} onPause={pause} onResume={resume} onPausePull={() => pausePhase('pull')} onResumePull={() => resumePhase('pull')} onPauseShield={() => pausePhase('shield')} onResumeShield={() => resumePhase('shield')} onPauseCloud={() => pausePhase('cloud')} onResumeCloud={() => resumePhase('cloud')} isPhasePaused={isPhasePaused} configLoaded={!isEmpty} focusArea={focusArea} onFocusChange={setFocusArea} focusIndex={syncFocusIndex} onFocusIndexChange={setSyncFocusIndex} subFocusIndex={syncSubFocusIndex} onSubFocusIndexChange={setSyncSubFocusIndex} onUpdateConfig={(nc) => { setConfig(nc); saveConfig(nc); }} /> : null}
-                {view === "wizard" ? <Wizard initialConfig={config} mode={wizardMode} onUpdate={onUpdateWizard} onComplete={onWizardComplete} onCancel={() => setView(wizardReturnView)} onQuit={() => renderer.destroy()} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} backSignal={backSignal} returnView={wizardReturnView} /> : null}
+                {view === "wizard" ? <Wizard initialConfig={config} mode={wizardMode} onUpdate={onUpdateWizard} onComplete={onWizardComplete} onCancel={() => setView(wizardReturnView)} onQuit={() => renderer.destroy()} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} backSignal={backSignal} /> : null}
                 {view === "options" ? <Options onDoctor={() => setView("doctor")} onSetup={() => { setWizardReturnView("options"); setView("wizard"); setWizardMode("edit"); }} onScan={onScan} onForensic={() => setView("forensic")} onReset={onReset} onResetShield={onResetShield} onBack={() => setView("dashboard")} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} config={config} onUpdateConfig={(nc) => { saveConfig(nc); setConfig(nc); }} updateCheck={updateCheck} /> : null}
                 {view === "forensic" ? <ForensicView targetDir={config.local_dir && config.local_dir !== "none" ? config.local_dir : ""} gdriveRemote={config.source_provider === "gdrive" ? Env.REMOTE_PORTAL_SOURCE : (config.backup_provider === "gdrive" ? Env.REMOTE_PORTAL_BACKUP : null)} onComplete={() => setView("options")} onCancel={() => setView("options")} /> : null}
                 {view === "doctor" ? renderDoctor() : null}

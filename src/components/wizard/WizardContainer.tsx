@@ -19,7 +19,7 @@ import { WizardFooter } from "./WizardFooter";
 import { WizardStepRenderer } from "./WizardStepRenderer";
 import { getStepContext, findNextStep } from "./wizard-utils";
 
-export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, backSignal, returnView: _returnView }: WizardProps) => {
+export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, backSignal }: WizardProps) => {
     const { colors } = useTheme();
     const keyboardHandlerRef = useRef<(e: WizardKeyEvent) => void>(undefined);
     useKeyboard((e) => keyboardHandlerRef.current?.(e));

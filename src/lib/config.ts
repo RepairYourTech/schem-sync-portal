@@ -124,7 +124,7 @@ export function saveConfig(config: PortalConfig): void {
         // ENFORCEMENT: Shield is REQUIRED for Google Drive to prevent account suspension.
         if (config.backup_provider === "gdrive") {
             config.enable_malware_shield = true;
-            config.malware_policy = "isolate"; // Recommended for forensics
+            // Allow user to choose between "isolate" and "purge" policies
         }
 
         // THOROUGH SAVE: Ensure ALL fields defined in the type are explicitly picked.
