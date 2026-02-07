@@ -25,7 +25,7 @@ export function createRcloneRemote(name: string, type: string, options: Record<s
         // causes the portal to use stale credentials.
         removePortalConfig([name]);
 
-        const args = ["--config", rcloneConfig, "--non-interactive", "config", "create", name, type];
+        const args = ["--config", rcloneConfig, "config", "create", name, type];
         for (const [key, value] of Object.entries(options)) {
             // Skip truly null/undefined values
             if (value === null || value === undefined) continue;
@@ -45,6 +45,8 @@ export function createRcloneRemote(name: string, type: string, options: Record<s
             // (e.g., empty team_drive is valid)
             args.push(key, sanitizedValue);
         }
+        // [FIX] Move --non-interactive to END for WebDAV compatibility
+        args.push("--non-interactive");
 
         // Use non-interactive mode
         Logger.debug("CONFIG", `Executing: rclone config create ${name} ${type} ...`);
