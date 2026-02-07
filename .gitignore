@@ -134,6 +134,15 @@ test_shield_dir/
 .zencoder/
 CLAUDE.md
 
+# Root Markdown Spam Control
+/*.md
+!/README.md
+!/COLLABORATION.md
+!/CHANGELOG.md
+!/AGENT.md
+!/GEMINI.md
+!/VERSION.md
+
 # Temporary Test Artifacts
 *_test_output.txt
 *_logs.txt
