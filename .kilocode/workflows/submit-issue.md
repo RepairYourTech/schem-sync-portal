@@ -36,9 +36,12 @@ gh issue edit $(gh issue list --limit 1 --json number --jq '.[0].number') --add-
 ### 4. Wait for Traycer
 Monitor the issue until **Traycer.ai** provides an automated analysis and suggested code changes.
 
+> [!IMPORTANT]
+> If a plan already exists, **assess it immediately**. Do not proceed to Step 5 unless the plan is objectively insufficient.
+
 ### 5. Iterate (Optional)
-If the suggested plan needs changes:
-- Reply to Traycer's comment with `@traycerai generate <your feedback>`.
+If the suggested plan needs changes, remediation of errors, or missing logic:
+- Reply to Traycer's comment with `@traycerai generate <describe exactly what needs to be changed or added>`.
 - Wait for the updated plan.
 
 ### 6. Transition to Implementation
