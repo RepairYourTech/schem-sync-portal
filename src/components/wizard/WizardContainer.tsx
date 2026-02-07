@@ -338,6 +338,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             }
 
             if (step === "copyparty_config") {
+                if (e.name >= "0" && e.name <= "9") return;
                 if (e.name === "down") { set_copyparty_config_index(prev => Math.min(4, prev + 1)); return; }
                 else if (e.name === "up") { set_copyparty_config_index(prev => Math.max(0, prev - 1)); return; }
                 if (copyparty_config_index === 3) {
@@ -347,6 +348,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             }
 
             if (step === "cloud_direct_entry") {
+                if (e.name >= "0" && e.name <= "9") return;
                 const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
                 const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
                 if (e.name === "down") { set_direct_entry_index(prev => Math.min(maxIdx, prev + 1)); return; }
@@ -373,7 +375,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             }
         }
 
-        const selectableSteps: Step[] = ["shortcut", "source_choice", "dir", "mirror", "upsync_ask", "dest_cloud_select", "backup_dir", "security", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "s3_intro", "deploy", "cloud_direct_entry"];
+        const selectableSteps: Step[] = ["shortcut", "download_mode", "source_choice", "dir", "mirror", "upsync_ask", "dest_cloud_select", "backup_dir", "security", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "s3_intro", "deploy", "cloud_direct_entry"];
         if (selectableSteps.includes(step)) {
             const options = getOptions();
             if (options.length === 0) return;
@@ -391,6 +393,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         config, updateConfig, next, back, onComplete, onCancel, onQuit: _onQuit, getCurrentStepNumber,
         colors, focusArea, onFocusChange: _onFocusChange, selectedIndex, setSelectedIndex, confirmSelection,
         getOptions, isAuthLoading, authStatus, setAuthStatus, handleAuth, handleGdriveAuth, startGenericAuth,
+        dispatchDirectAuth,
         wizardInputs, updateInput, refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
         isShortcutMissing, copyparty_config_index, set_copyparty_config_index, direct_entry_index, set_direct_entry_index,
         wizardContext, pendingSourceProvider: pendingSourceProviderRef.current, pendingBackupProvider: pendingBackupProviderRef.current,
