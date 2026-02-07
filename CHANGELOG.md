@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3
+
+### Patch Changes
+
+- 2a9be7f: Resolve the persistent double authentication bug by implementing a three-layer defense strategy: a synchronous mutex in `useWizardAuth`, event bubbling isolation in `CloudDirectEntryStep`, and a keyboard handler guard in `WizardContainer`. Fixes #23.
+
 ## 1.2.2
 
 ### Patch Changes
