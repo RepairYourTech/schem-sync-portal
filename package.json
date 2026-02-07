@@ -9,9 +9,10 @@
     "dev": "bun run src/index.tsx",
     "test": "bun test",
     "test:e2e": "bun test src/tests/e2e",
-    "lint": "bun run scripts/lint-tui.ts && eslint src",
+    "lint": "bun run scripts/lint-tui.ts && eslint src --max-warnings 0",
     "lint:fix": "eslint src --fix",
-    "changeset": "bunx @changesets/cli"
+    "changeset": "bunx @changesets/cli",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -19,7 +20,8 @@
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
     "eslint": "^9.39.2",
-    "eslint-plugin-react": "^7.37.5"
+    "eslint-plugin-react": "^7.37.5",
+    "husky": "^9.1.7"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"
