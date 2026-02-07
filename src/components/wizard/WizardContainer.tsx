@@ -362,6 +362,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
                     return;
                 }
                 if (step === "cloud_direct_entry") {
+                    if (isAuthLoading) return;
                     const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
                     const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
                     if (direct_entry_index === maxIdx) {
