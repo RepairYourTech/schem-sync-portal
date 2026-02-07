@@ -48,9 +48,12 @@ git push origin $(git branch --show-current)
 
 ### 5. Create Pull Request
 Open a PR on GitHub using the `gh` CLI.
+> [!IMPORTANT]
+> You MUST include "Fixes #<issue-number>" (or "Closes #<issue-number>") in the body to ensure the issue is automatically closed on merge.
+
 // turbo
 ```bash
-gh pr create --title "feat: your description" --body "Detailed description of changes"
+gh pr create --title "feat: your description" --body "Detailed description of changes\n\nFixes #<issue-number>"
 ```
 
 ### 6. CodeRabbit Review
