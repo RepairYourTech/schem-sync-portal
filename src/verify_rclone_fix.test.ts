@@ -1,8 +1,7 @@
 
-import { expect, test, spyOn, beforeAll, afterAll } from "bun:test";
+import { expect, test, spyOn } from "bun:test";
 import { createRcloneRemote } from "./lib/rclone";
 import { Env } from "./lib/env";
-import * as fs from "fs";
 import { join } from "path";
 
 const TEST_CONFIG = "rclone.verify.conf";
@@ -12,6 +11,7 @@ const TEST_CONFIG_PATH = join(process.cwd(), TEST_CONFIG);
 spyOn(Env, 'getRcloneConfigPath').mockReturnValue(TEST_CONFIG_PATH);
 
 test("createRcloneRemote should place --non-interactive at the end", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const spawnSpy = spyOn(Bun, 'spawnSync').mockImplementation(() => ({ success: true, stdout: "", stderr: "" } as any));
 
     createRcloneRemote("test_remote", "webdav", { url: "http://example.com" });
