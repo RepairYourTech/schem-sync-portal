@@ -93,6 +93,14 @@ export class Env {
     }
 
     static getRcloneConfigPath(): string {
+        // [SAFETY] Block access to system rclone config unless explicitly permitted.
+        // This prevents tests or dev sessions from accidentally overwriting user data.
+        if (process.env.NODE_ENV === "test" || process.env.MOCK_RCLONE) {
+            if (!process.env.RCLONE_CONFIG_PATH) {
+                throw new Error("UNAUTHORIZED SYSTEM ACCESS: RCLONE_CONFIG_PATH must be set in test/dev environments.");
+            }
+            return process.env.RCLONE_CONFIG_PATH;
+        }
         return join(Env.getPaths().rcloneConfigDir, "rclone.conf");
     }
 
