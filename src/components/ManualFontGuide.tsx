@@ -84,8 +84,26 @@ export function ManualFontGuide({ returnView: _returnView, onClose }: ManualFont
             </box>
 
             <box flexDirection="row" gap={2}>
-                <Hotkey keyLabel="enter" label="Close" />
-                <Hotkey keyLabel="esc" label="Close" />
+                <box
+                    onMouseDown={onClose}
+                    border
+                    borderStyle="single"
+                    borderColor={colors.success}
+                    paddingLeft={1}
+                    paddingRight={1}
+                >
+                    <Hotkey keyLabel="enter" label="Close" isFocused />
+                </box>
+                <box
+                    onMouseDown={onClose}
+                    border
+                    borderStyle="single"
+                    borderColor={colors.danger}
+                    paddingLeft={1}
+                    paddingRight={1}
+                >
+                    <Hotkey keyLabel="esc" label="Close" />
+                </box>
             </box>
         </box>
     );

@@ -12,12 +12,17 @@ export const UpsyncConfig = ({
     setSelectedIndex,
     getCurrentStepNumber,
     getOptions,
-    confirmSelection
+    confirmSelection,
+    back
 }: WizardStepProps) => {
     const options = [
         { name: "NO", description: "Download Only (Standard)", value: "download_only", key: "1", icon: "\ueac2" },
         { name: "YES", description: "Enable Cloud Backup", value: "sync_backup", key: "2", icon: "\ueac3" }
     ];
+
+    const allOptions = getOptions();
+    const backIdx = allOptions.findIndex(o => o.type === "back");
+    const isBackFocused = selectedIndex === backIdx && focusArea === "body";
 
     return (
         <box flexDirection="column" gap={1}>
@@ -33,7 +38,7 @@ export const UpsyncConfig = ({
                                 onFocusChange("body");
                                 setSelectedIndex(i);
                             }}
-                            onMouseDown={() => confirmSelection(getOptions()[i]!)}
+                            onMouseDown={() => confirmSelection(allOptions[i]!)}
                             paddingLeft={2}
                             border
                             borderStyle="single"
@@ -49,6 +54,31 @@ export const UpsyncConfig = ({
                         </box>
                     );
                 })}
+
+                {/* BACK BUTTON */}
+                {backIdx !== -1 && (
+                    <box
+                        marginTop={1}
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setSelectedIndex(backIdx);
+                        }}
+                        onMouseDown={() => back()}
+                        paddingLeft={2}
+                        border
+                        borderStyle="single"
+                        borderColor={isBackFocused ? colors.success : "transparent"}
+                        flexDirection="row"
+                        alignItems="center"
+                    >
+                        <text fg={isBackFocused ? colors.primary : colors.dim}>{String(isBackFocused ? "▶ " : "  ")}</text>
+                        <Hotkey
+                            keyLabel="b"
+                            label="Back"
+                            isFocused={isBackFocused}
+                        />
+                    </box>
+                )}
             </box>
         </box>
     );

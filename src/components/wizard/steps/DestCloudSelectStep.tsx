@@ -16,9 +16,14 @@ export const DestCloudSelectStep = ({
     getCurrentStepNumber,
     getOptions,
     confirmSelection,
-    config
+    config,
+    back
 }: WizardStepProps) => {
     const fontVersion = config.nerd_font_version || 2;
+
+    const allOptions = getOptions();
+    const backIdx = allOptions.findIndex(o => o.type === "back");
+    const isBackFocused = selectedIndex === backIdx && focusArea === "body";
 
     return (
         <box flexDirection="column" gap={1}>
@@ -27,7 +32,7 @@ export const DestCloudSelectStep = ({
             </text>
             <text fg={colors.fg}>☁️  Select your cloud storage provider:</text>
             <box flexDirection="column" gap={0} marginTop={1}>
-                {(getOptions() as { value: PortalProvider, type: string }[]).map((opt, i) => {
+                {(allOptions.filter(o => o.type !== "back") as { value: PortalProvider, type: string }[]).map((opt, i) => {
                     const meta = getProviderMetadata(opt.value);
                     const isFocused = selectedIndex === i && focusArea === "body";
                     return (
@@ -38,7 +43,8 @@ export const DestCloudSelectStep = ({
                                 setSelectedIndex(i);
                             }}
                             onMouseDown={() => confirmSelection(opt)}
-                            paddingLeft={2}
+                            paddingLeft={1}
+                            paddingRight={1}
                             border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
@@ -46,7 +52,6 @@ export const DestCloudSelectStep = ({
                             alignItems="center"
                             gap={1}
                         >
-                            <text fg={isFocused ? colors.primary : colors.dim}>{String(isFocused ? "▶ " : "  ")}</text>
                             <ProviderIcon provider={opt.value} version={fontVersion} color={colors.primary} />
                             <Hotkey
                                 keyLabel={(i + 1).toString()}
@@ -58,6 +63,31 @@ export const DestCloudSelectStep = ({
                         </box>
                     );
                 })}
+
+                {/* BACK BUTTON */}
+                {backIdx !== -1 && (
+                    <box
+                        marginTop={1}
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setSelectedIndex(backIdx);
+                        }}
+                        onMouseDown={() => back()}
+                        paddingLeft={1}
+                        paddingRight={1}
+                        border
+                        borderStyle="single"
+                        borderColor={isBackFocused ? colors.success : "transparent"}
+                        flexDirection="row"
+                        alignItems="center"
+                    >
+                        <Hotkey
+                            keyLabel="b"
+                            label="Back"
+                            isFocused={isBackFocused}
+                        />
+                    </box>
+                )}
             </box>
         </box>
     );

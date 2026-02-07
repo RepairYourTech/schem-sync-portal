@@ -114,6 +114,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             setSelectedIndex(0);
             stepStartTime.current = Date.now();
         } else {
+            // Respect returnView if provided, otherwise fallback to onCancel
             onCancel();
         }
     }, [onCancel]);
@@ -206,28 +207,28 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
     }, [onComplete, wizardContext, isMenuMode, selectedIndex]);
 
     const getOptions = useCallback(() => {
-        if (step === "shortcut") return isShortcutMissing ? [{ value: 1, type: "bootstrap" }, { value: 2, type: "shortcut" }, { value: 0, type: "skip" }] : [{ value: 1, type: "desktop_shortcut" }, { value: 0, type: "desktop_shortcut" }];
-        if (step === "download_mode") return [{ value: "full", type: "download_mode" }, { value: "lean", type: "download_mode" }];
-        if (step === "edit_menu") return [{ value: "shortcut", type: "jump" }, { value: "download_mode", type: "jump" }, { value: "source_choice", type: "jump" }, { value: "dir", type: "jump" }, { value: "mirror", type: "jump" }, { value: "upsync_ask", type: "jump" }, { value: "security", type: "jump" }, { value: "deploy", type: "jump" }];
-        if (step === "source_choice") return Object.keys(PROVIDER_REGISTRY).filter(k => !["none", "unconfigured"].includes(k)).map(v => ({ value: v, type: "source_select" }));
+        if (step === "shortcut") return [...(isShortcutMissing ? [{ value: 1, type: "bootstrap" }, { value: 2, type: "shortcut" }, { value: 0, type: "skip" }] : [{ value: 1, type: "desktop_shortcut" }, { value: 0, type: "desktop_shortcut" }]), { value: "back", type: "back" }];
+        if (step === "download_mode") return [{ value: "full", type: "download_mode" }, { value: "lean", type: "download_mode" }, { value: "back", type: "back" }];
+        if (step === "edit_menu") return [{ value: "shortcut", type: "jump" }, { value: "download_mode", type: "jump" }, { value: "source_choice", type: "jump" }, { value: "dir", type: "jump" }, { value: "mirror", type: "jump" }, { value: "upsync_ask", type: "jump" }, { value: "security", type: "jump" }, { value: "deploy", type: "jump" }, { value: "back", type: "back" }];
+        if (step === "source_choice") return [...Object.keys(PROVIDER_REGISTRY).filter(k => !["none", "unconfigured"].includes(k)).map(v => ({ value: v, type: "source_select" })), { value: "back", type: "back" }];
 
-        if (step === "mirror") return [{ value: false, type: "mirror" }, { value: true, type: "mirror" }];
-        if (step === "dir" || step === "backup_dir") return [{ value: config.local_dir, type: "dir_input" }, { value: "confirm", type: "dir_confirm" }];
-        if (step === "upsync_ask") return [{ value: "download_only", type: "sync_mode" }, { value: "sync_backup", type: "sync_mode" }];
+        if (step === "mirror") return [{ value: false, type: "mirror" }, { value: true, type: "mirror" }, { value: "back", type: "back" }];
+        if (step === "dir" || step === "backup_dir") return [{ value: config.local_dir, type: "dir_input" }, { value: "confirm", type: "dir_confirm" }, { value: "back", type: "back" }];
+        if (step === "upsync_ask") return [{ value: "download_only", type: "sync_mode" }, { value: "sync_backup", type: "sync_mode" }, { value: "back", type: "back" }];
         if (step === "security") {
             const opts = [{ value: "isolate", type: "sec_policy" }, { value: "purge", type: "sec_policy" }, { value: false, type: "sec_toggle" }];
-            return config.backup_provider === "gdrive" ? opts.filter(o => o.value !== false) : opts;
+            return [...(config.backup_provider === "gdrive" ? opts.filter(o => o.value !== false) : opts), { value: "back", type: "back" }];
         }
-        if (step === "dest_cloud_select") return Object.keys(PROVIDER_REGISTRY).filter(k => !["none", "unconfigured", "copyparty"].includes(k)).map(v => ({ value: v, type: "backup_provider" }));
+        if (step === "dest_cloud_select") return [...Object.keys(PROVIDER_REGISTRY).filter(k => !["none", "unconfigured", "copyparty"].includes(k)).map(v => ({ value: v, type: "backup_provider" })), { value: "back", type: "back" }];
         if (step?.endsWith("_intro")) {
             const provider = Object.values(PROVIDER_REGISTRY).find(p => step.startsWith(p.id + "_"));
             const opts = [];
             if (provider?.hasGuidedPath) opts.push({ value: "guided", type: "intro_path" });
             if (provider?.hasDirectPath) opts.push({ value: "direct", type: "intro_path" });
-            return opts;
+            return [...opts, { value: "back", type: "back" }];
         }
-        if (step?.includes("_guide_")) return [{ value: true, type: "guide_next" }];
-        if (step === "deploy") return [{ value: true, type: "deploy" }, { value: false, type: "deploy" }];
+        if (step?.includes("_guide_")) return [{ value: true, type: "guide_next" }, { value: "back", type: "back" }];
+        if (step === "deploy") return [{ value: true, type: "deploy" }, { value: false, type: "deploy" }, { value: "back", type: "back" }];
         return [];
     }, [step, isShortcutMissing, config.backup_provider]);
 
@@ -260,6 +261,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
 
     const confirmSelection = useCallback((opt: WizardOption) => {
         if (!opt) return;
+        if (opt.type === "back") { back(); return; }
         if (opt.type === "deploy") { if (opt.value) onComplete(config); else onCancel(); return; }
 
 
@@ -307,12 +309,12 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
                         if (copyparty_config_index === 0) _onFocusChange("footer");
                         else set_copyparty_config_index(prev => prev - 1);
                     } else {
-                        if (copyparty_config_index === 4) _onFocusChange("footer");
+                        if (copyparty_config_index === 5) _onFocusChange("footer");
                         else set_copyparty_config_index(prev => prev + 1);
                     }
                 } else if (step === "cloud_direct_entry") {
                     const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
-                    const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
+                    const maxIdx = (provider === "sftp" || provider === "r2") ? 4 : 3;
                     if (e.shift) {
                         if (direct_entry_index === 0) _onFocusChange("footer");
                         else set_direct_entry_index(prev => prev - 1);
@@ -345,7 +347,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
 
             if (step === "copyparty_config") {
                 if (e.name >= "0" && e.name <= "9") return;
-                if (e.name === "down") { set_copyparty_config_index(prev => Math.min(4, prev + 1)); return; }
+                if (e.name === "down") { set_copyparty_config_index(prev => Math.min(5, prev + 1)); return; }
                 else if (e.name === "up") { set_copyparty_config_index(prev => Math.max(0, prev - 1)); return; }
                 if (copyparty_config_index === 3) {
                     if (e.name === "left") { setSelectedIndex(0); updateConfig(prev => ({ ...prev, copyparty_method: "webdav" })); return; }
@@ -356,22 +358,27 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             if (step === "cloud_direct_entry") {
                 if (e.name >= "0" && e.name <= "9") return;
                 const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
-                const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
+                const maxIdx = (provider === "sftp" || provider === "r2") ? 4 : 3;
                 if (e.name === "down") { set_direct_entry_index(prev => Math.min(maxIdx, prev + 1)); return; }
                 else if (e.name === "up") { set_direct_entry_index(prev => Math.max(0, prev - 1)); return; }
             }
 
             if (e.name === "return") {
                 if (step === "copyparty_config") {
-                    if (copyparty_config_index === 4) handleAuth();
-                    else set_copyparty_config_index(prev => Math.min(4, prev + 1));
+                    if (copyparty_config_index === 5) back();
+                    else if (copyparty_config_index === 4) handleAuth();
+                    else set_copyparty_config_index(prev => Math.min(5, prev + 1));
                     return;
                 }
                 if (step === "cloud_direct_entry") {
                     if (isAuthLoading || activeAuthRequestRef?.current) return;
                     const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
-                    const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
+                    const maxIdx = (provider === "sftp" || provider === "r2") ? 4 : 3;
                     if (direct_entry_index === maxIdx) {
+                        back();
+                        return;
+                    }
+                    if (direct_entry_index === maxIdx - 1) {
                         if (!isAuthLoading) {
                             dispatchDirectAuth(provider);
                         }
@@ -393,6 +400,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
                 const idx = parseInt(e.name) - 1;
                 if (idx < options.length) setSelectedIndex(idx);
             } else if (e.name === "return") confirmSelection(options[selectedIndex]!);
+            else if (e.name === "b") back();
         }
     };
 

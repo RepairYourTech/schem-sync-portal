@@ -34,7 +34,8 @@ export const MirrorStep = ({
                                 setSelectedIndex(i);
                             }}
                             onMouseDown={() => confirmSelection(getOptions()[i]!)}
-                            paddingLeft={2}
+                            paddingLeft={1}
+                            paddingRight={1}
                             border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
@@ -42,7 +43,6 @@ export const MirrorStep = ({
                             alignItems="center"
                             gap={1}
                         >
-                            <text fg={isFocused ? colors.primary : colors.dim}>{String(isFocused ? "▶ " : "  ")}</text>
                             <Hotkey
                                 keyLabel={opt.key}
                                 label={opt.name}

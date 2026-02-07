@@ -39,12 +39,12 @@ export const ShortcutStep = ({
                             setSelectedIndex(i);
                         }}
                         onMouseDown={() => confirmSelection(getOptions()[i]!)}
-                        paddingLeft={2}
+                        paddingLeft={1}
+                        paddingRight={1}
                         border
                         borderStyle="single"
                         borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                     >
-                        <text fg={selectedIndex === i && focusArea === "body" ? colors.primary : colors.dim}>{String(selectedIndex === i && focusArea === "body" ? "▶ " : "  ")}</text>
                         <Hotkey
                             keyLabel={opt.key}
                             label={opt.name}
@@ -53,6 +53,22 @@ export const ShortcutStep = ({
                         <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                     </box>
                 ))}
+            </box>
+            <box
+                marginTop={1}
+                onMouseOver={() => onFocusChange("body")}
+                onMouseDown={() => confirmSelection({ value: "back", type: "back" })}
+                paddingLeft={1}
+                paddingRight={1}
+                border
+                borderStyle="single"
+                borderColor={selectedIndex === options.length && focusArea === "body" ? colors.success : "transparent"}
+            >
+                <Hotkey
+                    keyLabel="b"
+                    label="Back"
+                    isFocused={selectedIndex === options.length && focusArea === "body"}
+                />
             </box>
         </box>
     );

@@ -1,6 +1,7 @@
 /** @jsxImportSource @opentui/react */
 import React from "react";
 import { TextAttributes } from "@opentui/core";
+import { Hotkey } from "../../Hotkey";
 import type { WizardStepProps } from "../StepProps";
 
 export const CloudDirectEntryStep = ({
@@ -20,7 +21,8 @@ export const CloudDirectEntryStep = ({
     isAuthLoading,
     authStatus,
     setAuthStatus,
-    dispatchDirectAuth
+    dispatchDirectAuth,
+    back
 }: WizardStepProps) => {
     // ✅ ADD: Local ref to track if action is in progress
     const actionInProgressRef = React.useRef(false);
@@ -130,13 +132,28 @@ export const CloudDirectEntryStep = ({
                     border
                     borderStyle="double"
                     borderColor={isConnectFocused ? colors.success : colors.dim}
-                    paddingLeft={2}
-                    paddingRight={2}
+                    paddingLeft={1}
+                    paddingRight={1}
                     alignItems="center"
                 >
                     <text fg={isConnectFocused ? colors.success : colors.dim}>
                         {String(isAuthLoading ? "🔄 CONNECTING..." : "[ VERIFY & CONNECT ]")}
                     </text>
+                </box>
+
+                {/* BACK BUTTON */}
+                <box
+                    marginTop={1}
+                    onMouseOver={() => { onFocusChange("body"); set_direct_entry_index(fields.length + 1); }}
+                    onMouseDown={() => back()}
+                    border
+                    borderStyle="single"
+                    borderColor={direct_entry_index === fields.length + 1 ? colors.success : "transparent"}
+                    paddingLeft={1}
+                    paddingRight={1}
+                    alignItems="center"
+                >
+                    <Hotkey keyLabel="b" label="Back" isFocused={direct_entry_index === fields.length + 1} />
                 </box>
             </box>
 

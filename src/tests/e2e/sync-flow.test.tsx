@@ -64,7 +64,7 @@ describe("E2E: Sync Flow", () => {
 
         // Verify phase sequence
         expect(phases).toContain("syncing");
-        expect(phases).toContain("clean");
+        // Note: 'clean' is now integrated into pull/syncing phase in the orchestrator
         expect(phases).toContain("done");
 
         // Verify queue updates

@@ -44,6 +44,7 @@ export function AppContent() {
         tabDirection,
         showFontInstallPrompt, setShowFontInstallPrompt,
         fontInstallerReturnView, setFontInstallerReturnView,
+        wizardReturnView, setWizardReturnView,
         glyphHighlight, setGlyphHighlight,
         updateCheck,
         isComplete, isEmpty
@@ -58,9 +59,10 @@ export function AppContent() {
         if (config.source_provider !== "unconfigured" && config.source_provider !== "none" && !isRunning) {
             start(config);
         } else {
+            setWizardReturnView("dashboard");
             setView("wizard");
         }
-    }, [config, isRunning, start, setView]);
+    }, [config, isRunning, start, setView, setWizardReturnView]);
 
     const { handleBack, navigateTo } = useViewNavigation({
         view, setView, setFocusArea, setBackSignal, fontInstallerReturnView, isRunning, stop, handleStartSync
@@ -280,13 +282,13 @@ export function AppContent() {
             if (key.name === "left" || key.name === "up") setBodyIndex(prev => (prev === 0 ? bodyActionsCount - 1 : prev - 1));
             else if (key.name === "right" || key.name === "down") setBodyIndex(prev => (prev === bodyActionsCount - 1 ? 0 : prev + 1));
             else if (key.name === "return") {
-                if (isEmpty) { setWizardMode("restart"); setView("wizard"); }
-                else if (!isComplete) { setWizardMode(bodyIndex === 0 ? "continue" : "restart"); setView("wizard"); }
+                if (isEmpty) { setWizardReturnView("dashboard"); setWizardMode("restart"); setView("wizard"); }
+                else if (!isComplete) { setWizardReturnView("dashboard"); setWizardMode(bodyIndex === 0 ? "continue" : "restart"); setView("wizard"); }
                 else setView("sync");
             }
             if (!isRunning) {
-                if (key.name === "s") setBodyIndex(isEmpty ? 0 : 1);
-                if (key.name === "c" && !isEmpty && !isComplete) setBodyIndex(0);
+                if (key.name === "s") { setBodyIndex(isEmpty ? 0 : 1); }
+                if (key.name === "c" && !isEmpty && !isComplete) { setBodyIndex(0); }
                 if (key.name === "t" && isComplete) setBodyIndex(0);
             }
         }
@@ -328,8 +330,8 @@ export function AppContent() {
         const configM = await import("../lib/config");
         configM.clearConfig();
         setConfig(configM.EMPTY_CONFIG);
-        setWizardMode("restart"); setView("dashboard"); setFocusArea("body");
-    }, [setConfig, setWizardMode, setView, setFocusArea]);
+        setWizardReturnView("dashboard"); setWizardMode("restart"); setView("dashboard"); setFocusArea("body");
+    }, [setConfig, setWizardMode, setView, setFocusArea, setWizardReturnView]);
 
     const onResetShield = useCallback(() => ShieldManager.resetShield(config.local_dir), [config.local_dir]);
 
@@ -357,8 +359,8 @@ export function AppContent() {
                 onSelectionChange={setBodyIndex}
                 onFocusChange={setFocusArea}
                 onAction={(key) => {
-                    if (key === "s") { setView("wizard"); setWizardMode("restart"); }
-                    else if (key === "c") { setView("wizard"); setWizardMode("continue"); }
+                    if (key === "s") { setWizardReturnView("dashboard"); setView("wizard"); setWizardMode("restart"); }
+                    else if (key === "c") { setWizardReturnView("dashboard"); setView("wizard"); setWizardMode("continue"); }
                     else if (key === "t") { setView("sync"); }
                 }}
             />
@@ -439,8 +441,8 @@ export function AppContent() {
                     />
                 ) : null}
                 {view === "sync" ? <SyncPortal config={config} progress={progress} isRunning={isRunning} onStop={stop} onStart={handleStartSync} onPause={pause} onResume={resume} onPausePull={() => pausePhase('pull')} onResumePull={() => resumePhase('pull')} onPauseShield={() => pausePhase('shield')} onResumeShield={() => resumePhase('shield')} onPauseCloud={() => pausePhase('cloud')} onResumeCloud={() => resumePhase('cloud')} isPhasePaused={isPhasePaused} configLoaded={!isEmpty} focusArea={focusArea} onFocusChange={setFocusArea} focusIndex={syncFocusIndex} onFocusIndexChange={setSyncFocusIndex} subFocusIndex={syncSubFocusIndex} onSubFocusIndexChange={setSyncSubFocusIndex} onUpdateConfig={(nc) => { setConfig(nc); saveConfig(nc); }} /> : null}
-                {view === "wizard" ? <Wizard initialConfig={config} mode={wizardMode} onUpdate={onUpdateWizard} onComplete={onWizardComplete} onCancel={() => setView("dashboard")} onQuit={() => renderer.destroy()} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} backSignal={backSignal} /> : null}
-                {view === "options" ? <Options onDoctor={() => setView("doctor")} onSetup={() => { setView("wizard"); setWizardMode("edit"); }} onScan={onScan} onForensic={() => setView("forensic")} onReset={onReset} onResetShield={onResetShield} onBack={() => setView("dashboard")} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} config={config} onUpdateConfig={(nc) => { saveConfig(nc); setConfig(nc); }} updateCheck={updateCheck} /> : null}
+                {view === "wizard" ? <Wizard initialConfig={config} mode={wizardMode} onUpdate={onUpdateWizard} onComplete={onWizardComplete} onCancel={() => setView(wizardReturnView)} onQuit={() => renderer.destroy()} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} backSignal={backSignal} /> : null}
+                {view === "options" ? <Options onDoctor={() => setView("doctor")} onSetup={() => { setWizardReturnView("options"); setView("wizard"); setWizardMode("edit"); }} onScan={onScan} onForensic={() => setView("forensic")} onReset={onReset} onResetShield={onResetShield} onBack={() => setView("dashboard")} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} config={config} onUpdateConfig={(nc) => { saveConfig(nc); setConfig(nc); }} updateCheck={updateCheck} /> : null}
                 {view === "forensic" ? <ForensicView targetDir={config.local_dir && config.local_dir !== "none" ? config.local_dir : ""} gdriveRemote={config.source_provider === "gdrive" ? Env.REMOTE_PORTAL_SOURCE : (config.backup_provider === "gdrive" ? Env.REMOTE_PORTAL_BACKUP : null)} onComplete={() => setView("options")} onCancel={() => setView("options")} /> : null}
                 {view === "doctor" ? renderDoctor() : null}
                 {view === "fontinstaller" ? <FontInstaller returnView={fontInstallerReturnView} onComplete={async (res) => { if (res.success) { const next = { ...config, nerd_font_version: 3 as const, nerd_font_installed_family: res.installedFamily, nerd_font_last_check: Date.now() }; setConfig(next); saveConfig(next); setDeps(await checkDependencies()); } setView(fontInstallerReturnView); }} onCancel={() => setView(fontInstallerReturnView)} /> : null}
