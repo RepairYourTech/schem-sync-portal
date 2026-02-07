@@ -26,6 +26,7 @@ export interface WizardStepProps {
     handleAuth?: () => Promise<void>;
     handleGdriveAuth?: (clientId: string, clientSecret: string) => Promise<void>;
     startGenericAuth?: (provider: string) => Promise<void>;
+    dispatchDirectAuth?: (provider: PortalProvider) => void;
 
     // Inputs
     wizardInputs: Record<string, string>;

@@ -2,7 +2,6 @@
 import React from "react";
 import { TextAttributes } from "@opentui/core";
 import type { WizardStepProps } from "../StepProps";
-import { Env } from "../../../lib/env";
 
 export const CloudDirectEntryStep = ({
     colors,
@@ -17,12 +16,11 @@ export const CloudDirectEntryStep = ({
     wizardInputs,
     updateInput,
     refs,
-    handleGdriveAuth,
     startGenericAuth,
     isAuthLoading,
     authStatus,
     setAuthStatus,
-    updateGenericRemote
+    dispatchDirectAuth
 }: WizardStepProps) => {
     const provider = wizardContext === "source" ? pendingSourceProvider : pendingBackupProvider;
     const fields: { label: string, ref: { current: string }, icon: string, placeholder?: string, key: string }[] = [];
@@ -67,15 +65,8 @@ export const CloudDirectEntryStep = ({
             return;
         }
 
-        if (provider === "gdrive") {
-            if (handleGdriveAuth) handleGdriveAuth(refs.clientIdRef!.current, refs.clientSecretRef!.current);
-        } else {
-            const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-            if (provider === "b2") updateGenericRemote?.(remoteName, "b2", { account: refs.b2IdRef!.current, key: refs.b2KeyRef!.current });
-            else if (provider === "sftp") updateGenericRemote?.(remoteName, "sftp", { host: refs.urlRef!.current, user: refs.userRef!.current, pass: refs.passRef!.current });
-            else if (provider === "pcloud") updateGenericRemote?.(remoteName, "pcloud", { user: refs.userRef!.current, pass: refs.passRef!.current });
-            else if (provider === "mega") updateGenericRemote?.(remoteName, "mega", { user: refs.userRef!.current, pass: refs.passRef!.current });
-            else if (provider === "r2") updateGenericRemote?.(remoteName, "s3", { provider: "Cloudflare", access_key_id: refs.userRef!.current, secret_access_key: refs.passRef!.current, endpoint: refs.urlRef!.current });
+        if (dispatchDirectAuth && provider) {
+            dispatchDirectAuth(provider);
         }
     };
 

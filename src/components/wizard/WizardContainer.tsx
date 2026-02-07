@@ -391,6 +391,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         config, updateConfig, next, back, onComplete, onCancel, onQuit: _onQuit, getCurrentStepNumber,
         colors, focusArea, onFocusChange: _onFocusChange, selectedIndex, setSelectedIndex, confirmSelection,
         getOptions, isAuthLoading, authStatus, setAuthStatus, handleAuth, handleGdriveAuth, startGenericAuth,
+        dispatchDirectAuth,
         wizardInputs, updateInput, refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
         isShortcutMissing, copyparty_config_index, set_copyparty_config_index, direct_entry_index, set_direct_entry_index,
         wizardContext, pendingSourceProvider: pendingSourceProviderRef.current, pendingBackupProvider: pendingBackupProviderRef.current,
