@@ -57,7 +57,23 @@ gh pr create --title "feat: your description" --body "Detailed description of ch
 ```
 
 ### 6. CodeRabbit Review
-Wait for **CodeRabbit** to provide feedback. Address all critical items and ensure the review is approved/passed before proceeding to merge.
+Wait for **CodeRabbit** to provide feedback. The agent checks for comments from `coderabbitai`.
+// turbo
+```bash
+echo "Waiting for CodeRabbit review (polling for up to 5 minutes)..."
+PR_NUMBER=$(gh pr view --json number -q .number)
+for i in {1..10}; do
+  COMMENTS=$(gh pr view $PR_NUMBER --json comments -q '.comments | map(select(.author.login == "coderabbitai" or .author.login == "coderabbitai[bot]")) | length')
+  if [ "$COMMENTS" -gt "0" ]; then
+    echo "CodeRabbit review received!"
+    gh pr view $PR_NUMBER --comments
+    break
+  fi
+  echo "Attempt $i/10: Review not yet found. Waiting 30s..."
+  sleep 30
+done
+```
+**ACTION REQUIRED**: Read the comments output above. Address all critical items and ensure the review is approved/passed before proceeding to merge.
 
 ### 7. Finalizing (On Main after Merge)
 Once the PR is merged, run this to finalize the version bump:

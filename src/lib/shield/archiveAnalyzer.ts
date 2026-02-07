@@ -33,7 +33,7 @@ export async function analyzeArchiveContent(archivePath: string): Promise<Archiv
         if (!engine) return { hasValuableFiles: false, hasBloatOnly: false, listing: "" };
 
         const cmd = engine.type === "7z" ? [engine.bin, "l", archivePath, "-r"] : [engine.bin, "v", archivePath];
-        const res = spawnSync(cmd);
+        const res = spawnSync(cmd, { timeout: 30_000 });
         listing = res.stdout.toString();
     } catch (err) {
         Logger.error("SHIELD", `Failed to list archive for analysis: ${archivePath}`, err as Error);
@@ -87,12 +87,6 @@ export function shouldDownloadInLeanMode(filename: string, archiveListing?: stri
         }
     }
 
-    // Default: If ambiguous, we default to skipping in strict lean mode? 
-    // OR we default to keeping to avoid missing things?
-    // Plan says: "Download only boardviews, schematics... excluding bloat"
-    // Let's be conservative: if it's not explicitly valuable and not explicitly bloat, we might keep it to be safe, 
-    // BUT typically "Lean" means "Strict".
-    // However, without content analysis (just filename), excluding unknown might be too aggressive.
-    // Let's return TRUE for unknown files to avoid data loss, unless they match exclude patterns.
+    // Default: keep ambiguous files to avoid data loss when content analysis is unavailable.
     return true;
 }

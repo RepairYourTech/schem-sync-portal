@@ -184,7 +184,8 @@ export async function runPullPhase(
                 return isPriority;
             });
 
-            standardItems = candidates.filter(f => !riskyItems.includes(f));
+            const riskySet = new Set(riskyItems);
+            standardItems = candidates.filter(f => !riskySet.has(f));
 
             manifestStats = {
                 remoteFileCount: manifestData.remoteFiles.length,
