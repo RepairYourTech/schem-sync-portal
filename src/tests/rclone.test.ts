@@ -34,6 +34,7 @@ import { Logger } from "../lib/logger";
 
 describe("Rclone Config Sanitization", () => {
     afterAll(() => {
+        delete process.env.RCLONE_CONFIG_PATH;
         mockSpawnSync.mockRestore();
         mockSpawn.mockRestore();
         mockWhich.mockRestore();
@@ -44,6 +45,7 @@ describe("Rclone Config Sanitization", () => {
     });
 
     beforeEach(() => {
+        process.env.RCLONE_CONFIG_PATH = "/home/birdman/schem-sync-portal/src/tests/rclone.test.conf";
         mockSpawnSync.mockClear();
         mockSpawn.mockClear();
         mockWhich.mockClear();
