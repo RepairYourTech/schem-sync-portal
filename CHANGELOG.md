@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+### Minor Changes
+
+- f6f27c6: feat: implement GitHub API-based update notification system and UI integration
+
 ## 1.0.5
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "schem-sync-portal",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "license": "Custom (BirdMan Attribution License)",
   "module": "src/index.tsx",
   "type": "module",
