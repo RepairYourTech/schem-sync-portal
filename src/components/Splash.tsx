@@ -68,6 +68,7 @@ export function Splash({ updateInfo }: { updateInfo?: UpdateInfo | null }) {
                             <text fg="#00ffff" wrapMode="none" overflow="hidden">
                                 {String(logo.join("\n"))}
                             </text>
+                            <UpdateNotice available={updateInfo?.available} />
                         </box>
                     </box>
                 ) : showSchem ? (
@@ -75,6 +76,7 @@ export function Splash({ updateInfo }: { updateInfo?: UpdateInfo | null }) {
                         <text fg="#00ffff" wrapMode="none" overflow="hidden">
                             {String(schematic.join("\n"))}
                         </text>
+                        <UpdateNotice available={updateInfo?.available} />
                     </box>
                 ) : (
                     <box padding={2}>
