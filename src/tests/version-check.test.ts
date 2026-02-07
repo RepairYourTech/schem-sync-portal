@@ -30,31 +30,34 @@ describe("Version Checker Logic", () => {
     });
 
     test("checkForUpdates should handle GitHub API response", async () => {
-        // Mock fetch
         const originalFetch = global.fetch;
-        global.fetch = mock(() => Promise.resolve(new Response(JSON.stringify({
-            tag_name: "v9.9.9",
-            html_url: "https://github.com/RepairYourTech/schem-sync-portal/releases/tag/v9.9.9",
-            published_at: "2026-02-06T12:00:00Z",
-            body: "Great updates"
-        }), { status: 200 }))) as any;
+        try {
+            global.fetch = mock(() => Promise.resolve(new Response(JSON.stringify({
+                tag_name: "v9.9.9",
+                html_url: "https://github.com/RepairYourTech/schem-sync-portal/releases/tag/v9.9.9",
+                published_at: "2026-02-06T12:00:00Z",
+                body: "Great updates"
+            }), { status: 200 }))) as any;
 
-        const info = await checkForUpdates(true);
-        expect(info).not.toBeNull();
-        expect(info?.available).toBe(true);
-        expect(info?.latestVersion).toBe("v9.9.9");
-
-        global.fetch = originalFetch;
+            const info = await checkForUpdates(true);
+            expect(info).not.toBeNull();
+            expect(info?.available).toBe(true);
+            expect(info?.latestVersion).toBe("v9.9.9");
+        } finally {
+            global.fetch = originalFetch;
+        }
     });
 
     test("checkForUpdates should handle rate limiting", async () => {
         const originalFetch = global.fetch;
-        global.fetch = mock(() => Promise.resolve(new Response(null, { status: 403 }))) as any;
+        try {
+            global.fetch = mock(() => Promise.resolve(new Response(null, { status: 403 }))) as any;
 
-        const info = await checkForUpdates(true);
-        expect(info).toBeNull();
-
-        global.fetch = originalFetch;
+            const info = await checkForUpdates(true);
+            expect(info).toBeNull();
+        } finally {
+            global.fetch = originalFetch;
+        }
     });
 
     test("checkForUpdates should use cache", async () => {
