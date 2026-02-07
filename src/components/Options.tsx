@@ -2,16 +2,13 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useKeyboard } from "@opentui/react";
 import { useTheme } from "../lib/theme";
-import pkg from "../../package.json";
-import { performUpdate, type UpdateStatus } from "../lib/updater";
+import { type UpdateInfo } from "../lib/versionChecker";
+import { AboutView } from "./AboutView";
 import { Hotkey } from "./Hotkey";
 import { type PortalConfig } from "../lib/config";
-import { TextAttributes } from "@opentui/core";
-
 import { Logger } from "../lib/logger";
 import { Clipboard } from "../lib/clipboard";
-import { UpdateNotice } from "./UpdateNotice";
-import { type UpdateInfo } from "../lib/versionChecker";
+import { performUpdate, type UpdateStatus } from "../lib/updater";
 
 interface OptionsProps {
     onDoctor: () => void;
@@ -204,15 +201,15 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                         const selectedOpt = options[selectedIndex];
                         if (selectedOpt) selectedOpt.action();
                     }
-                } else if (e.name === "escape" || e.name === "backspace") {
+                } else if (e.name === "b") {
                     if (subView !== "menu") setSubView("menu");
                     else onFocusChange("footer");
                 }
             } else if (subView === "logs" && focusArea === "body") {
                 if (e.name === "left") {
-                    setLogSelectedIndex(prev => (prev > 0 ? prev - 1 : 2));
+                    setLogSelectedIndex(prev => (prev > 0 ? prev - 1 : 3));
                 } else if (e.name === "right") {
-                    setLogSelectedIndex(prev => (prev < 2 ? prev + 1 : 0));
+                    setLogSelectedIndex(prev => (prev < 3 ? prev + 1 : 0));
                 } else if (e.name === "r") {
                     setLogSelectedIndex(0);
                     handleRefreshLogs();
@@ -226,11 +223,12 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                     if (logSelectedIndex === 0) handleRefreshLogs();
                     else if (logSelectedIndex === 1) handleCopyLogs();
                     else if (logSelectedIndex === 2) handleClearLogs();
-                } else if (e.name === "escape" || e.name === "backspace") {
+                } else if (e.name === "b") {
+                    setLogSelectedIndex(3);
                     setSubView("debug");
                 }
             } else if (subView === "about" && focusArea === "body") {
-                if (e.name === "escape" || e.name === "backspace" || (e.name === "b" && !isUpdating)) {
+                if (e.name === "b" && !isUpdating) {
                     setSubView("menu");
                     setUpdateStatus(null);
                 }
@@ -253,127 +251,96 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                         logs.map((L, i) => <text key={i} fg={L.includes("ERROR") ? colors.danger : colors.fg}>{String(L)}</text>)}
                 </box>
 
-                <box border borderStyle="single" borderColor={colors.border} padding={1} marginTop="auto" flexDirection="row" gap={2}>
-                    <box
-                        onMouseOver={() => {
-                            onFocusChange("body");
-                            setLogSelectedIndex(0);
-                        }}
-                        onMouseDown={handleRefreshLogs}
-                        border={!!(logSelectedIndex === 0 && focusArea === "body")}
-                        borderStyle="single"
-                        borderColor={(logSelectedIndex === 0 && focusArea === "body") ? colors.success : "transparent"}
-                        paddingLeft={1}
-                        paddingRight={1}
-                    >
-                        <Hotkey keyLabel="r" label="Refresh" isFocused={!!(logSelectedIndex === 0 && focusArea === "body")} />
-                    </box>
-                    <box
-                        onMouseOver={() => {
-                            onFocusChange("body");
-                            setLogSelectedIndex(1);
-                        }}
-                        onMouseDown={handleCopyLogs}
-                        border={!!(logSelectedIndex === 1 && focusArea === "body")}
-                        borderStyle="single"
-                        borderColor={(logSelectedIndex === 1 && focusArea === "body") ? colors.success : "transparent"}
-                        paddingLeft={1}
-                        paddingRight={1}
-                    >
-                        <Hotkey
-                            keyLabel="y"
-                            label="Copy Logs"
-                            isFocused={!!(logSelectedIndex === 1 && focusArea === "body")}
-                        />
-                    </box>
-                    <box
-                        onMouseOver={() => {
-                            onFocusChange("body");
-                            setLogSelectedIndex(2);
-                        }}
-                        onMouseDown={handleClearLogs}
-                        border={!!(logSelectedIndex === 2 && focusArea === "body")}
-                        borderStyle="single"
-                        borderColor={(logSelectedIndex === 2 && focusArea === "body") ? colors.success : "transparent"}
-                        paddingLeft={1}
-                        paddingRight={1}
-                    >
-                        <Hotkey keyLabel="c" label="Clear Logs" isFocused={!!(logSelectedIndex === 2 && focusArea === "body")} />
-                    </box>
-                    {copyStatus ? (
-                        <box marginLeft={2} alignItems="center">
-                            <text fg={colors.primary}>{String(copyStatus)}</text>
+                <box flexDirection="column" gap={1}>
+                    <box border borderStyle="single" borderColor={colors.border} padding={1} flexDirection="row" gap={2}>
+                        <box
+                            onMouseOver={() => {
+                                onFocusChange("body");
+                                setLogSelectedIndex(0);
+                            }}
+                            onMouseDown={handleRefreshLogs}
+                            border={!!(logSelectedIndex === 0 && focusArea === "body")}
+                            borderStyle="single"
+                            borderColor={(logSelectedIndex === 0 && focusArea === "body") ? colors.success : "transparent"}
+                            paddingLeft={1}
+                            paddingRight={1}
+                        >
+                            <Hotkey keyLabel="r" label="Refresh" isFocused={!!(logSelectedIndex === 0 && focusArea === "body")} />
                         </box>
-                    ) : null}
+                        <box
+                            onMouseOver={() => {
+                                onFocusChange("body");
+                                setLogSelectedIndex(1);
+                            }}
+                            onMouseDown={handleCopyLogs}
+                            border={!!(logSelectedIndex === 1 && focusArea === "body")}
+                            borderStyle="single"
+                            borderColor={(logSelectedIndex === 1 && focusArea === "body") ? colors.success : "transparent"}
+                            paddingLeft={1}
+                            paddingRight={1}
+                        >
+                            <Hotkey
+                                keyLabel="y"
+                                label="Copy Logs"
+                                isFocused={!!(logSelectedIndex === 1 && focusArea === "body")}
+                            />
+                        </box>
+                        <box
+                            onMouseOver={() => {
+                                onFocusChange("body");
+                                setLogSelectedIndex(2);
+                            }}
+                            onMouseDown={handleClearLogs}
+                            border={!!(logSelectedIndex === 2 && focusArea === "body")}
+                            borderStyle="single"
+                            borderColor={(logSelectedIndex === 2 && focusArea === "body") ? colors.success : "transparent"}
+                            paddingLeft={1}
+                            paddingRight={1}
+                        >
+                            <Hotkey keyLabel="c" label="Clear Logs" isFocused={!!(logSelectedIndex === 2 && focusArea === "body")} />
+                        </box>
+                        {copyStatus ? (
+                            <box marginLeft={2} alignItems="center">
+                                <text fg={colors.primary}>{String(copyStatus)}</text>
+                            </box>
+                        ) : null}
+                    </box>
+
+                    <box
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setLogSelectedIndex(3);
+                        }}
+                        onMouseDown={() => setSubView("debug")}
+                        border={!!(logSelectedIndex === 3 && focusArea === "body")}
+                        borderStyle="single"
+                        borderColor={(logSelectedIndex === 3 && focusArea === "body") ? colors.success : "transparent"}
+                        paddingLeft={1}
+                        paddingRight={1}
+                        width={20}
+                    >
+                        <Hotkey keyLabel="b" label="Back" isFocused={!!(logSelectedIndex === 3 && focusArea === "body")} />
+                    </box>
                 </box>
             </box>
         );
     }
 
     if (subView === "about") {
-        const isUpdateActionFocused = focusArea === "body" && !isUpdating;
         return (
-            <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ ABOUT & UPDATES ]" gap={1}>
-                <box flexDirection="column" gap={0} marginBottom={1}>
-                    <text fg={colors.fg} attributes={TextAttributes.BOLD}>
-                        Schematic Sync Portal v{String(pkg.version)}
-                        <UpdateNotice available={updateCheck.updateInfo?.available} />
-                    </text>
-                    <text fg={colors.dim}>Universal Sync Client for CopyParty</text>
-                    {!!updateCheck.updateInfo?.available && (
-                        <text fg={colors.success}>Latest: {updateCheck.updateInfo.latestVersion} ({new Date(updateCheck.updateInfo.publishedAt).toLocaleDateString()})</text>
-                    )}
-                </box>
-
-                <box flexDirection="column" gap={0}>
-                    <text fg={colors.primary}>REPO:</text>
-                    <text fg={colors.fg}>https://github.com/RepairYourTech/schem-sync-portal</text>
-                </box>
-
-                <box flexDirection="column" gap={0} marginTop={1}>
-                    <text fg={colors.primary}>CHANGELOG:</text>
-                    <text fg={colors.fg}>https://github.com/RepairYourTech/schem-sync-portal/releases</text>
-                </box>
-
-                <box flexDirection="column" gap={0} marginTop={1}>
-                    <text fg={colors.primary}>CREDITS:</text>
-                    <text fg={colors.fg}>• BirdMan & RepairYourTech Contributors</text>
-                    <text fg={colors.fg}>• Slime (IYKYK)</text>
-                    <text fg={colors.fg}>• Paul Daniels (FlexBV Developer)</text>
-                </box>
-
-                <box border borderStyle="single" borderColor={colors.border} padding={1} marginTop={1} flexDirection="column" gap={1}>
-                    <text fg={colors.fg}>Update application code (Non-Destructive):</text>
-                    <box flexDirection="row" gap={2}>
-                        <box
-                            onMouseOver={() => onFocusChange("body")}
-                            onMouseDown={() => {
-                                if (isUpdating || updateCheck.isChecking) return;
-                                if (updateCheck.updateInfo?.available) handleUpdate();
-                                else updateCheck.refresh();
-                            }}
-                            border={isUpdateActionFocused}
-                            borderStyle="single"
-                            borderColor={isUpdateActionFocused ? colors.success : "transparent"}
-                            paddingLeft={1}
-                            paddingRight={1}
-                        >
-                            <Hotkey
-                                keyLabel="u"
-                                label={isUpdating ? "UPDATING..." : (updateCheck.isChecking ? "CHECKING..." : (updateCheck.updateInfo?.available ? "Install Update" : "Check for Updates"))}
-                                isFocused={isUpdateActionFocused}
-                            />
-                        </box>
-                    </box>
-                    {updateStatus ? (
-                        <box marginTop={0}>
-                            <text fg={updateStatus.success ? colors.success : colors.danger}>
-                                {String(updateStatus.success ? "✅ " : "❌ ")}{String(updateStatus.message)}
-                            </text>
-                        </box>
-                    ) : null}
-                </box>
-            </box>
+            <AboutView
+                colors={colors}
+                updateCheck={updateCheck}
+                isUpdating={isUpdating}
+                updateStatus={updateStatus}
+                selectedIndex={selectedIndex}
+                focusArea={focusArea}
+                onFocusChange={onFocusChange}
+                setSelectedIndex={setSelectedIndex}
+                handleUpdate={handleUpdate}
+                setSubView={setSubView}
+                setUpdateStatus={setUpdateStatus}
+            />
         );
     }
 
@@ -392,7 +359,8 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                                 setSelectedIndex(i);
                             }}
                             onMouseDown={() => opt.action()}
-                            paddingLeft={2}
+                            paddingLeft={1}
+                            paddingRight={1}
                             border={isSelected}
                             borderStyle="single"
                             borderColor={isSelected ? colors.success : "transparent"}
@@ -426,17 +394,17 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                             if (subView === "menu") onBack();
                             else setSubView("menu");
                         }}
-                        paddingLeft={2}
-                        paddingRight={2}
+                        paddingLeft={1}
+                        paddingRight={1}
                         border={focusArea === "body" && selectedIndex === options.length}
                         borderStyle="single"
                         borderColor={(focusArea === "body" && selectedIndex === options.length) ? colors.success : "transparent"}
-                        height={3}
+                        height={1}
                         alignItems="center"
                     >
                         <Hotkey
-                            keyLabel={subView === "menu" ? "b" : "esc"}
-                            label={subView === "menu" ? "BACK TO DASHBOARD" : "RETURN TO MENU"}
+                            keyLabel="b"
+                            label="Back"
                             isFocused={focusArea === "body" && selectedIndex === options.length}
                         />
                     </box>
@@ -445,14 +413,14 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                         <box
                             onMouseOver={() => onFocusChange("body")}
                             onMouseDown={onBack}
-                            paddingLeft={2}
-                            paddingRight={2}
+                            paddingLeft={1}
+                            paddingRight={1}
                             border={false}
-                            height={3}
+                            height={1}
                             alignItems="center"
                             marginLeft="auto"
                         >
-                            <Hotkey keyLabel="v" label="SAVE & EXIT" isFocused={false} />
+                            <Hotkey keyLabel="v" label="Save & Exit" isFocused={false} />
                         </box>
                     )}
                 </box>

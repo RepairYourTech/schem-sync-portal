@@ -26,13 +26,10 @@ export const LocalDirStep = ({
                 border
                 borderStyle="double"
                 borderColor={focusArea === "body" ? colors.success : colors.dim}
-                paddingLeft={2}
-                paddingRight={2}
+                paddingLeft={1}
+                paddingRight={1}
                 alignItems="center"
             >
-                <text fg={focusArea === "body" ? colors.success : colors.dim}>
-                    {String(focusArea === "body" ? "▶ " : "  ")}
-                </text>
                 <Hotkey keyLabel="ENTER" label="CONFIRM PATH" isFocused={focusArea === "body"} />
             </box>
         </box>

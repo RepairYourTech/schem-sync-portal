@@ -45,7 +45,8 @@ export const SourceChoiceStep = ({
                                 setSelectedIndex(i);
                             }}
                             onMouseDown={() => confirmSelection(opt)}
-                            paddingLeft={2}
+                            paddingLeft={1}
+                            paddingRight={1}
                             border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
@@ -53,7 +54,6 @@ export const SourceChoiceStep = ({
                             alignItems="center"
                             gap={1}
                         >
-                            <text fg={isFocused ? colors.primary : colors.dim}>{String(isFocused ? "▶ " : "  ")}</text>
                             <ProviderIcon provider={opt.value as string} version={fontVersion} color={colors.primary} />
                             <Hotkey
                                 keyLabel={(i + 1).toString()}

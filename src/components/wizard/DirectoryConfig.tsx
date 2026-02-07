@@ -14,11 +14,15 @@ export const DirectoryConfig = ({
     getOptions,
     updateConfig,
     selectedIndex,
-    setSelectedIndex
+    setSelectedIndex,
+    back
 }: WizardStepProps) => {
-    const options = getOptions();
     const isInputFocused = focusArea === "body" && selectedIndex === 0;
     const isConfirmFocused = focusArea === "body" && selectedIndex === 1;
+
+    const allOptions = getOptions();
+    const backIdx = allOptions.findIndex(o => o.type === "back");
+    const isBackFocused = selectedIndex === backIdx && focusArea === "body";
 
     return (
         <box flexDirection="column" gap={1}>
@@ -41,7 +45,7 @@ export const DirectoryConfig = ({
 
             <box
                 onMouseOver={() => { onFocusChange("body"); setSelectedIndex(1); }}
-                onMouseDown={() => confirmSelection(options[1] || options[0]!)}
+                onMouseDown={() => confirmSelection(allOptions[1] || allOptions[0]!)}
                 border
                 borderStyle="double"
                 borderColor={isConfirmFocused ? colors.success : colors.dim}
@@ -54,6 +58,26 @@ export const DirectoryConfig = ({
                 </text>
                 <Hotkey keyLabel="ENTER" label="CONFIRM PATH" isFocused={isConfirmFocused} />
             </box>
+
+            {/* BACK BUTTON */}
+            {backIdx !== -1 && (
+                <box
+                    marginTop={1}
+                    onMouseOver={() => { onFocusChange("body"); setSelectedIndex(backIdx); }}
+                    onMouseDown={() => back()}
+                    border
+                    borderStyle="single"
+                    borderColor={isBackFocused ? colors.success : "transparent"}
+                    paddingLeft={2}
+                    paddingRight={2}
+                    alignItems="center"
+                >
+                    <text fg={isBackFocused ? colors.primary : colors.dim}>
+                        {String(isBackFocused ? "▶ " : "  ")}
+                    </text>
+                    <Hotkey keyLabel="b" label="Back" isFocused={isBackFocused} />
+                </box>
+            )}
         </box>
     );
 };

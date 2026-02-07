@@ -23,6 +23,7 @@ export function useAppState() {
     const [footerFocus, setFooterFocus] = useState<number | null>(null);
     const [showFontInstallPrompt, setShowFontInstallPrompt] = useState(false);
     const [fontInstallerReturnView, setFontInstallerReturnView] = useState<ViewName>("doctor");
+    const [wizardReturnView, setWizardReturnView] = useState<ViewName>("dashboard");
     const [glyphHighlight, setGlyphHighlight] = useState(false);
     const updateCheck = useUpdateCheck();
 
@@ -94,6 +95,7 @@ export function useAppState() {
         tabDirection,
         showFontInstallPrompt, setShowFontInstallPrompt,
         fontInstallerReturnView, setFontInstallerReturnView,
+        wizardReturnView, setWizardReturnView,
         glyphHighlight, setGlyphHighlight,
         updateCheck,
         isComplete: isConfigComplete(config),

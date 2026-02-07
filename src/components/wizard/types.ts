@@ -1,4 +1,5 @@
 import type { PortalConfig, PortalProvider } from "../../lib/config.ts";
+import type { ViewName } from "../../hooks/useAppState";
 
 export interface WizardOption {
     name?: string;
@@ -27,6 +28,7 @@ export interface WizardProps {
     onFocusChange: (area: "body" | "footer") => void;
     tabTransition?: "forward" | "backward" | null;
     backSignal: number;
+    returnView?: ViewName;
 }
 
 export type Step =

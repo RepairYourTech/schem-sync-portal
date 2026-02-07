@@ -13,7 +13,8 @@ export const SecurityStep = ({
     getCurrentStepNumber,
     getOptions,
     confirmSelection,
-    config
+    config,
+    back
 }: WizardStepProps) => {
     const options = [
         { name: "RELOCATE & ISOLATE", description: "Move risks to local-only _risk_tools folder", value: "isolate", key: "1" },
@@ -25,6 +26,10 @@ export const SecurityStep = ({
     const filteredOptions = config.backup_provider === "gdrive"
         ? options.filter(o => o.value !== false)
         : options;
+
+    const allOptions = getOptions();
+    const backIdx = allOptions.findIndex(o => o.type === "back");
+    const isBackFocused = selectedIndex === backIdx && focusArea === "body";
 
     return (
         <box flexDirection="column" gap={1}>
@@ -45,13 +50,13 @@ export const SecurityStep = ({
                                 onFocusChange("body");
                                 setSelectedIndex(i);
                             }}
-                            onMouseDown={() => confirmSelection(getOptions()[i]!)}
-                            paddingLeft={2}
+                            onMouseDown={() => confirmSelection(allOptions[i]!)}
+                            paddingLeft={1}
+                            paddingRight={1}
                             border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
                         >
-                            <text fg={isFocused ? colors.primary : colors.dim}>{String(isFocused ? "▶ " : "  ")}</text>
                             <Hotkey
                                 keyLabel={opt.key}
                                 label={opt.name}
@@ -61,6 +66,31 @@ export const SecurityStep = ({
                         </box>
                     );
                 })}
+
+                {/* BACK BUTTON */}
+                {backIdx !== -1 && (
+                    <box
+                        marginTop={1}
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setSelectedIndex(backIdx);
+                        }}
+                        onMouseDown={() => back()}
+                        paddingLeft={1}
+                        paddingRight={1}
+                        border
+                        borderStyle="single"
+                        borderColor={isBackFocused ? colors.success : "transparent"}
+                        flexDirection="row"
+                        alignItems="center"
+                    >
+                        <Hotkey
+                            keyLabel="b"
+                            label="Back"
+                            isFocused={isBackFocused}
+                        />
+                    </box>
+                )}
             </box>
         </box>
     );

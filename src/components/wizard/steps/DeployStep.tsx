@@ -12,12 +12,18 @@ export const DeployStep = ({
     setSelectedIndex,
     config,
     onComplete,
-    onCancel
+    onCancel,
+    back,
+    getOptions
 }: WizardStepProps) => {
     const options = [
         { name: "SAVE & EXIT", description: "Apply all changes", value: true, key: "1" },
         { name: "DISCARD", description: "Exit without saving", value: false, key: "2" }
     ];
+
+    const allOptions = getOptions();
+    const backIdx = allOptions.findIndex(o => o.type === "back");
+    const isBackFocused = selectedIndex === backIdx && focusArea === "body";
 
     return (
         <box flexDirection="column" gap={1} height={7}>
@@ -40,9 +46,12 @@ export const DeployStep = ({
                                 else onCancel?.();
                             }}
                             flexDirection="row"
-                            paddingLeft={isFocused ? 1 : 0}
+                            paddingLeft={1}
+                            paddingRight={1}
+                            border
+                            borderStyle="single"
+                            borderColor={isFocused ? colors.success : "transparent"}
                         >
-                            <text fg={isFocused ? colors.primary : colors.dim}>{String(isFocused ? "▶ " : "  ")}</text>
                             <Hotkey
                                 keyLabel={opt.key}
                                 label={opt.name}
@@ -52,6 +61,31 @@ export const DeployStep = ({
                         </box>
                     );
                 })}
+
+                {/* BACK BUTTON */}
+                {backIdx !== -1 && (
+                    <box
+                        marginTop={1}
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setSelectedIndex(backIdx);
+                        }}
+                        onMouseDown={() => back()}
+                        paddingLeft={1}
+                        paddingRight={1}
+                        border
+                        borderStyle="single"
+                        borderColor={isBackFocused ? colors.success : "transparent"}
+                        flexDirection="row"
+                        alignItems="center"
+                    >
+                        <Hotkey
+                            keyLabel="b"
+                            label="Back"
+                            isFocused={isBackFocused}
+                        />
+                    </box>
+                )}
             </box>
         </box>
     );

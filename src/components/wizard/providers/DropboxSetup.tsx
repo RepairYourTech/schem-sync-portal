@@ -16,9 +16,13 @@ export const DropboxSetup = ({
     confirmSelection,
     wizardContext,
     step,
-    next
+    next,
+    back
 }: WizardStepProps) => {
     const stepNumber = getCurrentStepNumber();
+    const allOptions = getOptions();
+    const backIdx = allOptions.findIndex(o => o.type === "back");
+    const isBackFocused = selectedIndex === backIdx && focusArea === "body";
 
     // 1. INTRO
     if (step === "dropbox_intro") {
@@ -46,23 +50,47 @@ export const DropboxSetup = ({
                                     onFocusChange("body");
                                     setSelectedIndex(i);
                                 }}
-                                onMouseDown={() => confirmSelection(getOptions()[i]!)}
-                                paddingLeft={2}
+                                onMouseDown={() => confirmSelection(allOptions[i]!)}
+                                paddingLeft={1}
+                                paddingRight={1}
                                 border
                                 borderStyle="single"
                                 borderColor={isFocused ? colors.success : "transparent"}
                             >
-                                <text fg={isFocused ? colors.primary : colors.dim}>{String(isFocused ? "▶ " : "  ")}</text>
                                 <Hotkey
                                     keyLabel={opt.key}
                                     label={opt.name}
-                                    color={isFocused ? colors.success : colors.primary}
                                     isFocused={isFocused}
                                 />
                                 <text fg={isFocused ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                             </box>
                         );
                     })}
+
+                    {/* BACK BUTTON */}
+                    {backIdx !== -1 && (
+                        <box
+                            marginTop={1}
+                            onMouseOver={() => {
+                                onFocusChange("body");
+                                setSelectedIndex(backIdx);
+                            }}
+                            onMouseDown={() => back()}
+                            paddingLeft={1}
+                            paddingRight={1}
+                            border
+                            borderStyle="single"
+                            borderColor={isBackFocused ? colors.success : "transparent"}
+                            flexDirection="row"
+                            alignItems="center"
+                        >
+                            <Hotkey
+                                keyLabel="b"
+                                label="Back"
+                                isFocused={isBackFocused}
+                            />
+                        </box>
+                    )}
                 </box>
             </CloudProviderBase>
         );
@@ -108,14 +136,27 @@ export const DropboxSetup = ({
                     border
                     borderStyle="double"
                     borderColor={focusArea === "body" ? colors.success : colors.dim}
-                    paddingLeft={2}
-                    paddingRight={2}
-                    alignItems="center"
+                    paddingLeft={1}
+                    paddingRight={1}
                 >
-                    <text fg={focusArea === "body" ? colors.success : colors.dim}>
-                        {String(focusArea === "body" ? "▶ " : "  ")}
-                    </text>
                     <Hotkey keyLabel="1" label={guide.buttonLabel} isFocused={focusArea === "body"} />
+                </box>
+
+                {/* BACK BUTTON (Hotkey Only) */}
+                <box
+                    marginTop={1}
+                    onMouseOver={() => {
+                        onFocusChange("body");
+                        setSelectedIndex(1);
+                    }}
+                    onMouseDown={() => back()}
+                    paddingLeft={1}
+                    paddingRight={1}
+                    border
+                    borderStyle="single"
+                    borderColor={selectedIndex === 1 && focusArea === "body" ? colors.success : "transparent"}
+                >
+                    <Hotkey keyLabel="b" label="Back" isFocused={selectedIndex === 1 && focusArea === "body"} />
                 </box>
             </box>
         );

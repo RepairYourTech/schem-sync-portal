@@ -20,7 +20,8 @@ export const CopypartyConfigStep = ({
     setSelectedIndex,
     handleAuth,
     authStatus,
-    isAuthLoading
+    isAuthLoading,
+    back
 }: WizardStepProps) => {
     return (
         <box flexDirection="column" gap={1}>
@@ -115,14 +116,26 @@ export const CopypartyConfigStep = ({
                 border
                 borderStyle="double"
                 borderColor={copyparty_config_index === 4 ? colors.success : colors.dim}
-                paddingLeft={2}
-                paddingRight={2}
+                paddingLeft={1}
+                paddingRight={1}
                 alignItems="center"
             >
-                <text fg={copyparty_config_index === 4 ? colors.success : colors.dim}>
-                    {String(copyparty_config_index === 4 ? "▶ " : "  ")}
-                </text>
                 <Hotkey keyLabel="ENTER" label={isAuthLoading ? "CONNECTING..." : "TEST & CONNECT"} isFocused={copyparty_config_index === 4} />
+            </box>
+
+            {/* BACK BUTTON */}
+            <box
+                marginTop={1}
+                onMouseOver={() => { onFocusChange("body"); set_copyparty_config_index(5); }}
+                onMouseDown={() => back()}
+                border
+                borderStyle="single"
+                borderColor={copyparty_config_index === 5 ? colors.success : "transparent"}
+                paddingLeft={1}
+                paddingRight={1}
+                alignItems="center"
+            >
+                <Hotkey keyLabel="b" label="Back" isFocused={copyparty_config_index === 5} />
             </box>
 
             {!!authStatus && (

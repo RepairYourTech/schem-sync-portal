@@ -61,8 +61,26 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
                     </box>
                     <text fg={colors.dim} marginTop={1}>Scan depth: UNLIMITED (All nested subfolders)</text>
                     <box marginTop={1} flexDirection="row" gap={2}>
-                        <Hotkey keyLabel="enter" label="START SCAN" isFocused />
-                        <Hotkey keyLabel="escape" label="CANCEL" />
+                        <box
+                            onMouseDown={() => { if (targetDir) setIsStarted(true); }}
+                            border
+                            borderStyle="single"
+                            borderColor={colors.success}
+                            paddingLeft={1}
+                            paddingRight={1}
+                        >
+                            <Hotkey keyLabel="enter" label="START SCAN" isFocused />
+                        </box>
+                        <box
+                            onMouseDown={onCancel}
+                            border
+                            borderStyle="single"
+                            borderColor={colors.danger}
+                            paddingLeft={1}
+                            paddingRight={1}
+                        >
+                            <Hotkey keyLabel="escape" label="CANCEL" />
+                        </box>
                     </box>
                 </box>
             ) : (
@@ -89,7 +107,14 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
                     {(progress?.status === "done" || progress?.status === "error") ? (
                         <box marginTop={1} paddingLeft={1} paddingRight={1} height={5} border borderStyle="single" borderColor={colors.primary} flexDirection="column" justifyContent="center" alignItems="center">
                             <text fg={colors.fg} attributes={TextAttributes.BOLD}>{progress.status === "done" ? "🛡️ AUDIT COMPLETE" : "💥 ERROR OCCURRED"}</text>
-                            <box marginTop={1}>
+                            <box marginTop={1}
+                                onMouseDown={onCancel}
+                                border
+                                borderStyle="single"
+                                borderColor={colors.primary}
+                                paddingLeft={1}
+                                paddingRight={1}
+                            >
                                 <Hotkey keyLabel="escape" label="Return to Options" isFocused />
                             </box>
                         </box>

@@ -9,7 +9,7 @@ export const WizardFooter = () => {
     return (
         <box marginTop={1} paddingTop={1} border borderStyle="single" borderColor={colors.border}>
             <text attributes={TextAttributes.DIM} fg={colors.dim}>
-                Use Arrow Keys to navigate, Enter to confirm. ESC to Exit.
+                Use Arrow Keys to navigate, Enter to confirm, [B]ack to return.
             </text>
         </box>
     );

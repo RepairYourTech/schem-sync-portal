@@ -37,16 +37,14 @@ export const EditMenuStep = ({
                                 setSelectedIndex(i);
                             }}
                             onMouseDown={() => confirmSelection({ type: "jump", value: opt.value })}
-                            paddingLeft={2}
+                            paddingLeft={1}
+                            paddingRight={1}
                             flexDirection="row"
                             alignItems="center"
                             border
                             borderStyle="single"
                             borderColor={isSelected ? colors.success : "transparent"}
                         >
-                            <box width={3}>
-                                <text fg={isSelected ? colors.primary : colors.dim}>{isSelected ? "▶ " : "  "}</text>
-                            </box>
                             <Hotkey
                                 keyLabel={opt.key}
                                 label={opt.name}
@@ -56,6 +54,24 @@ export const EditMenuStep = ({
                         </box>
                     );
                 })}
+            </box>
+            <box
+                marginTop={1}
+                onMouseOver={() => onFocusChange("body")}
+                onMouseDown={() => confirmSelection({ value: "back", type: "back" })}
+                paddingLeft={1}
+                paddingRight={1}
+                flexDirection="row"
+                alignItems="center"
+                border
+                borderStyle="single"
+                borderColor={selectedIndex === options.length && focusArea === "body" ? colors.success : "transparent"}
+            >
+                <Hotkey
+                    keyLabel="b"
+                    label="Back"
+                    isFocused={selectedIndex === options.length && focusArea === "body"}
+                />
             </box>
         </box>
     );

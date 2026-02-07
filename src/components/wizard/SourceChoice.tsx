@@ -16,16 +16,21 @@ export const SourceChoice = ({
     getCurrentStepNumber,
     getOptions,
     confirmSelection,
-    config
+    config,
+    back
 }: WizardStepProps) => {
     const fontVersion = config.nerd_font_version || 2;
+
+    const allOptions = getOptions();
+    const backIdx = allOptions.findIndex(o => o.type === "back");
+    const isBackFocused = selectedIndex === backIdx && focusArea === "body";
 
     return (
         <box flexDirection="column" gap={1}>
             <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {String(getCurrentStepNumber())}: Source Provider</text>
             <text fg={colors.fg}>🔗 Select your "Source of Truth":</text>
             <box flexDirection="column" gap={0} marginTop={1}>
-                {getOptions().map((opt, i) => {
+                {allOptions.filter(o => o.type !== "back").map((opt, i) => {
                     const meta = getProviderMetadata(opt.value as PortalProvider);
                     const isFocused = selectedIndex === i && focusArea === "body";
                     return (
@@ -54,6 +59,31 @@ export const SourceChoice = ({
                         </box>
                     );
                 })}
+
+                {/* BACK BUTTON */}
+                {backIdx !== -1 && (
+                    <box
+                        marginTop={1}
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setSelectedIndex(backIdx);
+                        }}
+                        onMouseDown={() => back()}
+                        paddingLeft={2}
+                        border
+                        borderStyle="single"
+                        borderColor={isBackFocused ? colors.success : "transparent"}
+                        flexDirection="row"
+                        alignItems="center"
+                    >
+                        <text fg={isBackFocused ? colors.primary : colors.dim}>{String(isBackFocused ? "▶ " : "  ")}</text>
+                        <Hotkey
+                            keyLabel="b"
+                            label="Back"
+                            isFocused={isBackFocused}
+                        />
+                    </box>
+                )}
             </box>
         </box>
     );

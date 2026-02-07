@@ -13,7 +13,8 @@ export const DownloadModeStep = ({
     getCurrentStepNumber,
     getOptions,
     confirmSelection,
-    config
+    config,
+    back
 }: WizardStepProps) => {
 
     // Helper to get description for each option
@@ -23,13 +24,17 @@ export const DownloadModeStep = ({
         return "";
     };
 
+    const allOptions = getOptions();
+    const backIdx = allOptions.findIndex(o => o.type === "back");
+    const isBackFocused = selectedIndex === backIdx && focusArea === "body";
+
     return (
         <box flexDirection="column" gap={1}>
             <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {String(getCurrentStepNumber())}: Download Strategy</text>
             <text fg={colors.fg}>📉 Select Optimization Mode:</text>
 
             <box flexDirection="column" gap={0} marginTop={1}>
-                {getOptions().map((opt, i) => {
+                {allOptions.filter(o => o.type !== "back").map((opt, i) => {
                     const isFocused = selectedIndex === i && focusArea === "body";
                     const desc = getDesc(opt.value as string);
 
@@ -41,7 +46,8 @@ export const DownloadModeStep = ({
                                 setSelectedIndex(i);
                             }}
                             onMouseDown={() => confirmSelection(opt)}
-                            paddingLeft={2}
+                            paddingLeft={1}
+                            paddingRight={1}
                             border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
@@ -50,7 +56,6 @@ export const DownloadModeStep = ({
                             gap={0}
                         >
                             <box flexDirection="row" alignItems="center" gap={1}>
-                                <text fg={isFocused ? colors.primary : colors.dim}>{String(isFocused ? "▶ " : "  ")}</text>
                                 <text fg={opt.value === "lean" ? colors.success : colors.warning}>
                                     {String(opt.value === "lean" ? "⚡ " : "📦 ")}
                                 </text>
@@ -71,6 +76,31 @@ export const DownloadModeStep = ({
                         </box>
                     );
                 })}
+
+                {/* BACK BUTTON */}
+                {backIdx !== -1 && (
+                    <box
+                        marginTop={1}
+                        onMouseOver={() => {
+                            onFocusChange("body");
+                            setSelectedIndex(backIdx);
+                        }}
+                        onMouseDown={() => back()}
+                        paddingLeft={1}
+                        paddingRight={1}
+                        border
+                        borderStyle="single"
+                        borderColor={isBackFocused ? colors.success : "transparent"}
+                        flexDirection="row"
+                        alignItems="center"
+                    >
+                        <Hotkey
+                            keyLabel="b"
+                            label="Back"
+                            isFocused={isBackFocused}
+                        />
+                    </box>
+                )}
             </box>
 
             <box marginTop={1} marginLeft={1}>
