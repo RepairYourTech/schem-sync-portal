@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.4
+
+### Patch Changes
+
+- 89a5aac: fix: remove plaintext credentials from config.json to prevent security leaks
+
 ## 1.0.3
 
 ### Patch Changes
