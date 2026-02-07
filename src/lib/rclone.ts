@@ -52,6 +52,8 @@ export function createRcloneRemote(name: string, type: string, options: Record<s
         const rcloneCmd = getRcloneCmd();
         const finalArgs = [...rcloneCmd.slice(1), ...args];
 
+        console.log("DEBUG_RCLONE_ARGS:", JSON.stringify(finalArgs));
+
         // Use Bun.spawnSync for consistency and performance
         const result = Bun.spawnSync([rcloneCmd[0] as string, ...finalArgs], {
             stdout: "pipe",

@@ -1,7 +1,5 @@
 import { expect, test, describe, beforeEach, afterAll, spyOn } from "bun:test";
 import * as fs from "fs";
-import { Logger } from "../lib/logger";
-
 // 1. Setup spies on Bun globals
 const mockSpawnSync = spyOn(Bun, "spawnSync").mockImplementation((..._args: unknown[]) => {
     // console.log("DEBUG: mockSpawnSync called with", _args[0]);
