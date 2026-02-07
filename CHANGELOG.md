@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.5
+
+### Patch Changes
+
+- cb89fea: fix(ui): resolve sync panel layout overflows and height budgeting for improved responsiveness on different terminal sizes.
+
 ## 1.0.4
 
 ### Patch Changes
