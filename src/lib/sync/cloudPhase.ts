@@ -1,7 +1,7 @@
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, rmSync } from "fs";
 import { Env } from "../env";
-import { executeRclone, executeRcloneSimple, RETRY_FLAGS, getIsSyncPaused, getCurrentSessionId, setSessionId } from "./utils";
+import { executeRclone, executeRcloneSimple, RETRY_FLAGS, getIsSyncPaused, getCurrentSessionId, setSessionId, isStopRequested } from "./utils";
 import { clearActiveTransfers } from "./progress";
 import type { PortalConfig } from "../config";
 import type { SyncProgress } from "./types";
@@ -32,6 +32,10 @@ export async function runManifestCloudPhase(
 
     // 1. Wait for initial manifest
     while (!existsSync(manifestPath)) {
+        if (isStopRequested()) {
+            Logger.info("SYNC", "Cloud Phase: Stop requested while waiting for manifest.");
+            return;
+        }
         if (isPullDone && isPullDone()) {
             Logger.info("SYNC", "Pull phase completed before manifest appeared. Nothing to upsync.");
             return;
@@ -96,6 +100,10 @@ export async function runManifestCloudPhase(
 
     // 2. Polling Loop
     while (true) {
+        if (isStopRequested()) {
+            Logger.info("SYNC", "Cloud Phase: Stop requested. Exiting loop.");
+            break;
+        }
         let needsUpload = false;
         try {
             const manifest = readFileSync(manifestPath, "utf8");
@@ -167,12 +175,21 @@ export async function runManifestCloudPhase(
                 cloudManifestStats
             });
         } catch (err) {
+            if (isStopRequested()) {
+                Logger.info("SYNC", "Cloud Phase: Stop requested during operation. Exiting.");
+                break;
+            }
             Logger.error("SYNC", `Error in cloud phase polling: ${err instanceof Error ? err.message : String(err)}`);
         }
 
         const pullIsDone = isPullDone ? isPullDone() : true;
         if (pullIsDone && !needsUpload) {
             Logger.info("SYNC", "Cloud Phase: Pull complete and all manifest entries processed. Finishing.");
+            break;
+        }
+
+        if (isStopRequested()) {
+            Logger.info("SYNC", "Cloud Phase: Stop requested. Exiting.");
             break;
         }
 

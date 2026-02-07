@@ -19,10 +19,12 @@ import {
     resumeSync,
     getIsSyncPaused,
     resetExecutorState,
+    resetStopSignal,
     startNewSession,
     setSessionId,
     getCurrentSessionId,
-    isNewSession
+    isNewSession,
+    isStopRequested
 } from "./utils";
 
 export * from "./types";
@@ -59,6 +61,8 @@ export async function runSync(
     onProgress: (progress: Partial<SyncProgress>) => void,
     sessionId?: string
 ): Promise<void> {
+    resetStopSignal();
+
     if (!config.local_dir) {
         onProgress({ phase: "error", description: "Portal not initialized.", percentage: 0 });
         return;
@@ -278,11 +282,21 @@ export async function runSync(
             await saveConfig(updatedConfig);
         }
     } catch (err) {
-        Logger.error("SYNC", `Sync failed: ${err instanceof Error ? err.stack : String(err)}`);
-        wrapProgress({
-            phase: "error",
-            description: `Sync Failed: ${err instanceof Error ? err.message : String(err)}`,
-            percentage: 0
-        });
+        if (isStopRequested()) {
+            Logger.info("SYNC", "Sync stopped by user.");
+            wrapProgress({
+                phase: "done",
+                description: "Sync stopped by user.",
+                percentage: 0,
+                isPaused: false
+            });
+        } else {
+            Logger.error("SYNC", `Sync failed: ${err instanceof Error ? err.stack : String(err)}`);
+            wrapProgress({
+                phase: "error",
+                description: `Sync Failed: ${err instanceof Error ? err.message : String(err)}`,
+                percentage: 0
+            });
+        }
     }
 }

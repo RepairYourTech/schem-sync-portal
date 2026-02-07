@@ -53,14 +53,18 @@ export function useSync() {
     const stop = useCallback(() => {
         stopRequested.current = true;
         stopSync();
+        // Do not manually setIsRunning(false) here.
+        // runSync will detect the stop signal, break its loops, and return.
+        // The finally block in start() will then handle the cleanup and set isRunning to false.
+
         sessionIdRef.current = null; // Clear session on full stop
         configRef.current = null;
-        setIsRunning(false);
-        setProgress({
-            phase: "done",
-            description: "Sync stopped by user.",
-            percentage: 0,
-        });
+
+        // We can update progress to indicate stopping, but let the final state be set by start()'s finally block or similar if needed.
+        setProgress(prev => ({
+            ...prev,
+            description: "Stopping...",
+        }));
     }, []);
 
     const pause = useCallback(() => {

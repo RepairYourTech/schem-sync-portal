@@ -38,6 +38,21 @@ const phaseProcesses: { pull: Set<Subprocess>, shield: Set<Subprocess>, cloud: S
 // Per-phase pause state
 const pauseState = { pull: false, shield: false, cloud: false };
 
+// Stop signal state
+let stopRequested = false;
+
+export function requestStop(): void {
+    stopRequested = true;
+}
+
+export function isStopRequested(): boolean {
+    return stopRequested;
+}
+
+export function resetStopSignal(): void {
+    stopRequested = false;
+}
+
 /**
  * Helper to strip ANSI codes and control characters.
  */
@@ -246,6 +261,7 @@ export function getIsSyncPaused(phase?: 'pull' | 'shield' | 'cloud'): boolean {
 }
 
 export function stopSync(): void {
+    requestStop();
     for (const proc of activeProcs) {
         proc.kill();
     }
@@ -309,6 +325,7 @@ export function resumeSync(onUpdate?: (p: Partial<SyncProgress>) => void, phase?
 }
 
 export function resetExecutorState(): void {
+    resetStopSignal();
     pauseState.pull = false;
     pauseState.shield = false;
     pauseState.cloud = false;
