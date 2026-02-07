@@ -25,7 +25,7 @@ export function createRcloneRemote(name: string, type: string, options: Record<s
         // causes the portal to use stale credentials.
         removePortalConfig([name]);
 
-        const args = ["--config", rcloneConfig, "config", "create", name, type];
+        const args = ["--config", rcloneConfig, "--non-interactive", "config", "create", name, type];
         for (const [key, value] of Object.entries(options)) {
             // Skip truly null/undefined values
             if (value === null || value === undefined) continue;
@@ -76,6 +76,18 @@ export function createRcloneRemote(name: string, type: string, options: Record<s
  * The token parameter should be the full OAuth token JSON from rclone authorize.
  */
 export function updateGdriveRemote(name: string, clientId: string, secret: string, token: string) {
+    // Validate token is valid JSON before passing to rclone
+    try {
+        const parsed = JSON.parse(token);
+        if (!parsed.access_token && !parsed.refresh_token) {
+            throw new Error("Token missing required fields (access_token or refresh_token)");
+        }
+        Logger.debug("CONFIG", "Token validation passed");
+    } catch (err) {
+        Logger.error("CONFIG", "Invalid OAuth token format", err);
+        throw new Error(`Invalid OAuth token: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     createRcloneRemote(name, "drive", {
         scope: "drive",
         client_id: clientId,
@@ -228,29 +240,71 @@ export function authorizeRemote(
 
             // rclone authorize outputs the token in stdout 
             // Format: "Paste the following into your remote machine --->\n{...token JSON...}\n<---End paste"
-            // We need to extract just the JSON token
             const combined = stdout + "\n" + stderr;
 
-            // Try to find JSON token pattern (looks for object with access_token or refresh_token)
-            const tokenMatch = combined.match(/\{[^{}]*"(?:access_token|refresh_token)"[^{}]*\}/s);
-            if (tokenMatch) {
-                const token = tokenMatch[0];
-                Logger.debug("AUTH", `Successfully extracted OAuth token (${token.length} chars)`);
-                resolve(token);
-                return;
+            // Strategy 1: Try to find JSON block between markers (---> and <---)
+            const markerMatch = combined.match(/--->(.*?)<---/s);
+            if (markerMatch && markerMatch[1]) {
+                const potentialJson = markerMatch[1].trim();
+                try {
+                    const parsed = JSON.parse(potentialJson) as Record<string, unknown>;
+                    if (parsed.access_token || parsed.refresh_token || parsed.token_type) {
+                        Logger.debug("AUTH", `Successfully extracted OAuth token via markers (${potentialJson.length} chars)`);
+                        resolve(JSON.stringify(parsed));
+                        return;
+                    }
+                } catch {
+                    Logger.debug("AUTH", "Marker content is not valid JSON, trying other methods");
+                }
             }
 
-            // Fallback: try to find any JSON object that looks like a token
-            const jsonMatch = combined.match(/\{[^{}]*"token_type"[^{}]*\}/s);
-            if (jsonMatch) {
-                Logger.debug("AUTH", `Extracted token via fallback pattern`);
-                resolve(jsonMatch[0]);
-                return;
+            // Strategy 2: Find all JSON objects using brace-matching parser
+            const jsonObjects: { str: string, obj: Record<string, unknown> }[] = [];
+            let depth = 0;
+            let jsonStart = -1;
+
+            for (let i = 0; i < combined.length; i++) {
+                if (combined[i] === "{") {
+                    if (depth === 0) jsonStart = i;
+                    depth++;
+                } else if (combined[i] === "}") {
+                    depth--;
+                    if (depth === 0 && jsonStart !== -1) {
+                        const jsonStr = combined.substring(jsonStart, i + 1);
+                        try {
+                            const parsed = JSON.parse(jsonStr);
+                            jsonObjects.push({ str: jsonStr, obj: parsed });
+                        } catch {
+                            // Not valid JSON, continue
+                        }
+                        jsonStart = -1;
+                    }
+                }
             }
 
-            // Last resort: return trimmed stdout and hope for the best
-            Logger.warn("AUTH", "Could not find token pattern in output, using raw stdout");
-            resolve(stdout.trim());
+            // Find the first valid OAuth token object
+            for (const { str, obj } of jsonObjects) {
+                if (obj.access_token || obj.refresh_token || obj.token_type) {
+                    Logger.debug("AUTH", `Successfully extracted OAuth token via JSON parsing (${str.length} chars)`);
+                    resolve(str);
+                    return;
+                }
+            }
+
+            // Strategy 3: Last resort - look for any JSON with token-like fields
+            for (const { str, obj } of jsonObjects) {
+                if (typeof obj === "object" && obj !== null && Object.keys(obj).length > 0) {
+                    Logger.warn("AUTH", "Using best-guess JSON object as token");
+                    resolve(str);
+                    return;
+                }
+            }
+
+            // If we get here, we truly couldn't find a token
+            Logger.error("AUTH", "Failed to extract OAuth token from rclone output");
+            Logger.error("AUTH", `stdout: ${stdout}`);
+            Logger.error("AUTH", `stderr: ${stderr}`);
+            reject(new Error("Could not extract OAuth token from rclone authorize output"));
         } catch (err) {
             reject(err instanceof Error ? err.message : String(err));
         }

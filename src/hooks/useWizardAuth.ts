@@ -37,6 +37,13 @@ export function useWizardAuth({
     const activeAuthRequestRef = useRef<boolean>(false);
 
     const handleAuth = useCallback(async () => {
+        if (activeAuthRequestRef.current) {
+            console.warn("[AUTH] Auth already in progress, aborting duplicate call");
+            return;
+        }
+        activeAuthRequestRef.current = true;
+        console.log("[AUTH] handleAuth called", { method: config.copyparty_method });
+
         setIsAuthLoading(true);
         setAuthStatus("🔄 Authenticating...");
         const url = urlRef.current?.trim();
@@ -63,16 +70,23 @@ export function useWizardAuth({
                     next();
                 } else setAuthStatus("❌ Auth failed.");
             }
+            console.log("[AUTH] Auth completed successfully");
         } catch (err) {
             setAuthStatus(`💥 Error: ${(err as Error).message}`);
         } finally {
+            activeAuthRequestRef.current = false;
             setIsAuthLoading(false);
         }
-    }, [next, updateConfig, config.copyparty_method, setAuthStatus, setIsAuthLoading, urlRef, userRef, passRef]);
+    }, [next, updateConfig, config.copyparty_method, setAuthStatus, setIsAuthLoading, urlRef, passRef]);
 
     const handleGdriveAuth = useCallback(async (clientId: string, clientSecret: string) => {
-        if (activeAuthRequestRef.current) return;
+        if (activeAuthRequestRef.current) {
+            console.warn("[AUTH] Auth already in progress, aborting duplicate call");
+            return;
+        }
         activeAuthRequestRef.current = true;
+        console.log("[AUTH] handleGdriveAuth called", { clientId: clientId.substring(0, 10) + "...", hasSecret: !!clientSecret });
+
         abortAuth(); setIsAuthLoading(true); setAuthStatus("🔄 Launching Google Handshake...");
         const controller = new AbortController(); authAbortControllerRef.current = controller;
         try {
@@ -85,6 +99,7 @@ export function useWizardAuth({
                 const field = wizardContext === "source" ? "source_provider" : "backup_provider";
                 const pending = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
                 updateConfig(prev => ({ ...prev, [field]: pending }));
+                console.log("[AUTH] Auth completed successfully");
                 next();
             }
         } catch (err) {
@@ -99,8 +114,13 @@ export function useWizardAuth({
     }, [wizardContext, next, updateConfig, abortAuth, setAuthStatus, setIsAuthLoading, authAbortControllerRef, oauthTokenRef, pendingSourceProviderRef, pendingBackupProviderRef]);
 
     const startGenericAuth = useCallback(async (provider: string) => {
-        if (activeAuthRequestRef.current) return;
+        if (activeAuthRequestRef.current) {
+            console.warn("[AUTH] Auth already in progress, aborting duplicate call");
+            return;
+        }
         activeAuthRequestRef.current = true;
+        console.log("[AUTH] startGenericAuth called", { provider });
+
         abortAuth(); setIsAuthLoading(true); setAuthStatus(`🚀 Launching ${provider.toUpperCase()} Auth...`);
         const controller = new AbortController(); authAbortControllerRef.current = controller;
         try {
@@ -112,6 +132,7 @@ export function useWizardAuth({
                 const field = wizardContext === "source" ? "source_provider" : "backup_provider";
                 const pending = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
                 updateConfig(prev => ({ ...prev, [field]: pending }));
+                console.log("[AUTH] Auth completed successfully");
                 next();
             }
         } catch (err) {
@@ -126,18 +147,44 @@ export function useWizardAuth({
     }, [wizardContext, next, updateConfig, abortAuth, setAuthStatus, setIsAuthLoading, authAbortControllerRef, oauthTokenRef, pendingSourceProviderRef, pendingBackupProviderRef]);
 
     const dispatchDirectAuth = useCallback((provider: PortalProvider) => {
-        if (activeAuthRequestRef.current) return;
         const meta = getProviderMetadata(provider);
+        const isAsyncOAuth = provider === "gdrive" || provider === "onedrive" || provider === "dropbox" || provider === "b2" || provider === "pcloud";
+
         if (meta.directAuthHandler) {
-            meta.directAuthHandler({
-                wizardContext,
-                refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
-                updateConfig,
-                next,
-                handleGdriveAuth,
-                startGenericAuth,
-                updateGenericRemote: updateGenericRemote as (remoteName: string, provider: PortalProvider, options: Record<string, string>) => void
-            });
+            if (isAsyncOAuth) {
+                // Delegate mutex management to the async handlers (they set their own)
+                console.log("[AUTH] Delegating mutex handling to async handler for", provider);
+                meta.directAuthHandler({
+                    wizardContext,
+                    refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
+                    updateConfig,
+                    next,
+                    handleGdriveAuth,
+                    startGenericAuth,
+                    updateGenericRemote: updateGenericRemote as (remoteName: string, provider: PortalProvider, options: Record<string, string>) => void
+                });
+            } else {
+                // For sync direct handlers, manage mutex here
+                if (activeAuthRequestRef.current) {
+                    console.warn("[AUTH] Direct auth already in progress, aborting");
+                    return;
+                }
+                activeAuthRequestRef.current = true;
+                console.log("[AUTH] Running sync direct auth handler for", provider);
+                try {
+                    meta.directAuthHandler({
+                        wizardContext,
+                        refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
+                        updateConfig,
+                        next,
+                        handleGdriveAuth,
+                        startGenericAuth,
+                        updateGenericRemote: updateGenericRemote as (remoteName: string, provider: PortalProvider, options: Record<string, string>) => void
+                    });
+                } finally {
+                    activeAuthRequestRef.current = false;
+                }
+            }
         }
     }, [wizardContext, urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef, updateConfig, next, handleGdriveAuth, startGenericAuth]);
 
@@ -146,6 +193,7 @@ export function useWizardAuth({
         handleGdriveAuth,
         startGenericAuth,
         dispatchDirectAuth,
+        activeAuthRequestRef, // ✅ EXPOSE THIS REF
         refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef }
     };
 }

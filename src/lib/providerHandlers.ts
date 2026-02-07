@@ -2,15 +2,16 @@ import { Env } from "./env";
 import type { WizardAuthContext } from "../components/wizard/types";
 
 export const gdriveDirectAuth = (ctx: WizardAuthContext) => {
-    const clientId = ctx.refs.clientIdRef.current?.trim() || "";
-    const clientSecret = ctx.refs.clientSecretRef.current?.trim() || "";
+    // ✅ IMPROVED: Validate refs exist AND have content
+    const clientId = ctx.refs.clientIdRef?.current?.trim();
+    const clientSecret = ctx.refs.clientSecretRef?.current?.trim();
 
-    // If user provides custom OAuth credentials, use them
-    // Otherwise, use rclone's built-in OAuth (simpler for users)
-    if (clientId && clientSecret) {
+    // ✅ IMPROVED: Explicit validation with logging
+    if (clientId && clientSecret && clientId.length > 0 && clientSecret.length > 0) {
         ctx.handleGdriveAuth(clientId, clientSecret);
     } else {
-        // Use rclone's built-in Google Drive OAuth
+        // ✅ ADD: Log why we're falling back
+        console.warn("[AUTH] Missing Google Drive credentials, using built-in OAuth");
         ctx.startGenericAuth("drive");
     }
 };
@@ -19,15 +20,19 @@ export const genericAuthHandler = (provider: string) => (ctx: WizardAuthContext)
     ctx.startGenericAuth(provider);
 };
 
-export const b2DirectAuth = (ctx: WizardAuthContext) => {
+export const b2DirectAuth = async (ctx: WizardAuthContext) => {
     const remoteName = ctx.wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-    ctx.updateGenericRemote(remoteName, "b2", {
-        account: ctx.refs.b2IdRef.current,
-        key: ctx.refs.b2KeyRef.current
-    });
-    const field = ctx.wizardContext === "source" ? "source_provider" : "backup_provider";
-    ctx.updateConfig(prev => ({ ...prev, [field]: "b2" }));
-    ctx.next();
+    try {
+        await ctx.updateGenericRemote(remoteName, "b2", {
+            account: ctx.refs.b2IdRef.current || "",
+            key: ctx.refs.b2KeyRef.current || ""
+        });
+        const field = ctx.wizardContext === "source" ? "source_provider" : "backup_provider";
+        ctx.updateConfig(prev => ({ ...prev, [field]: "b2" }));
+        ctx.next();
+    } catch (err) {
+        console.error("[AUTH] B2 Auth failed", err);
+    }
 };
 
 export const sftpDirectAuth = (ctx: WizardAuthContext) => {
@@ -42,15 +47,19 @@ export const sftpDirectAuth = (ctx: WizardAuthContext) => {
     ctx.next();
 };
 
-export const pcloudDirectAuth = (ctx: WizardAuthContext) => {
+export const pcloudDirectAuth = async (ctx: WizardAuthContext) => {
     const remoteName = ctx.wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-    ctx.updateGenericRemote(remoteName, "pcloud", {
-        user: ctx.refs.userRef.current,
-        pass: ctx.refs.passRef.current
-    });
-    const field = ctx.wizardContext === "source" ? "source_provider" : "backup_provider";
-    ctx.updateConfig(prev => ({ ...prev, [field]: "pcloud" }));
-    ctx.next();
+    try {
+        await ctx.updateGenericRemote(remoteName, "pcloud", {
+            user: ctx.refs.userRef.current || "",
+            pass: ctx.refs.passRef.current || ""
+        });
+        const field = ctx.wizardContext === "source" ? "source_provider" : "backup_provider";
+        ctx.updateConfig(prev => ({ ...prev, [field]: "pcloud" }));
+        ctx.next();
+    } catch (err) {
+        console.error("[AUTH] pCloud Auth failed", err);
+    }
 };
 
 export const megaDirectAuth = (ctx: WizardAuthContext) => {

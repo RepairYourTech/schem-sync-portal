@@ -22,6 +22,8 @@ export const CloudDirectEntryStep = ({
     setAuthStatus,
     dispatchDirectAuth
 }: WizardStepProps) => {
+    // ✅ ADD: Local ref to track if action is in progress
+    const actionInProgressRef = React.useRef(false);
     const provider = wizardContext === "source" ? pendingSourceProvider : pendingBackupProvider;
     const fields: { label: string, ref: { current: string }, icon: string, placeholder?: string, key: string }[] = [];
 
@@ -53,7 +55,22 @@ export const CloudDirectEntryStep = ({
 
     const handleAction = (e?: React.MouseEvent | React.KeyboardEvent) => {
         if (e) e.stopPropagation();
-        if (isAuthLoading) return; // Prevent double-trigger
+
+        // ✅ ADD: Check local action flag
+        if (actionInProgressRef.current) {
+            console.warn("[AUTH] Action already in progress, ignoring duplicate call");
+            return;
+        }
+
+        if (isAuthLoading) return;
+
+        // ✅ ADD: Set local flag
+        actionInProgressRef.current = true;
+
+        // ✅ ADD: Clear flag after a short delay
+        setTimeout(() => {
+            actionInProgressRef.current = false;
+        }, 1000);
 
         if (provider === "onedrive" || provider === "dropbox") {
             if (startGenericAuth) startGenericAuth(provider);

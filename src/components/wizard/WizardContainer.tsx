@@ -231,7 +231,13 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         return [];
     }, [step, isShortcutMissing, config.backup_provider]);
 
-    const { handleAuth, handleGdriveAuth, startGenericAuth, dispatchDirectAuth } = useWizardAuth({
+    const {
+        handleAuth,
+        handleGdriveAuth,
+        startGenericAuth,
+        dispatchDirectAuth,
+        activeAuthRequestRef
+    } = useWizardAuth({
         next,
         updateConfig,
         config,
@@ -362,7 +368,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
                     return;
                 }
                 if (step === "cloud_direct_entry") {
-                    if (isAuthLoading) return;
+                    if (isAuthLoading || activeAuthRequestRef?.current) return;
                     const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
                     const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
                     if (direct_entry_index === maxIdx) {
