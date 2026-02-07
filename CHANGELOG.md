@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+### Minor Changes
+
+- 71582f3: Implement Lean Mode for downloads (Issue #4)
+
 ## 1.1.0
 
 ### Minor Changes
