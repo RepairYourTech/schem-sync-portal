@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0
+
+### Minor Changes
+
+- 8332072: feat: standardize wizard navigation, refactor Options.tsx, and ensure hover consistency
+
+### Patch Changes
+
+- 8332072: address code review feedback: fix hardcoded test paths, remove redundant props, and refine dashboard state updates
+
 ## 1.2.3
 
 ### Patch Changes
