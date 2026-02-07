@@ -1,6 +1,7 @@
 import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { Logger } from "./logger";
+import { randomUUID } from "crypto";
 
 /**
  * Represents the persisted state of a sync session.
@@ -56,7 +57,7 @@ const STATE_FILENAME = ".sync_state.json";
  */
 export function createEmptyState(): SyncSessionState {
     return {
-        sessionId: `sync-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        sessionId: `sync-${Date.now()}-${randomUUID().split("-")[0]}`,
         startedAt: Date.now(),
         lastUpdatedAt: Date.now(),
 

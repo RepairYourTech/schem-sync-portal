@@ -24,7 +24,14 @@ export class Logger {
         /client_id/gi,
         /client_secret/gi,
         /access_token/gi,
-        /refresh_token/gi
+        /refresh_token/gi,
+        /authorization/gi,
+        /bearer/gi,
+        /api_key/gi,
+        /private_key/gi,
+        /session/gi,
+        /csrf/gi,
+        /jwt/gi
     ];
 
     private static healthStatus: Record<LogContext, "OK" | "WARN" | "ERROR"> = {
@@ -171,8 +178,8 @@ export class Logger {
 
         const formatted = `[${entry.timestamp}] [${entry.level}] [${entry.context}] ${entry.message}\n`;
 
-        // Console output
-        if (this.enableConsole) {
+        // Console output - Only if enabled AND not in production environment for defense-in-depth
+        if (this.enableConsole && process.env.NODE_ENV !== "production") {
             if (level === "NORMAL") {
                 console.log(formatted.trim());
             } else if (this.level === "DEBUG" || this.level === "VERBOSE") {
@@ -190,6 +197,12 @@ export class Logger {
         return level === "NORMAL";
     }
 
+    /**
+     * Masks sensitive segments within a message using predefined patterns.
+     * This method is called automatically before any log output (console or file).
+     * @param message - The raw log message to be processed.
+     * @returns The message with sensitive information replaced by asterisks.
+     */
     private static maskSensitive(message: string): string {
         let masked = message;
         this.sensitivePatterns.forEach(pattern => {
