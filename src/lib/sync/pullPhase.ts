@@ -18,13 +18,11 @@ import type { SyncProgress, ManifestStats, CleanupStats } from "./types";
  */
 async function discoverManifest(config: PortalConfig, sourceRemote: string): Promise<string | null> {
     const localManifest = join(config.local_dir, "manifest.txt");
-    const sourceFlags = (config.source_provider === "copyparty" && config.cookie) ? ["--header", config.cookie] : [];
 
     try {
         Logger.debug("SYNC", "Checking for remote manifest.txt...");
         await executeRclone([
             "copyto", `${sourceRemote}manifest.txt`, localManifest,
-            ...sourceFlags,
             ...RETRY_FLAGS
         ], () => { }, undefined, "download", "pull");
         return localManifest;
@@ -180,7 +178,6 @@ export async function runPullPhase(
 
     const basePullArgs = [
         config.strict_mirror ? "sync" : "copy", sourceRemote, config.local_dir,
-        ...(config.source_provider === "copyparty" && config.cookie ? ["--header", config.cookie] : []),
         "--size-only", "--fast-list",
         "--transfers", String(config.downsync_transfers || 4),
         "--checkers", "16",
