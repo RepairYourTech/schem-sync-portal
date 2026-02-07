@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+### Patch Changes
+
+- f7258bf: fix(wizard): resolve double OAuth trigger and restore keyboard navigation
+
 ## 1.2.1
 
 ### Patch Changes
