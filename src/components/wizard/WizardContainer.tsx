@@ -373,7 +373,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             }
         }
 
-        const selectableSteps: Step[] = ["shortcut", "source_choice", "dir", "mirror", "upsync_ask", "dest_cloud_select", "backup_dir", "security", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "s3_intro", "deploy", "cloud_direct_entry"];
+        const selectableSteps: Step[] = ["shortcut", "download_mode", "source_choice", "dir", "mirror", "upsync_ask", "dest_cloud_select", "backup_dir", "security", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "s3_intro", "deploy", "cloud_direct_entry"];
         if (selectableSteps.includes(step)) {
             const options = getOptions();
             if (options.length === 0) return;

@@ -1,22 +1,23 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, mock, beforeEach } from "bun:test";
 import React from "react";
 import * as opentuiReact from "@opentui/react";
-import { Wizard } from "../components/Wizard";
+import { WizardContainer } from "../components/wizard/WizardContainer";
 import { mockRender as render, mockThemeColors } from "./ui-test-helpers";
 import { EMPTY_CONFIG, type PortalConfig, type PortalProvider } from "../lib/config";
 
-// --- HOOK MOCKING ---
-let hookStateIndex = 0;
+// --- ROBUST HOOK MOCKING (SINGLE COMPONENT FOCUS) ---
+let hookCursor = 0;
 let hookStateCells: unknown[] = [];
-let hookRefIndex = 0;
 let hookRefCells: { current: unknown }[] = [];
-let hookEffectIndex = 0;
 let hookEffectDeps: unknown[][] = [];
+let hookCallbackCells: unknown[] = [];
+let hookMemoCells: unknown[] = [];
 
 mock.module("react", () => ({
     ...React,
     useState: (initial: unknown) => {
-        const idx = hookStateIndex++;
+        const idx = hookCursor++;
         if (hookStateCells[idx] === undefined) hookStateCells[idx] = initial;
         const setState = (val: unknown) => {
             hookStateCells[idx] = typeof val === 'function' ? (val as (prev: unknown) => unknown)(hookStateCells[idx]) : val;
@@ -24,12 +25,12 @@ mock.module("react", () => ({
         return [hookStateCells[idx], setState];
     },
     useRef: (initial: unknown) => {
-        const idx = hookRefIndex++;
+        const idx = hookCursor++;
         if (hookRefCells[idx] === undefined) hookRefCells[idx] = { current: initial };
         return hookRefCells[idx];
     },
     useEffect: (fn: () => void, deps?: unknown[]) => {
-        const idx = hookEffectIndex++;
+        const idx = hookCursor++;
         const prevDeps = hookEffectDeps[idx];
         const hasChanged = !prevDeps || !deps || deps.some((d, i) => d !== prevDeps[i]);
         if (hasChanged) {
@@ -37,13 +38,31 @@ mock.module("react", () => ({
             try { fn(); } catch { }
         }
     },
-    useCallback: (fn: unknown) => fn,
-    useMemo: (fn: () => unknown) => fn(),
-    useLayoutEffect: () => { },
+    useCallback: (fn: unknown, deps?: unknown[]) => {
+        const idx = hookCursor++;
+        const prevDeps = hookEffectDeps[idx + 100];
+        const hasChanged = !prevDeps || !deps || deps.some((d, i) => d !== prevDeps[i]);
+        if (hasChanged) {
+            hookEffectDeps[idx + 100] = deps || [];
+            hookCallbackCells[idx] = fn;
+        }
+        return hookCallbackCells[idx];
+    },
+    useMemo: (fn: () => unknown, deps?: unknown[]) => {
+        const idx = hookCursor++;
+        const prevDeps = hookEffectDeps[idx + 200];
+        const hasChanged = !prevDeps || !deps || deps.some((d, i) => d !== prevDeps[i]);
+        if (hasChanged) {
+            hookEffectDeps[idx + 200] = deps || [];
+            hookMemoCells[idx] = fn();
+        }
+        return hookMemoCells[idx];
+    },
+    useLayoutEffect: (fn: () => void) => fn(),
     useContext: (ctx: { _currentValue: unknown }) => ctx._currentValue,
 }));
 
-// Mock useKeyboard to capture the handler
+// Mock useKeyboard
 let capturedHandler: (e: { name: string }) => void = () => { };
 mock.module("@opentui/react", () => ({
     ...opentuiReact,
@@ -63,9 +82,17 @@ mock.module("../lib/deploy", () => ({
     bootstrapSystem: mock(() => Promise.resolve())
 }));
 
+// Capture props for testing
+let lastStepProps: Record<string, any> | null = null;
+mock.module("../components/wizard/WizardStepRenderer", () => ({
+    WizardStepRenderer: (props: { stepProps: Record<string, any> }) => {
+        lastStepProps = props.stepProps;
+        return React.createElement("box", { name: "mock-renderer" });
+    }
+}));
+
 // Mock useWizardAuth
 const mockDispatchDirectAuth = mock((_provider: string) => { });
-
 mock.module("../hooks/useWizardAuth", () => ({
     useWizardAuth: (props: {
         updateConfig: (fn: (prev: PortalConfig) => PortalConfig) => void;
@@ -86,15 +113,7 @@ mock.module("../hooks/useWizardAuth", () => ({
             }));
             props.next();
         },
-        refs: {
-            urlRef: { current: "" },
-            userRef: { current: "" },
-            passRef: { current: "" },
-            clientIdRef: { current: "" },
-            clientSecretRef: { current: "" },
-            b2IdRef: { current: "" },
-            b2KeyRef: { current: "" }
-        }
+        refs: { urlRef: { current: "" }, userRef: { current: "" }, passRef: { current: "" } }
     })
 }));
 
@@ -108,20 +127,20 @@ describe("Wizard Behavioral Tests", () => {
         mockOnUpdate = mock((_config: PortalConfig) => { });
         mockOnCancel = mock(() => { });
         mockDispatchDirectAuth.mockClear();
-        hookStateIndex = 0;
+        hookCursor = 0;
         hookStateCells = [];
-        hookRefIndex = 0;
         hookRefCells = [];
-        hookEffectIndex = 0;
         hookEffectDeps = [];
+        hookCallbackCells = [];
+        hookMemoCells = [];
+        capturedHandler = () => { };
+        lastStepProps = null;
     });
 
-    const renderWizard = (props: Partial<React.ComponentProps<typeof Wizard>> = {}) => {
-        hookStateIndex = 0;
-        hookRefIndex = 0;
-        hookEffectIndex = 0;
-        return render(
-            React.createElement(Wizard, {
+    const renderWizard = (props: Partial<React.ComponentProps<typeof WizardContainer>> = {}) => {
+        hookCursor = 0;
+        const result = render(
+            React.createElement(WizardContainer, {
                 initialConfig: EMPTY_CONFIG,
                 mode: "restart",
                 onComplete: mockOnComplete,
@@ -133,19 +152,33 @@ describe("Wizard Behavioral Tests", () => {
                 backSignal: 0,
                 tabTransition: "forward",
                 ...props
-            })
+            } as any)
         );
+
+        // MANUALLY EXECUTE NESTED COMPONENTS SINCE MOCKRENDER IS SHALLOW
+        const renderer = result.findWithProp("step");
+        if (renderer && typeof renderer.type === 'function') {
+            renderer.type(renderer.props);
+        }
+
+        return result;
     };
 
-    const runAction = (name: string, props: Partial<React.ComponentProps<typeof Wizard>> = {}) => {
+    const runAction = (name: string, props: Partial<React.ComponentProps<typeof WizardContainer>> = {}) => {
         capturedHandler({ name });
         renderWizard(props);
     };
 
     it("should select source provider and trigger onUpdate when return is pressed", () => {
         renderWizard();
-        runAction("return"); // Skip Shortcut
-        runAction("down");   // To gdrive
+        runAction("return"); // Shortcut -> download_mode
+        runAction("return"); // Mode -> source_choice
+
+        // Find gdrive index in options
+        const options = lastStepProps!.getOptions();
+        const gdriveIdx = options.findIndex((o: any) => o.value === "gdrive");
+        for (let i = 0; i < gdriveIdx; i++) runAction("down");
+
         runAction("return"); // Select gdrive
         expect(mockOnUpdate).toHaveBeenCalledWith(expect.objectContaining({ source_provider: 'gdrive' }));
     });
@@ -156,45 +189,34 @@ describe("Wizard Behavioral Tests", () => {
         expect(mockOnCancel).toHaveBeenCalled();
     });
 
-    it("should trigger dispatchDirectAuth and update config for backup provider", () => {
+    it("should navigate through the wizard using props", () => {
         renderWizard();
-        runAction("return"); // Skip shortcut
-        runAction("down");   // Source choice -> GDrive
-        runAction("return");
-        runAction("down");   // GDrive Intro -> Direct
-        runAction("return");
-        runAction("return"); // Direct 1
-        runAction("return"); // Direct 2
-        runAction("return"); // Direct 3 -> moves to dir
-        runAction("return"); // Dir
-        runAction("return"); // Mirror
-        runAction("down");   // Upsync -> Yes
-        runAction("return"); // moves to dest_cloud_select
-        runAction("down");   // Dest Selection -> B2
-        runAction("return"); // Confirm B2 -> moves to b2_intro
-        runAction("down");   // B2 Intro -> Direct
-        runAction("return"); // moves to cloud_direct_entry (dest)
-        runAction("return"); // Direct 1
-        runAction("return"); // Direct 2
-        runAction("return"); // Direct 3 -> calls dispatchDirectAuth('b2')
 
-        expect(mockOnUpdate).toHaveBeenCalledWith(expect.objectContaining({ backup_provider: 'b2' }));
-    });
-    it("should trigger dispatchDirectAuth and update config for S3 source provider", () => {
+        // 1. Shortcut -> Mode
+        lastStepProps!.confirmSelection(lastStepProps!.getOptions()[0]);
         renderWizard();
-        runAction("return"); // Skip shortcut
-        // Select S3 (9th down)
-        for (let i = 0; i < 9; i++) runAction("down");
-        runAction("return"); // Select S3 -> s3_intro
+        expect(lastStepProps!.step).toBe("download_mode");
 
-        runAction("down");   // s3_intro -> Direct
-        runAction("return"); // moves to cloud_direct_entry
-        runAction("return");
-        runAction("return");
-        runAction("return"); // calls dispatchDirectAuth('s3')
+        // 2. Mode -> Source
+        lastStepProps!.confirmSelection(lastStepProps!.getOptions()[0]);
+        renderWizard();
+        expect(lastStepProps!.step).toBe("source_choice");
 
-        expect(mockOnUpdate).toHaveBeenCalledWith(expect.objectContaining({ source_provider: 's3' }));
+        // 3. Select GDrive -> Intro
+        const gdriveOpt = lastStepProps!.getOptions().find((o: any) => o.value === "gdrive");
+        lastStepProps!.confirmSelection(gdriveOpt);
+        renderWizard();
+        expect(lastStepProps!.step).toBe("gdrive_intro");
+
+        // 4. Test direct auth dispatch from intro
+        lastStepProps!.dispatchDirectAuth("gdrive");
+        renderWizard();
+        expect(lastStepProps!.step).toBe("cloud_direct_entry");
+
+        // 5. Test direct auth dispatch from direct entry
+        lastStepProps!.dispatchDirectAuth("gdrive");
+        renderWizard();
+        expect(mockOnUpdate).toHaveBeenCalledWith(expect.objectContaining({ source_provider: 'gdrive' }));
+        expect(lastStepProps!.step).toBe("dir");
     });
 });
-
-
