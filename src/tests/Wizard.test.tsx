@@ -11,6 +11,8 @@ let hookCursor = 0;
 let hookStateCells: unknown[] = [];
 let hookRefCells: { current: unknown }[] = [];
 let hookEffectDeps: unknown[][] = [];
+let hookCallbackDeps: unknown[][] = [];
+let hookMemoDeps: unknown[][] = [];
 let hookCallbackCells: unknown[] = [];
 let hookMemoCells: unknown[] = [];
 
@@ -40,20 +42,20 @@ mock.module("react", () => ({
     },
     useCallback: (fn: unknown, deps?: unknown[]) => {
         const idx = hookCursor++;
-        const prevDeps = hookEffectDeps[idx + 100];
+        const prevDeps = hookCallbackDeps[idx];
         const hasChanged = !prevDeps || !deps || deps.some((d, i) => d !== prevDeps[i]);
         if (hasChanged) {
-            hookEffectDeps[idx + 100] = deps || [];
+            hookCallbackDeps[idx] = deps || [];
             hookCallbackCells[idx] = fn;
         }
         return hookCallbackCells[idx];
     },
     useMemo: (fn: () => unknown, deps?: unknown[]) => {
         const idx = hookCursor++;
-        const prevDeps = hookEffectDeps[idx + 200];
+        const prevDeps = hookMemoDeps[idx];
         const hasChanged = !prevDeps || !deps || deps.some((d, i) => d !== prevDeps[i]);
         if (hasChanged) {
-            hookEffectDeps[idx + 200] = deps || [];
+            hookMemoDeps[idx] = deps || [];
             hookMemoCells[idx] = fn();
         }
         return hookMemoCells[idx];
@@ -131,6 +133,8 @@ describe("Wizard Behavioral Tests", () => {
         hookStateCells = [];
         hookRefCells = [];
         hookEffectDeps = [];
+        hookCallbackDeps = [];
+        hookMemoDeps = [];
         hookCallbackCells = [];
         hookMemoCells = [];
         capturedHandler = () => { };
@@ -150,7 +154,6 @@ describe("Wizard Behavioral Tests", () => {
                 focusArea: "body",
                 onFocusChange: () => { },
                 backSignal: 0,
-                tabTransition: "forward",
                 ...props
             } as any)
         );
@@ -208,8 +211,8 @@ describe("Wizard Behavioral Tests", () => {
         renderWizard();
         expect(lastStepProps!.step).toBe("gdrive_intro");
 
-        // 4. Test direct auth dispatch from intro
-        lastStepProps!.dispatchDirectAuth("gdrive");
+        // 4. Intro -> Cloud Direct Entry
+        lastStepProps!.next();
         renderWizard();
         expect(lastStepProps!.step).toBe("cloud_direct_entry");
 

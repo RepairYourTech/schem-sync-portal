@@ -338,6 +338,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             }
 
             if (step === "copyparty_config") {
+                if (e.name >= "0" && e.name <= "9") return;
                 if (e.name === "down") { set_copyparty_config_index(prev => Math.min(4, prev + 1)); return; }
                 else if (e.name === "up") { set_copyparty_config_index(prev => Math.max(0, prev - 1)); return; }
                 if (copyparty_config_index === 3) {
@@ -347,6 +348,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
             }
 
             if (step === "cloud_direct_entry") {
+                if (e.name >= "0" && e.name <= "9") return;
                 const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
                 const maxIdx = (provider === "sftp" || provider === "r2") ? 3 : 2;
                 if (e.name === "down") { set_direct_entry_index(prev => Math.min(maxIdx, prev + 1)); return; }
