@@ -30,6 +30,8 @@ describe("E2E: Sync Flow", () => {
 
     afterEach(() => {
         process.env.MOCK_RCLONE = originalMockRclone;
+        delete process.env.PORTAL_CONFIG_PATH;
+        delete process.env.RCLONE_CONFIG_PATH;
         saveConfigSpy.mockRestore();
         loadConfigSpy.mockRestore();
         if (process.env.RCLONE_CONFIG_PATH && existsSync(process.env.RCLONE_CONFIG_PATH)) {

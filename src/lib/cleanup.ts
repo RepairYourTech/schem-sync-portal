@@ -249,47 +249,46 @@ async function cleanArchive(
                     ? [engine.bin, "x", archivePath, globPattern, `-o${stagingDir}`, "-r", "-y"]
                     : [engine.bin, "x", "-r", "-y", archivePath, globPattern, stagingDir];
 
-                const spawnRes = getSpawnSync()(extractCmd);
-                if (spawnRes.success) {
-                    const patternToGlob = pattern === "*" ? "**/*" : `**/*${pattern}`;
-                    const matches = await glob(patternToGlob, { cwd: stagingDir, absolute: true });
+                getSpawnSync()(extractCmd);
+            }
 
-                    for (const match of matches) {
-                        const isFile = (await stat(match)).isFile();
-                        if (!isFile) continue;
+            // Important: scan for nested archives BEFORE moving files out
+            if (policy !== "extract") {
+                await scanForNestedArchives(stagingDir, baseDir, policy, stats, onProgress, mode);
+            }
 
-                        const relativeToStaging = relative(stagingDir, match);
-                        const destPath = join(dirPath, relativeToStaging); // FIX: Preserve folder structure
-                        const relExtracted = relative(baseDir, destPath);
+            const matches = await glob("**/*", { cwd: stagingDir, absolute: true });
+            for (const match of matches) {
+                const isFile = (await stat(match)).isFile();
+                if (!isFile) continue;
 
-                        // Ensure destination directory exists
-                        const destSubDir = dirname(destPath);
-                        if (!existsSync(destSubDir)) mkdirSync(destSubDir, { recursive: true });
+                const relativeToStaging = relative(stagingDir, match);
+                const destPath = join(dirPath, relativeToStaging);
+                const relExtracted = relative(baseDir, destPath);
 
-                        if (!existsSync(destPath)) {
-                            renameSync(match, destPath);
+                // Ensure destination directory exists
+                const destSubDir = dirname(destPath);
+                if (!existsSync(destSubDir)) mkdirSync(destSubDir, { recursive: true });
 
-                            // Skip deep verification if policy is "extract" (trust source)
-                            if (policy !== "extract") {
-                                await cleanFile(destPath, baseDir, policy, stats, onProgress, mode);
-                            }
+                if (!existsSync(destPath)) {
+                    renameSync(match, destPath);
 
-                            if (existsSync(destPath)) {
-                                Logger.info("SHIELD", `Extracted: ${relExtracted} from ${fileName}`);
-                                extractedCount++;
-                                const paths = stats.extractedFilePaths || [];
-                                paths.push(relExtracted);
-                                stats.extractedFilePaths = paths;
-                            }
-                        }
+                    // Skip deep verification if policy is "extract" (trust source)
+                    if (policy !== "extract") {
+                        await cleanFile(destPath, baseDir, policy, stats, onProgress, mode);
+                    }
+
+                    if (existsSync(destPath)) {
+                        Logger.info("SHIELD", `Extracted: ${relExtracted} from ${fileName}`);
+                        extractedCount++;
+                        const paths = stats.extractedFilePaths || [];
+                        paths.push(relExtracted);
+                        stats.extractedFilePaths = paths;
                     }
                 }
             }
 
-            // RECURSIVE SCANNING: Skip if policy is "extract"
-            if (policy !== "extract") {
-                await scanForNestedArchives(stagingDir, baseDir, policy, stats, onProgress, mode);
-            }
+
         }
     } catch (err) {
         Logger.error("SHIELD", `Error during extraction from ${relPath}`, err);
@@ -302,13 +301,15 @@ async function cleanArchive(
     // Handle "extract" policy (Trust Source)
     if (policy === "extract") {
         try {
-            unlinkSync(archivePath);
+            if (existsSync(archivePath)) {
+                unlinkSync(archivePath);
+            }
             // stats.purgedFiles++; // Skip counting as threat purge in extract mode
             Logger.info("SHIELD", `Extract policy: Purged archive after full extraction: ${relPath}`);
             return { flagged: false, extractedCount };
         } catch (e) {
-            Logger.error("SYNC", `Failed to purge archive under extract policy: ${relPath}`, e);
-            return { flagged: false, extractedCount, failed: true };
+            Logger.error("SYNC", `Failed to purge archive under extract policy (non-fatal): ${relPath}`, e);
+            return { flagged: false, extractedCount };
         }
     }
 

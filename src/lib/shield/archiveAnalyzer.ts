@@ -70,11 +70,8 @@ export function shouldDownloadInLeanMode(relPath: string): boolean {
     // We block specific paths (BIOS, Drivers, Firmware, etc.) that are pure bloat.
     const isExcluded = LEAN_MODE_EXCLUDE_PATTERNS.some(p => {
         const lowerP = p.toLowerCase().replace(/\\/g, "/");
-        // Check for exact matches with boundaries
-        if (lowerP.startsWith("/")) {
-            return ("/" + lowerPath).includes(lowerP);
-        }
-        return lowerPath.includes(lowerP);
+        const normalizedPattern = lowerP.startsWith("/") ? lowerP : "/" + lowerP;
+        return ("/" + lowerPath).includes(normalizedPattern);
     });
 
     if (isExcluded) {

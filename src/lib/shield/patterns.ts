@@ -85,8 +85,8 @@ export const LEAN_MODE_EXCLUDE_PATTERNS = [
     "/update/", "\\update\\", "update/", "update\\",
     "/updates/", "\\updates\\", "updates/", "updates\\",
     "/me_region/", "\\me_region\\", "me_region/", "me_region\\",
-    "/ec/", "\\ec\\", "ec/", "ec\\",
-    "/fw/", "\\fw\\", "fw/", "fw\\",
+    "/ec/", "\\ec\\",
+    "/fw/", "\\fw\\",
     "setup.exe", "install.exe", "installer.exe"
 ];
 

@@ -35,9 +35,9 @@ describe("E2E: Parallel Sync", () => {
         if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
         delete process.env.MOCK_FAIL_PROBABILITY;
         delete process.env.MOCK_LATENCY;
-        if (process.env.RCLONE_CONFIG_PATH && existsSync(process.env.RCLONE_CONFIG_PATH)) {
-            rmSync(process.env.RCLONE_CONFIG_PATH, { force: true });
-        }
+        delete process.env.PORTAL_CONFIG_PATH;
+        delete process.env.RCLONE_CONFIG_PATH;
+        delete process.env.MOCK_RCLONE;
     });
 
     it("should enter 'syncing' phase when both pull and cloud are active", async () => {

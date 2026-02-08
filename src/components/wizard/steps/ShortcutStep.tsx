@@ -28,7 +28,7 @@ export const ShortcutStep = ({
         <box flexDirection="column" gap={1}>
             <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {String(getCurrentStepNumber())}: System Integration</text>
             <text fg={isShortcutMissing ? colors.danger : colors.fg}>
-                {String(isShortcutMissing ? "⚠️  Shortcut missing! Did you move it standard location?" : "Add Portal to Desktop Apps?")}
+                {String(isShortcutMissing ? "⚠️  Shortcut missing! Did you move it from the standard location?" : "Add Portal to Desktop Apps?")}
             </text>
             <box flexDirection="column" gap={0} marginTop={1}>
                 {options.map((opt, i) => {

@@ -4,14 +4,19 @@ import { LEAN_STRICT_WHITELIST, LEAN_STRICT_BLACKLIST, LEAN_MODE_EXCLUDE_PATTERN
 
 // Tier 0: Download Gate (Path-Aware)
 function isExcludedAtPathGate(relPath: string): boolean {
-    const lower = relPath.toLowerCase().replace(/\\/g, "/");
+    const lowerPath = relPath.toLowerCase().replace(/\\/g, "/");
     return LEAN_MODE_EXCLUDE_PATTERNS.some(p => {
         const lowerP = p.toLowerCase().replace(/\\/g, "/");
-        return lower.includes(lowerP);
+        const normalizedPattern = lowerP.startsWith("/") ? lowerP : "/" + lowerP;
+        return ("/" + lowerPath).includes(normalizedPattern);
     });
 }
 
-const manifestPath = "/home/birdman/Downloads/manifest.txt";
+const manifestPath = process.argv[2];
+if (!manifestPath) {
+    console.error("Usage: bun scripts/simulate-lean-shield.ts <manifest-path>");
+    process.exit(1);
+}
 const lines = readFileSync(manifestPath, "utf-8").split("\n").filter(l => l.trim());
 
 console.log(`Analyzing ${lines.length} lines for SURGICAL LEAN SHIELD simulation...\n`);
@@ -59,7 +64,7 @@ console.log(`[LEAN SHIELD] Stripped Excess (Blacklist/Non-Whitelisted): ${shield
 console.log(`[LEAN SHIELD] Kept Ambiguous: ${shieldKeptAmbiguous}\n`);
 
 const totalKept = shieldKeptGoods + shieldKeptAmbiguous;
-const reduction = ((lines.length - totalKept) / lines.length) * 100;
+const reduction = lines.length > 0 ? ((lines.length - totalKept) / lines.length) * 100 : 0;
 
 console.log(`=== LEAN IMPACT SUMMARY ===`);
 console.log(`Total Original Files: ${lines.length}`);

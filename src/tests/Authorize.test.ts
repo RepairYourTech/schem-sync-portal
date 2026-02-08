@@ -42,6 +42,7 @@ describe("Rclone Robust Token Extraction", () => {
     });
 
     afterAll(() => {
+        delete process.env.RCLONE_CONFIG_PATH;
         mockSpawn.mockRestore();
         mockSpawnSync.mockRestore();
         mockExistsSync.mockRestore();

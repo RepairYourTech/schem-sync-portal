@@ -188,6 +188,6 @@ describe("Malware Shield (Cleanup)", () => {
         // Direct test of ShieldManager.isFilteredPath which is used by runCleanupSweep
         expect(ShieldManager.isFilteredPath("Motherboards/ASUS/BIOS/update.zip")).toBe(true);
         expect(ShieldManager.isFilteredPath("Schematics/Apple/MacBook/Boardview.zip")).toBe(false);
-        expect(ShieldManager.isFilteredPath("bios_update.zip")).toBe(true);
+        expect(ShieldManager.isFilteredPath("bios_update.zip")).toBe(false);
     });
 });

@@ -35,6 +35,8 @@ describe("Sync Engine Integration", () => {
         // Clean up
         delete process.env.MOCK_RCLONE;
         delete process.env.MOCK_LATENCY;
+        delete process.env.PORTAL_CONFIG_PATH;
+        delete process.env.RCLONE_CONFIG_PATH;
         try {
             if (existsSync(testDir)) {
                 rmSync(testDir, { recursive: true, force: true });

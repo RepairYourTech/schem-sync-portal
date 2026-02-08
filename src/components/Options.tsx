@@ -70,7 +70,6 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
             action: () => {
                 if ((config.backup_provider as string) === "gdrive") {
                     Logger.warn("UI", "Shield cannot be disabled for Google Drive backups.");
-                    return;
                 }
                 const baseOptions: (false | "purge" | "isolate" | "extract")[] = [false, "purge", "isolate", "extract"];
                 const options = (config.backup_provider as string) === "gdrive"

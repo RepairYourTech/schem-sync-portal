@@ -25,6 +25,8 @@ describe("Remote Manifest Verification", () => {
 
     afterAll(() => {
         delete process.env.MOCK_RCLONE;
+        delete process.env.RCLONE_CONFIG_PATH;
+        delete process.env.PORTAL_CONFIG_PATH;
         if (existsSync(testDir)) {
             rmSync(testDir, { recursive: true, force: true });
         }
