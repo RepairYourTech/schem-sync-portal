@@ -57,11 +57,8 @@ test_shield_dir/
 !.agent/skills/opentui/
 !.agent/skills/issue-resolution-workflow/
 !.agent/skills/minimalist-surgical-development/
+# Workflows (Allow directory)
 !.agent/workflows/
-.agent/workflows/*
-!.agent/workflows/push-changes.md
-!.agent/workflows/submit-issue.md
-!.agent/workflows/address-issue.md
 
 .agents/
 
@@ -158,5 +155,4 @@ restore_wizard_loops.js
 config.json
 .update-cache.json
 
-# Maintainer-only workflow (private)
-.agent/workflows/merge-and-release.md
+
