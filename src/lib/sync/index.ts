@@ -9,6 +9,8 @@ import { resetSessionState, resetSessionCompletions, parseJsonLog } from "./prog
 import { runCleanupSweep } from "../cleanup";
 import { Env } from "../env";
 import { ShieldManager } from "../shield/ShieldManager";
+import { existsSync, readdirSync } from "fs";
+import { join } from "path";
 import { loadSyncState } from "../syncState";
 
 import {
@@ -190,7 +192,34 @@ export async function runSync(
 
                     // STANDALONE SHIELD PATH: Generate manifest after cleanup
                     Logger.info("SYNC", "Standalone shield run: Generating manifest after cleanup");
-                    const approvedFiles = ShieldManager.scanForApprovedFiles(config.local_dir, "", isStopRequested);
+                    const approvedFiles: string[] = [];
+                    const scan = (dir: string, base: string) => {
+                        if (!existsSync(dir)) return;
+                        const entries = readdirSync(dir, { withFileTypes: true });
+                        for (const entry of entries) {
+                            const relPath = join(base, entry.name);
+                            if (entry.isDirectory()) {
+                                // CRITICAL: Skip isolated directories to prevent malware from being upsynced
+                                if (entry.name === "_risk_tools" || entry.name === "_shield_isolated") {
+                                    Logger.info("SHIELD", `Skipping isolated directory: ${entry.name}`);
+                                    continue;
+                                }
+                                scan(join(dir, entry.name), relPath);
+                            } else if (entry.isFile()) {
+                                const filename = entry.name;
+                                // Skip dotfiles, manifests, and anything in isolated paths (defense in depth)
+                                if (filename.startsWith(".") ||
+                                    filename === "manifest.txt" ||
+                                    filename === "upsync-manifest.txt" ||
+                                    relPath.startsWith("_risk_tools") ||
+                                    relPath.startsWith("_shield_isolated")) {
+                                    continue;
+                                }
+                                approvedFiles.push(relPath);
+                            }
+                        }
+                    };
+                    scan(config.local_dir, "");
 
                     // Include any files extracted from archives
                     if (cleanupStats.extractedFilePaths) {

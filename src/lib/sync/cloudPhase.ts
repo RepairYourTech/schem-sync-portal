@@ -135,7 +135,6 @@ export async function runManifestCloudPhase(
                 if (config.backup_provider === "gdrive") cloudArgs.push("--drive-use-trash=false");
 
                 clearActiveTransfers();
-                if (isStopRequested()) break;
                 await executeRclone(cloudArgs, (p) => {
                     onProgress({
                         ...p,
@@ -146,13 +145,8 @@ export async function runManifestCloudPhase(
                     });
                 }, undefined, "upload", "cloud");
 
-                if (isStopRequested()) break;
+                newFiles.forEach(f => uploadedFiles.add(f));
 
-                for (const f of newFiles) {
-                    uploadedFiles.add(f);
-                }
-
-                if (isStopRequested()) break;
                 // Update and save state
                 state.uploadedFiles = Array.from(uploadedFiles);
                 state.upsyncStatus = "running";

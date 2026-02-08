@@ -1,4 +1,4 @@
-import { writeFileSync, readFileSync, existsSync, readdirSync } from "fs";
+import { writeFileSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { Logger } from "../logger";
 import { Env } from "../env";
@@ -232,47 +232,5 @@ export const ShieldManager = {
         });
         if (matches) Logger.info("SHIELD", `Path ${relPath} matched an exclude pattern.`);
         return matches;
-    },
-
-    /**
-     * Recursively scans a directory for files that are safe to upsync.
-     * Skips hidden files, manifests, and isolated risk directories.
-     */
-    scanForApprovedFiles(dir: string, base: string, isStopRequested: () => boolean): string[] {
-        const approvedFiles: string[] = [];
-
-        const scan = (currentDir: string, currentBase: string) => {
-            if (isStopRequested()) return;
-            if (!existsSync(currentDir)) return;
-
-            const entries = readdirSync(currentDir, { withFileTypes: true });
-            for (const entry of entries) {
-                if (isStopRequested()) break;
-                const relPath = join(currentBase, entry.name);
-
-                if (entry.isDirectory()) {
-                    // CRITICAL: Skip isolated directories
-                    if (entry.name === "_risk_tools" || entry.name === "_shield_isolated") {
-                        Logger.info("SHIELD", `Skipping isolated directory: ${entry.name}`);
-                        continue;
-                    }
-                    scan(join(currentDir, entry.name), relPath);
-                } else if (entry.isFile()) {
-                    const filename = entry.name;
-                    // Skip dotfiles, manifests, and anything in isolated paths
-                    if (filename.startsWith(".") ||
-                        filename === "manifest.txt" ||
-                        filename === "upsync-manifest.txt" ||
-                        relPath.startsWith("_risk_tools") ||
-                        relPath.startsWith("_shield_isolated")) {
-                        continue;
-                    }
-                    approvedFiles.push(relPath);
-                }
-            }
-        };
-
-        scan(dir, base);
-        return approvedFiles;
     }
 };

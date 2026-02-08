@@ -112,13 +112,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, width, 
                     if (onSubFocusIndexChange) onSubFocusIndexChange(1);
                 }}
                 onMouseDown={() => {
-                    // Only confirm if already focused
-                    if (isFocused && subFocusIndex === 1) {
-                        onRateChange(4);
-                    } else {
-                        if (onFocus) onFocus(true);
-                        if (onSubFocusIndexChange) onSubFocusIndexChange(1);
-                    }
+                    onRateChange(4);
                 }}
                 paddingLeft={1}
                 paddingRight={1}
@@ -135,13 +129,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, width, 
                     if (onSubFocusIndexChange) onSubFocusIndexChange(2);
                 }}
                 onMouseDown={() => {
-                    // Only confirm if already focused
-                    if (isFocused && subFocusIndex === 2) {
-                        onRateChange(6);
-                    } else {
-                        if (onFocus) onFocus(true);
-                        if (onSubFocusIndexChange) onSubFocusIndexChange(2);
-                    }
+                    onRateChange(6);
                 }}
                 paddingLeft={1}
                 paddingRight={1}
@@ -158,13 +146,7 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, width, 
                     if (onSubFocusIndexChange) onSubFocusIndexChange(3);
                 }}
                 onMouseDown={() => {
-                    // Only confirm if already focused
-                    if (isFocused && subFocusIndex === 3) {
-                        onRateChange(8);
-                    } else {
-                        if (onFocus) onFocus(true);
-                        if (onSubFocusIndexChange) onSubFocusIndexChange(3);
-                    }
+                    onRateChange(8);
                 }}
                 paddingLeft={1}
                 paddingRight={1}
@@ -237,18 +219,10 @@ export const PanelControls = React.memo(({
                 {/* Pause/Resume Action */}
                 <box flexDirection="row" alignItems="center" flexShrink={0}>
                     <box
-                        onMouseOver={() => {
-                            if (onFocus) onFocus(true);
-                            if (onSubFocusIndexChange) onSubFocusIndexChange(0);
-                        }}
+                        onMouseOver={() => onFocus?.(true)}
                         onMouseDown={() => {
-                            // Only confirm if already focused
-                            if (isActionFocused) {
-                                (onPause || onResume)?.();
-                            } else {
-                                if (onFocus) onFocus(true);
-                                if (onSubFocusIndexChange) onSubFocusIndexChange(0);
-                            }
+                            (onPause || onResume)?.();
+                            onFocus?.(true);
                         }}
                         paddingLeft={1}
                         paddingRight={1}

@@ -9,7 +9,6 @@ import { type PortalConfig } from "../lib/config";
 import { Logger } from "../lib/logger";
 import { Clipboard } from "../lib/clipboard";
 import { performUpdate, type UpdateStatus } from "../lib/updater";
-import type { FocusArea } from "../hooks/useAppState";
 
 interface OptionsProps {
     onDoctor: () => void;
@@ -19,8 +18,8 @@ interface OptionsProps {
     onScan: () => void;
     onForensic: () => void;
     onBack: () => void;
-    focusArea: FocusArea;
-    onFocusChange: (area: FocusArea) => void;
+    focusArea: "body" | "footer";
+    onFocusChange: (area: "body" | "footer") => void;
     tabTransition?: "forward" | "backward" | null;
     config: PortalConfig;
     onUpdateConfig: (config: PortalConfig) => void;

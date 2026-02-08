@@ -2,7 +2,7 @@ import { join } from "path";
 import { existsSync, readFileSync, writeFileSync, readdirSync } from "fs";
 import { Logger } from "../logger";
 import { Env } from "../env";
-import { executeRclone, RETRY_FLAGS, getIsSyncPaused, isStopRequested } from "./utils";
+import { executeRclone, RETRY_FLAGS, getIsSyncPaused } from "./utils";
 import {
     resetSessionCompletions,
     getSessionCompletionsSize,
@@ -26,7 +26,7 @@ async function discoverManifest(config: PortalConfig, sourceRemote: string): Pro
         await executeRclone([
             "copyto", `${sourceRemote}manifest.txt`, localManifest,
             ...RETRY_FLAGS
-        ], () => { }, () => isStopRequested(), "download", "pull");
+        ], () => { }, undefined, "download", "pull");
         return localManifest;
     } catch (err) {
         Logger.debug("SYNC", `Failed to fetch manifest from source: ${err instanceof Error ? err.message : String(err)}`);
@@ -36,7 +36,7 @@ async function discoverManifest(config: PortalConfig, sourceRemote: string): Pro
                 await executeRclone([
                     "copyto", `${destRemote}manifest.txt`, localManifest,
                     ...RETRY_FLAGS
-                ], () => { }, () => isStopRequested(), "download", "pull");
+                ], () => { }, undefined, "download", "pull");
                 return localManifest;
             } catch (err) {
                 Logger.debug("SYNC", `Failed to fetch manifest from backup: ${err instanceof Error ? err.message : String(err)}`);
@@ -58,11 +58,9 @@ function processManifest(localManifest: string, localDir: string): { remoteFiles
 
         const localFiles = new Set<string>();
         const scan = (dir: string, base: string) => {
-            if (isStopRequested()) return;
             if (!existsSync(dir)) return;
             const entries = readdirSync(dir, { withFileTypes: true });
             for (const entry of entries) {
-                if (isStopRequested()) break;
                 const relPath = join(base, entry.name);
                 if (entry.isDirectory()) {
                     if (entry.name === "_risk_tools" || entry.name === "_shield_isolated") continue;
@@ -97,11 +95,9 @@ export async function runPullPhase(
         // Manifest-only mode: scan local dir to ensure we capture all existing files
         const verifiedFiles: string[] = [];
         const scan = (dir: string, base: string) => {
-            if (isStopRequested()) return;
             if (!existsSync(dir)) return;
             const entries = readdirSync(dir, { withFileTypes: true });
             for (const entry of entries) {
-                if (isStopRequested()) break;
                 const relPath = join(base, entry.name);
                 if (entry.isDirectory()) {
                     if (entry.name === "_risk_tools" || entry.name === "_shield_isolated") continue;
@@ -142,8 +138,6 @@ export async function runPullPhase(
 
     if (localManifest) {
         const manifestData = processManifest(localManifest, config.local_dir);
-        if (isStopRequested()) return;
-
         if (manifestData) {
             initialLocalCount = manifestData.initialLocalCount;
 
@@ -206,8 +200,6 @@ export async function runPullPhase(
         }
     }
 
-    if (isStopRequested()) return;
-
     const basePullArgs = [
         config.strict_mirror ? "sync" : "copy", sourceRemote, config.local_dir,
         "--size-only", "--fast-list",
@@ -221,7 +213,6 @@ export async function runPullPhase(
 
     // STAGE 1: Prioritized Pull (Known Threats) - ONLY when shield enabled
     if (config.enable_malware_shield && riskyItems.length > 0) {
-        if (isStopRequested()) return;
         const riskyListFile = join(config.local_dir, "prioritized_risky.txt");
         writeFileSync(riskyListFile, riskyItems.join("\n"));
 
@@ -242,9 +233,8 @@ export async function runPullPhase(
                 cleanupStats,
                 percentage: Math.min(100, Math.round((getSessionCompletionsSize() / (riskyItems.length + standardItems.length)) * 100))
             });
-        }, () => isStopRequested(), "download", "pull");
+        }, undefined, "download", "pull");
 
-        if (isStopRequested()) return;
         // Neutralize through both archive sweep AND direct file cleanup
         await ShieldExecutor.execute({
             type: config.download_mode === "lean" ? "valuable_sweep" : "risky_sweep",
@@ -256,9 +246,7 @@ export async function runPullPhase(
             mode: config.download_mode || "full"
         });
 
-        if (isStopRequested()) return;
         for (const item of riskyItems) {
-            if (isStopRequested()) break;
             const fullPath = join(config.local_dir, item);
             if (existsSync(fullPath)) {
                 await ShieldExecutor.execute({
@@ -282,14 +270,12 @@ export async function runPullPhase(
             cleanupStats.extractedFilePaths.forEach(f => approvedFiles.add(f));
         }
 
-        if (isStopRequested()) return;
         // IMMEDIATE CREATION: Create manifest immediately after initial risky sweep
         Logger.info("SYNC", `Creating initial upsync manifest after risky sweep (${approvedFiles.size} files approved)`);
         const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, Array.from(approvedFiles), config.malware_policy || "purge");
         onProgress({ manifestInfo });
     }
 
-    if (isStopRequested()) return;
     // STAGE 2: Standard Pull
     const standardFilesCount = standardItems.length;
     const standardArgs = [...basePullArgs];
@@ -327,7 +313,6 @@ export async function runPullPhase(
             percentage: displayPct
         });
     }, async (filename) => {
-        if (isStopRequested()) return;
         // REAL-TIME CLEANING: Clean the file immediately after download
         if (config.enable_malware_shield) {
             const fullPath = join(config.local_dir, filename);
@@ -361,7 +346,6 @@ export async function runPullPhase(
 
     // FINAL SWEEP: Catch any archives identified after download during standard pull
     if (config.enable_malware_shield) {
-        if (isStopRequested()) return;
         await ShieldExecutor.execute({
             type: "final_sweep",
             localDir: config.local_dir,

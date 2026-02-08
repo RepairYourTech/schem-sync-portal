@@ -133,10 +133,6 @@ export async function executeRclone(
     type: "download" | "upload" = "download",
     phase?: 'pull' | 'shield' | 'cloud'
 ): Promise<void> {
-    if (isStopRequested()) {
-        Logger.info("SYNC", "executeRclone: Stop already requested. Aborting spawn.");
-        return Promise.resolve();
-    }
     return new Promise((resolve, reject) => {
         const fullArgs = [
             "--config", Env.getRcloneConfigPath(),
@@ -270,9 +266,10 @@ export function getIsSyncPaused(phase?: 'pull' | 'shield' | 'cloud'): boolean {
 export function stopSync(): void {
     requestStop();
     for (const proc of activeProcs) {
-        try { proc.kill(); } catch (e) { Logger.error("SYNC", "Failed to kill process during stop", e as Error); }
+        proc.kill();
     }
     activeProcs.clear();
+    // Clear phase tracking
     phaseProcesses.pull.clear();
     phaseProcesses.shield.clear();
     phaseProcesses.cloud.clear();
@@ -280,41 +277,53 @@ export function stopSync(): void {
 
 export function pauseSync(onUpdate?: (p: Partial<SyncProgress>) => void, phase?: 'pull' | 'shield' | 'cloud'): void {
     if (phase) {
-        pauseState[phase] = true;
-        for (const proc of phaseProcesses[phase]) {
-            try { proc.kill("SIGSTOP"); } catch (e) { Logger.debug("SYNC", `Failed to stop ${phase} process`, e); }
+        // Pause specific phase
+        if (!pauseState[phase] && phaseProcesses[phase].size > 0) {
+            for (const proc of phaseProcesses[phase]) {
+                proc.kill("SIGSTOP");
+            }
+            pauseState[phase] = true;
+            Logger.info("SYNC", `${phase.toUpperCase()} phase paused: ${phaseProcesses[phase].size} processes`);
+            if (onUpdate) onUpdate({ isPaused: true });
         }
-        Logger.info("SYNC", `${phase.toUpperCase()} phase paused. Setting persistent pause state.`);
-        if (onUpdate) onUpdate({ isPaused: getIsSyncPaused() });
     } else {
-        pauseState.pull = true;
-        pauseState.shield = true;
-        pauseState.cloud = true;
-        for (const proc of activeProcs) {
-            try { proc.kill("SIGSTOP"); } catch (e) { Logger.debug("SYNC", "Failed to stop process during global pause", e); }
+        // Global pause: pause all active phases
+        if (activeProcs.size > 0) {
+            for (const proc of activeProcs) {
+                proc.kill("SIGSTOP");
+            }
+            pauseState.pull = true;
+            pauseState.shield = true;
+            pauseState.cloud = true;
+            Logger.info("SYNC", `All phases paused: ${activeProcs.size} processes`);
+            if (onUpdate) onUpdate({ isPaused: true });
         }
-        Logger.info("SYNC", "All phases paused.");
-        if (onUpdate) onUpdate({ isPaused: true });
     }
 }
 
 export function resumeSync(onUpdate?: (p: Partial<SyncProgress>) => void, phase?: 'pull' | 'shield' | 'cloud'): void {
     if (phase) {
-        pauseState[phase] = false;
-        for (const proc of phaseProcesses[phase]) {
-            try { proc.kill("SIGCONT"); } catch (e) { Logger.debug("SYNC", `Failed to continue ${phase} process`, e); }
+        // Resume specific phase
+        if (pauseState[phase]) {
+            for (const proc of phaseProcesses[phase]) {
+                proc.kill("SIGCONT");
+            }
+            pauseState[phase] = false;
+            Logger.info("SYNC", `${phase.toUpperCase()} phase resumed: ${phaseProcesses[phase].size} processes`);
+            if (onUpdate) onUpdate({ isPaused: false });
         }
-        Logger.info("SYNC", `${phase.toUpperCase()} phase resumed.`);
-        if (onUpdate) onUpdate({ isPaused: getIsSyncPaused() });
     } else {
-        pauseState.pull = false;
-        pauseState.shield = false;
-        pauseState.cloud = false;
-        for (const proc of activeProcs) {
-            try { proc.kill("SIGCONT"); } catch (e) { Logger.debug("SYNC", "Failed to continue process during global resume", e); }
+        // Global resume: resume all phases
+        if (pauseState.pull || pauseState.shield || pauseState.cloud) {
+            for (const proc of activeProcs) {
+                proc.kill("SIGCONT");
+            }
+            pauseState.pull = false;
+            pauseState.shield = false;
+            pauseState.cloud = false;
+            Logger.info("SYNC", "All phases resumed");
+            if (onUpdate) onUpdate({ isPaused: false });
         }
-        Logger.info("SYNC", "All phases resumed.");
-        if (onUpdate) onUpdate({ isPaused: false });
     }
 }
 

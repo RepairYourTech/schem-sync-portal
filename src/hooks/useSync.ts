@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import type { PortalConfig } from "../lib/config";
 import { runSync, stopSync, pauseSync, resumeSync, clearSyncSession, getIsSyncPaused, getCurrentSessionId, type SyncProgress } from "../lib/sync";
 
-export type Phase = 'pull' | 'shield' | 'cloud';
+type Phase = 'pull' | 'shield' | 'cloud';
 
 export function useSync() {
     const [progress, setProgress] = useState<SyncProgress>({
