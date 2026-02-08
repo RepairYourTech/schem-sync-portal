@@ -6,6 +6,9 @@ description: Automated workflow for branching, changesets, and PR creation.
 
 This workflow automates the process of pushing changes to a feature branch, adding a changeset, and opening a Pull Request.
 
+> [!NOTE]
+> This workflow ends when your PR is ready for maintainer review. The merge and release steps are handled by the maintainer via `/merge-and-release`.
+
 ## 🛠️ Steps
 
 ### 1. Environment Check
@@ -56,8 +59,8 @@ Open a PR on GitHub using the `gh` CLI.
 gh pr create --title "feat: your description" --body "Detailed description of changes\n\nFixes #<issue-number>"
 ```
 
-### 6. CodeRabbit Review
-Wait for **CodeRabbit** to provide feedback. The agent checks for comments from `coderabbitai`.
+### 6. Wait for Review
+Wait for **CodeRabbit** to provide feedback.
 // turbo
 ```bash
 echo "Waiting for CodeRabbit review (polling for up to 5 minutes)..."
@@ -73,18 +76,85 @@ for i in {1..10}; do
   sleep 30
 done
 ```
-**ACTION REQUIRED**: Read the comments output above. Address all critical items and ensure the review is approved/passed before proceeding to merge.
 
-### 7. Finalizing (On Main after Merge)
-Once the PR is merged, run this to finalize the version bump:
+### 7. Address Feedback (Repeat Until Clean)
+For each review comment from CodeRabbit or human reviewers:
+1. **Read** the comment and understand the feedback
+2. **Implement** the fix in code
+3. **Commit and push** the fix
+
 // turbo
 ```bash
-git checkout main
-git pull origin main
-bun changeset version
-# Manually update README.md version strings/badges
-git add package.json CHANGELOG.md README.md
-git commit -m "chore: version bump and doc sync"
-git push origin main
-gh release create v$(node -p "require('./package.json').version") --generate-notes
+# List all unresolved review threads
+PR_NUMBER=$(gh pr view --json number -q .number)
+echo "Fetching unresolved review threads..."
+THREADS=$(gh api graphql -f query='
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100) {
+          nodes {
+            id
+            isResolved
+            comments(first: 1) {
+              nodes { body author { login } }
+            }
+          }
+        }
+      }
+    }
+  }
+' -f owner="RepairYourTech" -f repo="schem-sync-portal" -F pr=$PR_NUMBER)
+
+echo "$THREADS" | jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)'
 ```
+
+After implementing fixes:
+// turbo
+```bash
+git add .
+git commit -m "fix: address review feedback"
+git push origin $(git branch --show-current)
+```
+
+### 8. Resolve Threads
+After addressing each comment in code and pushing fixes, resolve all threads:
+// turbo
+```bash
+PR_NUMBER=$(gh pr view --json number -q .number)
+THREAD_IDS=$(gh api graphql -f query='
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100) {
+          nodes { id isResolved }
+        }
+      }
+    }
+  }
+' -f owner="RepairYourTech" -f repo="schem-sync-portal" -F pr=$PR_NUMBER \
+  | jq -r '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | .id')
+
+for THREAD_ID in $THREAD_IDS; do
+  echo "Resolving thread: $THREAD_ID"
+  gh api graphql -f query='
+    mutation($threadId: ID!) {
+      resolveReviewThread(input: {threadId: $threadId}) {
+        thread { isResolved }
+      }
+    }
+  ' -f threadId="$THREAD_ID"
+done
+echo "All review threads resolved."
+```
+
+---
+
+## ✅ Done!
+Your PR is now ready for maintainer review. The maintainer will:
+1. Review your changes
+2. Merge the PR
+3. Create the release
+
+> [!CAUTION]
+> **ZERO BYPASS POLICY**: Contributors are STRICTLY FORBIDDEN from using `--admin` or any other administrative bypass to merge a Pull Request.
