@@ -7,7 +7,7 @@ import { useUpdateCheck } from "./useUpdateCheck";
 
 export type ViewName = "dashboard" | "wizard" | "doctor" | "options" | "sync" | "forensic" | "fontinstaller" | "fontguide";
 export type WizardMode = "continue" | "restart" | "edit";
-export type FocusArea = "header" | "body" | "footer";
+export type FocusArea = "body" | "footer";
 
 export function useAppState() {
     const [config, setConfig] = useState<PortalConfig>(loadConfig());

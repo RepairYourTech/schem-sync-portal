@@ -5,14 +5,13 @@ import { useTheme } from "../lib/theme";
 import { TextAttributes } from "@opentui/core";
 import { Hotkey } from "./Hotkey";
 import { Logger } from "../lib/logger";
-import type { FocusArea } from "../hooks/useAppState";
 
 interface DashboardProps {
     config: PortalConfig;
     isFocused: boolean;
     selectedIndex: number;
     onSelectionChange?: (idx: number) => void;
-    onFocusChange?: (area: FocusArea) => void;
+    onFocusChange?: (area: "body" | "footer") => void;
     onAction?: (key: string) => void;
 }
 
