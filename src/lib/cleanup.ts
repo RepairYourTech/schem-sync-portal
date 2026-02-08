@@ -6,6 +6,7 @@ import { glob } from "glob";
 import { Env } from "./env";
 import { Logger } from "./logger";
 import { ShieldManager } from "./shield/ShieldManager";
+import { isStopRequested } from "./sync/utils";
 import { KEEP_EXTS, GARBAGE_PATTERNS, PRIORITY_FILENAMES, SAFE_PATTERNS, LEAN_STRICT_WHITELIST, LEAN_STRICT_BLACKLIST } from "./shield/patterns";
 import type { CleanupStats, SyncProgress } from "./sync/types";
 
@@ -68,7 +69,7 @@ export async function runCleanupSweep(
                     continue;
                 }
 
-                if (abortSignal?.aborted) {
+                if (isStopRequested() || abortSignal?.aborted) {
                     for (let j = i; j < archives.length; j++) unscannedArchives.push(relative(targetDir, archives[j]!));
                     return { completed: false, scannedArchives, unscannedArchives };
                 }
@@ -124,7 +125,7 @@ export async function runCleanupSweep(
                 const extractedFileSet = new Set(stats.extractedFilePaths || []);
 
                 for (let i = 0; i < standaloneFiles.length; i++) {
-                    if (abortSignal?.aborted) break;
+                    if (isStopRequested() || abortSignal?.aborted) break;
 
                     const filePath = standaloneFiles[i]!;
                     const relPath = relative(targetDir, filePath);
