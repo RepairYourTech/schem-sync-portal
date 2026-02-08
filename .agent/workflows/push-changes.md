@@ -87,6 +87,9 @@ For each review comment from CodeRabbit or human reviewers:
 ```bash
 # List all unresolved review threads
 PR_NUMBER=$(gh pr view --json number -q .number)
+REPO_INFO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+OWNER=$(echo $REPO_INFO | cut -d'/' -f1)
+REPO=$(echo $REPO_INFO | cut -d'/' -f2)
 echo "Fetching unresolved review threads..."
 THREADS=$(gh api graphql -f query='
   query($owner: String!, $repo: String!, $pr: Int!) {
@@ -104,7 +107,7 @@ THREADS=$(gh api graphql -f query='
       }
     }
   }
-' -f owner="RepairYourTech" -f repo="schem-sync-portal" -F pr=$PR_NUMBER)
+' -f owner="$OWNER" -f repo="$REPO" -F pr=$PR_NUMBER)
 
 echo "$THREADS" | jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)'
 ```
@@ -122,6 +125,9 @@ After addressing each comment in code and pushing fixes, resolve all threads:
 // turbo
 ```bash
 PR_NUMBER=$(gh pr view --json number -q .number)
+REPO_INFO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+OWNER=$(echo $REPO_INFO | cut -d'/' -f1)
+REPO=$(echo $REPO_INFO | cut -d'/' -f2)
 THREAD_IDS=$(gh api graphql -f query='
   query($owner: String!, $repo: String!, $pr: Int!) {
     repository(owner: $owner, name: $repo) {
@@ -132,7 +138,7 @@ THREAD_IDS=$(gh api graphql -f query='
       }
     }
   }
-' -f owner="RepairYourTech" -f repo="schem-sync-portal" -F pr=$PR_NUMBER \
+' -f owner="$OWNER" -f repo="$REPO" -F pr=$PR_NUMBER \
   | jq -r '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | .id')
 
 for THREAD_ID in $THREAD_IDS; do
