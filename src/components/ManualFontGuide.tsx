@@ -97,8 +97,6 @@ export function ManualFontGuide({ returnView: _returnView, onClose }: ManualFont
                 <box
                     onMouseDown={onClose}
                     border={false}
-                    borderStyle="single"
-                    borderColor={colors.danger}
                     paddingLeft={1}
                     paddingRight={1}
                 >

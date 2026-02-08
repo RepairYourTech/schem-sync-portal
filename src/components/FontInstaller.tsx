@@ -165,8 +165,6 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                         <box
                             onMouseDown={() => onCancel()}
                             border={false}
-                            borderStyle="single"
-                            borderColor={colors.danger}
                             paddingLeft={1}
                             paddingRight={1}
                         >
@@ -227,8 +225,6 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                         <box
                             onMouseDown={() => onCancel()}
                             border={false}
-                            borderStyle="single"
-                            borderColor={colors.danger}
                             paddingLeft={1}
                             paddingRight={1}
                         >

@@ -63,7 +63,7 @@ export async function analyzeArchiveContent(archivePath: string): Promise<Archiv
  * @param relPath The full relative path of the file
  * @param _archiveListing Optional pre-fetched listing content
  */
-export function shouldDownloadInLeanMode(relPath: string, _archiveListing?: string): boolean {
+export function shouldDownloadInLeanMode(relPath: string): boolean {
     const lowerPath = relPath.toLowerCase().replace(/\\/g, "/");
 
     // 1. Tier 0: The "Surgical" Path Gate

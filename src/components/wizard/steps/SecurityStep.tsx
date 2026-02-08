@@ -43,15 +43,15 @@ export const SecurityStep = ({
             )}
             <box flexDirection="column" gap={0} marginTop={1}>
                 {filteredOptions.map((opt, i) => {
-                    const isFocused = selectedIndex === i && focusArea === "body";
+                    const isFocused = selectedIndex === allOptions.findIndex(o => o.value === opt.value) && focusArea === "body";
                     return (
                         <box
                             key={i}
                             onMouseOver={() => {
                                 onFocusChange("body");
-                                setSelectedIndex(i);
+                                setSelectedIndex(allOptions.findIndex(o => o.value === opt.value));
                             }}
-                            onMouseDown={() => confirmSelection(allOptions[i]!)}
+                            onMouseDown={() => confirmSelection(opt)}
                             paddingLeft={1}
                             paddingRight={1}
                             border={isFocused}

@@ -388,18 +388,10 @@ export async function cleanFile(
         if (KEEP_EXTS.includes(ext)) return false;
     }
 
-    let isGarbage = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase()) ||
+    const isGarbage = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase()) ||
         GARBAGE_PATTERNS.some(p => fileName.toLowerCase().includes(p.toLowerCase())) ||
-        (mode === "lean" && LEAN_STRICT_BLACKLIST.includes(ext.toLowerCase()));
-
-    // LEAN MODE: Strict non-whitelist purging
-    if (mode === "lean") {
-        const isWhitelisted = LEAN_STRICT_WHITELIST.includes(ext.toLowerCase());
-        if (!isWhitelisted) {
-            isGarbage = true;
-            Logger.info("SHIELD", `Lean Mode: Marking non-whitelisted file as garbage: ${relPath}`);
-        }
-    }
+        (mode === "lean" && LEAN_STRICT_BLACKLIST.includes(ext.toLowerCase())) ||
+        (mode === "lean" && !LEAN_STRICT_WHITELIST.includes(ext.toLowerCase()));
 
     if (isGarbage) {
         if (mode !== "lean") {

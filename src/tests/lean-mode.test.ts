@@ -15,6 +15,7 @@ describe("Lean Mode Logic", () => {
         debugSpy.mockRestore();
         warnSpy.mockRestore();
         errorSpy.mockRestore();
+        delete process.env.PORTAL_CONFIG_PATH;
     });
     test("Allows boardview files", () => {
         expect(shouldDownloadInLeanMode("macbook_pro_2020_boardview.brd")).toBe(true);
@@ -37,7 +38,8 @@ describe("Lean Mode Logic", () => {
         expect(shouldDownloadInLeanMode("flash_tool.zip")).toBe(true);
         // Firmware and Drivers are now blocked at the gate if in a folder
         expect(shouldDownloadInLeanMode("Subfolder/Firmware/update.zip")).toBe(false);
-        expect(shouldDownloadInLeanMode("bios_dump.bin")).toBe(true); // Now allowed at gate, shield will catch it
+        // BIN and EXE should stay TRUE at GATE, shield cleans them later
+        expect(shouldDownloadInLeanMode("bios_dump.bin")).toBe(true);
         expect(shouldDownloadInLeanMode("virus.exe")).toBe(true);
     });
 

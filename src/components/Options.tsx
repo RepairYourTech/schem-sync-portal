@@ -68,14 +68,19 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
         {
             label: `SHIELD POLICY: [${config.enable_malware_shield ? config.malware_policy.toUpperCase() : "OFF"}]`,
             action: () => {
-                if (config.backup_provider === "gdrive") {
+                if ((config.backup_provider as string) === "gdrive") {
                     Logger.warn("UI", "Shield cannot be disabled for Google Drive backups.");
                     return;
                 }
-                const options: (false | "purge" | "isolate" | "extract")[] = [false, "purge", "isolate", "extract"];
+                const baseOptions: (false | "purge" | "isolate" | "extract")[] = [false, "purge", "isolate", "extract"];
+                const options = (config.backup_provider as string) === "gdrive"
+                    ? baseOptions.filter(o => o !== false && o !== "extract")
+                    : baseOptions;
+
                 const current = config.enable_malware_shield ? config.malware_policy : false;
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const nextIdx = (options.indexOf(current as any) + 1) % options.length;
+                const currentIndex = options.indexOf(current as any);
+                const nextIdx = (currentIndex + 1) % options.length;
                 const next = options[nextIdx];
 
                 if (next === false) {

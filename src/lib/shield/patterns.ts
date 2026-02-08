@@ -71,11 +71,6 @@ export const PRIORITY_FILENAMES = [
     "GV-N4090GAMING-OC-24GD r1.0 boardview.zip"
 ];
 
-export const BIOS_HARD_STOPS = [
-    "BIOS_", "bios_", "Bios_",                 // BIOS dumps
-    "/bios/", "/bios_", "\\bios\\", "\\bios_", "/bios ", "\\bios ", // Path-aware variants
-    "bios/", "bios\\", // Only match as folder if at root
-];
 
 export const LEAN_MODE_EXCLUDE_PATTERNS = [
     // Strict path-scoped patterns to prevent false positives (e.g., BIOS_Schematic.pdf)
