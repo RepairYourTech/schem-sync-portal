@@ -1,4 +1,4 @@
-import { expect, test, describe, beforeEach, mock } from "bun:test";
+import { expect, test, describe, beforeEach, afterAll, mock } from "bun:test";
 import { clearSyncSession, resetSessionCompletions } from "../lib/sync";
 import { startNewSession, getCurrentSessionId, isNewSession } from "../lib/sync/utils";
 import { parseJsonLog, getSessionCompletionsSize } from "../lib/sync/progress";
@@ -24,6 +24,10 @@ describe("Sync Session Persistence", () => {
         mkdirSync(testLocalDir, { recursive: true });
         clearSyncSession();
         resetSessionCompletions();
+    });
+
+    afterAll(() => {
+        if (existsSync(testLocalDir)) rmSync(testLocalDir, { recursive: true, force: true });
     });
 
     test("Lean mode persists across app restart", () => {
