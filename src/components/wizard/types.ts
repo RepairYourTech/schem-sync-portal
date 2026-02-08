@@ -16,6 +16,8 @@ export interface WizardKeyEvent {
     meta: boolean;
 }
 
+import type { FocusArea } from "../../hooks/useAppState";
+
 export interface WizardProps {
     onComplete: (config: PortalConfig) => void;
     onUpdate?: (config: PortalConfig) => void;
@@ -23,8 +25,8 @@ export interface WizardProps {
     onQuit: () => void;
     initialConfig: PortalConfig;
     mode?: "continue" | "restart" | "edit";
-    focusArea: "body" | "footer";
-    onFocusChange: (area: "body" | "footer") => void;
+    focusArea: FocusArea;
+    onFocusChange: (area: FocusArea) => void;
     tabTransition?: "forward" | "backward" | null;
     backSignal: number;
 }

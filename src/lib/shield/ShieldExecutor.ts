@@ -4,6 +4,7 @@ import { Logger } from "../logger";
 import { ShieldManager } from "./ShieldManager";
 import { Env } from "../env";
 import { runCleanupSweep, cleanFile } from "../cleanup";
+import { isStopRequested } from "../sync/utils";
 import type { CleanupResult } from "../cleanup";
 import type { CleanupStats, SyncProgress } from "../sync/types";
 
@@ -140,9 +141,11 @@ export class ShieldExecutor {
         // 2. Discover all verified files
         const approvedFiles = new Set<string>();
         const scan = (dir: string, base: string) => {
+            if (isStopRequested()) return;
             if (!existsSync(dir)) return;
             const entries = readdirSync(dir, { withFileTypes: true });
             for (const entry of entries) {
+                if (isStopRequested()) break;
                 const relPath = join(base, entry.name);
                 // Skip isolated/quarantine directories
                 if (entry.isDirectory()) {

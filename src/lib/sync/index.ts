@@ -194,9 +194,11 @@ export async function runSync(
                     Logger.info("SYNC", "Standalone shield run: Generating manifest after cleanup");
                     const approvedFiles: string[] = [];
                     const scan = (dir: string, base: string) => {
+                        if (isStopRequested()) return;
                         if (!existsSync(dir)) return;
                         const entries = readdirSync(dir, { withFileTypes: true });
                         for (const entry of entries) {
+                            if (isStopRequested()) break;
                             const relPath = join(base, entry.name);
                             if (entry.isDirectory()) {
                                 // CRITICAL: Skip isolated directories to prevent malware from being upsynced

@@ -3,12 +3,6 @@ import { TextAttributes } from "@opentui/core";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import React, { useCallback } from "react";
 import { spawn } from "child_process";
-import { Splash } from "./Splash";
-import { Dashboard } from "./Dashboard";
-import { Wizard } from "./Wizard";
-import { Options } from "./Options";
-import { ForensicView } from "./ForensicView";
-import { DoctorView } from "./DoctorView";
 import { SyncPortal } from "./SyncPortal";
 import { useTheme } from "../lib/theme";
 import { saveConfig, type PortalConfig } from "../lib/config";
@@ -16,6 +10,12 @@ import { useSync } from "../hooks/useSync";
 import { checkDependencies } from "../lib/doctor";
 import { Env } from "../lib/env";
 import { Hotkey } from "./Hotkey";
+import { Splash } from "./Splash";
+import { Dashboard } from "./Dashboard";
+import { Wizard } from "./Wizard";
+import { Options } from "./Options";
+import { ForensicView } from "./ForensicView";
+import { DoctorView } from "./DoctorView";
 import { FontInstaller } from "./FontInstaller";
 import { ManualFontGuide } from "./ManualFontGuide";
 import { FontMissingBanner } from "./FontMissingBanner";
@@ -26,6 +26,7 @@ import { SlimeIcon } from "./SlimeIcon";
 import { UpdateNotice } from "./UpdateNotice";
 import { useAppState } from "../hooks/useAppState";
 import { useViewNavigation } from "../hooks/useViewNavigation";
+import { handleSyncKeys } from "./SyncKeyHandler";
 import { Logger } from "../lib/logger";
 import pkg from "../../package.json";
 
@@ -57,8 +58,8 @@ export function AppContent() {
     const { progress, isRunning, start, stop, pause, resume, pausePhase, resumePhase, isPhasePaused, updateProgress } = useSync();
 
     const handleStartSync = useCallback(() => {
-        if (config.source_provider !== "unconfigured" && config.source_provider !== "none" && !isRunning) {
-            start(config);
+        if (config.source_provider !== "unconfigured" && config.source_provider !== "none") {
+            if (!isRunning) start(config);
         } else {
             setWizardReturnView("dashboard");
             setView("wizard");
@@ -98,99 +99,13 @@ export function AppContent() {
         if (!key) return;
 
         if (view === "sync") {
-            const showSource = config.source_provider !== "none";
-            const showShield = config.enable_malware_shield === true;
-            const showDest = config.upsync_enabled && config.backup_provider !== "none";
-            const panelCount = 1 + (showSource ? 1 : 0) + (showShield ? 1 : 0) + (showDest ? 1 : 0);
-
-            if (key.name === "t") {
-                if (isRunning) stop();
-                else handleStartSync();
-                return;
-            }
-
-            if (key.name === "up" || key.name === "k") {
-                setSyncFocusIndex(prev => {
-                    const panelTypes = ["global"];
-                    if (showSource) panelTypes.push("source");
-                    if (showShield) panelTypes.push("shield");
-                    if (showDest) panelTypes.push("dest");
-                    const currentPanelType = panelTypes[prev];
-                    const newPanelIndex = (prev === 0 ? panelCount - 1 : prev - 1);
-                    const newPanelType = panelTypes[newPanelIndex];
-                    if (!((currentPanelType === "source" || currentPanelType === "dest") && (newPanelType === "source" || newPanelType === "dest"))) {
-                        setSyncSubFocusIndex(0);
-                    }
-                    return newPanelIndex;
-                });
-                return;
-            }
-            if (key.name === "down" || key.name === "j") {
-                setSyncFocusIndex(prev => {
-                    const panelTypes = ["global"];
-                    if (showSource) panelTypes.push("source");
-                    if (showShield) panelTypes.push("shield");
-                    if (showDest) panelTypes.push("dest");
-                    const currentPanelType = panelTypes[prev];
-                    const newPanelIndex = (prev === panelCount - 1 ? 0 : prev + 1);
-                    const newPanelType = panelTypes[newPanelIndex];
-                    if (!((currentPanelType === "source" || currentPanelType === "dest") && (newPanelType === "source" || newPanelType === "dest"))) {
-                        setSyncSubFocusIndex(0);
-                    }
-                    return newPanelIndex;
-                });
-                return;
-            }
-
-            if (key.name === "left" || key.name === "right" || key.name === "h" || key.name === "l") {
-                if (syncFocusIndex > 0) {
-                    const panelTypes = ["global"];
-                    if (showSource) panelTypes.push("source");
-                    if (showShield) panelTypes.push("shield");
-                    if (showDest) panelTypes.push("dest");
-                    const currentPanelType = panelTypes[syncFocusIndex];
-                    const maxSub = (currentPanelType === "source" || currentPanelType === "dest") ? 3 : 0;
-                    if (key.name === "left" || key.name === "h") setSyncSubFocusIndex(prev => (prev === 0 ? maxSub : prev - 1));
-                    else setSyncSubFocusIndex(prev => (prev >= maxSub ? 0 : prev + 1));
-                }
-                return;
-            }
-
-            if (key.name === "p") { if (!progress.isPaused) pause(); return; }
-            if (key.name === "r") { if (progress.isPaused) resume(); return; }
-
-            if (key.name === "4" || key.name === "6" || key.name === "8") {
-                const rate = parseInt(key.name) as 4 | 6 | 8;
-                let newConfig = { ...config };
-
-                const visiblePanels: string[] = ["global"];
-                if (config.source_provider !== "none") visiblePanels.push("source");
-                if (config.enable_malware_shield) visiblePanels.push("shield");
-                if (config.upsync_enabled && config.backup_provider !== "none") visiblePanels.push("dest");
-
-                const panelType = visiblePanels[syncFocusIndex];
-                if (panelType === "global") { newConfig.downsync_transfers = rate; newConfig.upsync_transfers = rate; }
-                else if (panelType === "source") { newConfig.downsync_transfers = rate; }
-                else if (panelType === "dest") { newConfig.upsync_transfers = rate; }
-
-                setConfig(newConfig);
-                return;
-            }
-
-            if (key.name === "return") {
-                if (syncFocusIndex === 0) { if (isRunning) stop(); else handleStartSync(); }
-                else if (syncFocusIndex > 0) {
-                    if (syncSubFocusIndex === 0) { if (progress.isPaused) resume(); else pause(); }
-                    else if (syncSubFocusIndex >= 1 && syncSubFocusIndex <= 3) {
-                        const rate = (syncSubFocusIndex === 1 ? 4 : syncSubFocusIndex === 2 ? 6 : 8) as 4 | 6 | 8;
-                        let newConfig = { ...config };
-                        if (syncFocusIndex === 1) newConfig.downsync_transfers = rate;
-                        if (syncFocusIndex === 3) newConfig.upsync_transfers = rate;
-                        setConfig(newConfig);
-                    }
-                }
-                return;
-            }
+            if (handleSyncKeys(key, {
+                config, isRunning, progress,
+                syncFocusIndex, syncSubFocusIndex,
+                setSyncFocusIndex, setSyncSubFocusIndex,
+                setConfig, handleStartSync, stop,
+                pause, resume, pausePhase, resumePhase, isPhasePaused
+            })) return;
         }
 
         if (key.name === "b" && view !== "dashboard" && view !== "sync") {
@@ -220,31 +135,21 @@ export function AppContent() {
 
         if (key.name === "tab") {
             if (focusArea === "footer") {
-                if (key.shift) {
-                    if (footerFocus === 0 || footerFocus === null) {
-                        tabDirection.current = "backward";
-                        setFocusArea("body"); setFooterFocus(null);
-                        if (view === "dashboard") setBodyIndex(bodyActionsCount - 1);
-                        if (view === "doctor") {
-                            const showRepair = !deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2;
-                            const showUpgrade = deps?.nerdFontDetailed.version === 2;
-                            const count = 3 + (showRepair ? 1 : 0) + (showUpgrade ? 1 : 0);
-                            setDoctorIndex(count - 1);
-                        }
-                    } else setFooterFocus(prev => prev! - 1);
-                } else {
-                    if (footerFocus === actions.length - 1) {
-                        tabDirection.current = "forward";
-                        setFocusArea("body"); setFooterFocus(null);
-                        if (view === "dashboard") setBodyIndex(0);
-                        if (view === "doctor") setDoctorIndex(0);
-                    } else setFooterFocus(prev => (prev === null ? 0 : prev + 1));
-                }
+                tabDirection.current = key.shift ? "backward" : "forward";
+                setFocusArea("header"); setFooterFocus(0);
+                return;
+            }
+            if (focusArea === "header") {
+                tabDirection.current = key.shift ? "backward" : "forward";
+                setFocusArea("body"); setFooterFocus(null);
+                if (view === "dashboard") setBodyIndex(0);
+                if (view === "doctor") setDoctorIndex(0);
+                if (view === "sync") { setSyncFocusIndex(0); setSyncSubFocusIndex(0); }
                 return;
             }
             if (focusArea === "body") {
                 if (view === "dashboard") {
-                    if (key.shift) { if (bodyIndex === 0) { tabDirection.current = "backward"; setFocusArea("footer"); } else setBodyIndex(prev => prev - 1); }
+                    if (key.shift) { if (bodyIndex === 0) { tabDirection.current = "backward"; setFocusArea("header"); } else setBodyIndex(prev => prev - 1); }
                     else { if (bodyIndex === bodyActionsCount - 1) { tabDirection.current = "forward"; setFocusArea("footer"); } else setBodyIndex(prev => prev + 1); }
                     return;
                 }
@@ -252,7 +157,7 @@ export function AppContent() {
                     const showRepair = !deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2;
                     const showUpgrade = deps?.nerdFontDetailed.version === 2;
                     const count = 3 + (showRepair ? 1 : 0) + (showUpgrade ? 1 : 0);
-                    if (key.shift) { if (doctorIndex === 0) { tabDirection.current = "backward"; setFocusArea("footer"); } else setDoctorIndex(prev => prev - 1); }
+                    if (key.shift) { if (doctorIndex === 0) { tabDirection.current = "backward"; setFocusArea("header"); } else setDoctorIndex(prev => prev - 1); }
                     else { if (doctorIndex >= count - 1) { tabDirection.current = "forward"; setFocusArea("footer"); } else setDoctorIndex(prev => prev + 1); }
                     return;
                 }
@@ -261,8 +166,29 @@ export function AppContent() {
                     const showShield = config.enable_malware_shield === true;
                     const showDest = config.upsync_enabled && config.backup_provider !== "none";
                     const count = 1 + (showSource ? 1 : 0) + (showShield ? 1 : 0) + (showDest ? 1 : 0);
-                    if (key.shift) { if (syncFocusIndex === 0) { tabDirection.current = "backward"; setFocusArea("footer"); setFooterFocus(0); } else setSyncFocusIndex(prev => prev - 1); }
-                    else { if (syncFocusIndex >= count - 1) { tabDirection.current = "forward"; setFocusArea("footer"); setFooterFocus(0); } else setSyncFocusIndex(prev => prev + 1); }
+                    if (key.shift) {
+                        if (syncFocusIndex === 0) {
+                            tabDirection.current = "backward";
+                            setFocusArea("header");
+                            setSyncFocusIndex(0);
+                            setSyncSubFocusIndex(0);
+                            setFooterFocus(0);
+                        } else {
+                            setSyncFocusIndex(prev => prev - 1);
+                            setSyncSubFocusIndex(0);
+                        }
+                    } else {
+                        if (syncFocusIndex >= count - 1) {
+                            tabDirection.current = "forward";
+                            setFocusArea("footer");
+                            setFooterFocus(0);
+                            setSyncFocusIndex(0);
+                            setSyncSubFocusIndex(0);
+                        } else {
+                            setSyncFocusIndex(prev => prev + 1);
+                            setSyncSubFocusIndex(0);
+                        }
+                    }
                     return;
                 }
                 tabDirection.current = key.shift ? "backward" : "forward";
@@ -304,9 +230,7 @@ export function AppContent() {
             }
             return;
         }
-    });
-
-    const onWizardComplete = useCallback((newConfig: PortalConfig) => {
+    }); const onWizardComplete = useCallback((newConfig: PortalConfig) => {
         saveConfig(newConfig); setConfig(newConfig); setView("dashboard");
     }, [setConfig, setView]);
 
@@ -400,7 +324,17 @@ export function AppContent() {
                 {view === "fontguide" ? <ManualFontGuide returnView={fontInstallerReturnView} onClose={() => setView(fontInstallerReturnView)} /> : null}
             </box>
 
-            <box border borderStyle="single" borderColor={colors.border} padding={1} flexDirection="column" height={10} flexShrink={0} width="100%">
+            <box
+                border
+                borderStyle="single"
+                borderColor={focusArea === "footer" ? colors.success : colors.border}
+                padding={1}
+                flexDirection="column"
+                height={10}
+                flexShrink={0}
+                width="100%"
+                onMouseOver={() => setFocusArea("footer")}
+            >
                 <box flexDirection="row" justifyContent="space-between" alignItems="center" width="100%" height={3}>
                     <box flexDirection="column">
                         <box flexDirection="row" alignItems="center" gap={1}>
