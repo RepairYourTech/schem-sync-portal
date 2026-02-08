@@ -99,13 +99,14 @@ export function AppContent() {
         if (!key) return;
 
         if (view === "sync") {
-            if (handleSyncKeys(key, {
-                config, isRunning, progress,
+            const handled = handleSyncKeys(key, {
+                config, isRunning,
                 syncFocusIndex, syncSubFocusIndex,
                 setSyncFocusIndex, setSyncSubFocusIndex,
                 setConfig, handleStartSync, stop,
-                pause, resume, pausePhase, resumePhase, isPhasePaused
-            })) return;
+                pausePhase, resumePhase, isPhasePaused
+            });
+            if (handled) return;
         }
 
         if (key.name === "b" && view !== "dashboard" && view !== "sync") {
@@ -133,18 +134,41 @@ export function AppContent() {
         const actions = getFooterActions();
         const bodyActionsCount = isEmpty ? 1 : (!isComplete ? 2 : 1);
 
+        const showRepair = !deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2;
+        const showUpgrade = deps?.nerdFontDetailed.version === 2;
+        const doctorActionsCount = 3 + (showRepair ? 1 : 0) + (showUpgrade ? 1 : 0);
+
+        const showSource = config.source_provider !== "none";
+        const showShield = config.enable_malware_shield === true;
+        const showDest = config.upsync_enabled && config.backup_provider !== "none";
+        const syncActionsCount = 1 + (showSource ? 1 : 0) + (showShield ? 1 : 0) + (showDest ? 1 : 0);
+
         if (key.name === "tab") {
             if (focusArea === "footer") {
                 tabDirection.current = key.shift ? "backward" : "forward";
-                setFocusArea("header"); setFooterFocus(0);
+                if (key.shift) {
+                    setFocusArea("body");
+                    // Focus last item of body based on view
+                    if (view === "dashboard") setBodyIndex(bodyActionsCount - 1);
+                    if (view === "doctor") setDoctorIndex(doctorActionsCount - 1);
+                    if (view === "sync") setSyncFocusIndex(syncActionsCount - 1);
+                } else {
+                    setFocusArea("header");
+                }
+                setFooterFocus(0);
                 return;
             }
             if (focusArea === "header") {
                 tabDirection.current = key.shift ? "backward" : "forward";
-                setFocusArea("body"); setFooterFocus(null);
-                if (view === "dashboard") setBodyIndex(0);
-                if (view === "doctor") setDoctorIndex(0);
-                if (view === "sync") { setSyncFocusIndex(0); setSyncSubFocusIndex(0); }
+                if (key.shift) {
+                    setFocusArea("footer");
+                    setFooterFocus(0);
+                } else {
+                    setFocusArea("body");
+                    if (view === "dashboard") setBodyIndex(0);
+                    if (view === "doctor") setDoctorIndex(0);
+                    if (view === "sync") { setSyncFocusIndex(0); setSyncSubFocusIndex(0); }
+                }
                 return;
             }
             if (focusArea === "body") {
@@ -172,7 +196,6 @@ export function AppContent() {
                             setFocusArea("header");
                             setSyncFocusIndex(0);
                             setSyncSubFocusIndex(0);
-                            setFooterFocus(0);
                         } else {
                             setSyncFocusIndex(prev => prev - 1);
                             setSyncSubFocusIndex(0);
@@ -230,7 +253,9 @@ export function AppContent() {
             }
             return;
         }
-    }); const onWizardComplete = useCallback((newConfig: PortalConfig) => {
+    });
+
+    const onWizardComplete = useCallback((newConfig: PortalConfig) => {
         saveConfig(newConfig); setConfig(newConfig); setView("dashboard");
     }, [setConfig, setView]);
 

@@ -144,11 +144,13 @@ export async function runManifestCloudPhase(
                         isPaused: getIsSyncPaused(),
                         cloudManifestStats
                     });
-                }, () => isStopRequested(), "upload", "cloud");
+                }, undefined, "upload", "cloud");
 
                 if (isStopRequested()) break;
 
-                newFiles.forEach(f => uploadedFiles.add(f));
+                for (const f of newFiles) {
+                    uploadedFiles.add(f);
+                }
 
                 if (isStopRequested()) break;
                 // Update and save state

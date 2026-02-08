@@ -1,4 +1,4 @@
-# UI Architecutral Refactor Roadmap
+# UI Architectural Refactor Roadmap
 
 > [!IMPORTANT]
 > This file documents the technical debt accumulated in the TUI (Terminal User Interface) layer and provides a "Session Prompt" to resolve it once the MVP is stable.

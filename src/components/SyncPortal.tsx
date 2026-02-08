@@ -112,7 +112,7 @@ export const SyncPortal = React.memo(({
 
     // Focus Management
     const isBodyFocused = focusArea === "body";
-    const isGlobalFocused = isBodyFocused && focusIndex === 0;
+    const isHeaderFocused = focusArea === "header";
 
     const visiblePanels = useMemo(() => {
         const panels: ("source" | "shield" | "dest")[] = [];
@@ -124,42 +124,26 @@ export const SyncPortal = React.memo(({
 
     const visiblePanelCount = visiblePanels.length;
 
-    const handleFocus = useCallback((type: "global" | "source" | "shield" | "dest", keepSubFocus = false) => {
-        const currentIdx = type === "global" ? 0 : visiblePanels.indexOf(type) + 1;
-
-        // Smart check: only skip if EXACT same state to prevent unnecessary re-renders
-        // but allow initial hover focus to register correctly
-        if (focusArea === "body" && focusIndex === currentIdx && (keepSubFocus || subFocusIndex === 0)) {
-            if (keepSubFocus) return; // Don't change sub-focus
-            if (subFocusIndex === 0) return; // Already at sub-focus 0
-        }
-
-        onFocusChange("body");
-        if (type === "global") onFocusIndexChange(0);
-        else {
-            const idx = visiblePanels.indexOf(type);
-            if (idx !== -1) {
-                onFocusIndexChange(idx + 1);
-                if (!keepSubFocus) onSubFocusIndexChange(0);
-            }
-        }
-    }, [onFocusChange, onFocusIndexChange, onSubFocusIndexChange, visiblePanels, focusArea, focusIndex, subFocusIndex]);
-
-    // Focus Throttling: Use a ref to prevent "render storms" (30ms debounce)
+    // Focus Debouncing: Use a ref to prevent "render storms" (30ms debounce)
     const focusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const throttledFocus = useCallback((type: "global" | "source" | "shield" | "dest", keepSubFocus = false) => {
+    const debouncedFocus = useCallback((area: FocusArea, index: number, subIndex: number = 0, keepSubFocus: boolean = false) => {
+        // Smart check: only skip if EXACT same state to prevent unnecessary re-renders
+        if (focusArea === area && focusIndex === index && (keepSubFocus || subFocusIndex === subIndex)) {
+            return;
+        }
+
         if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
         focusTimeoutRef.current = setTimeout(() => {
-            handleFocus(type, keepSubFocus);
+            onFocusChange(area);
+            onFocusIndexChange(index);
+            if (!keepSubFocus) onSubFocusIndexChange(subIndex);
             focusTimeoutRef.current = null;
         }, 30);
-    }, [handleFocus]);
+    }, [focusArea, focusIndex, subFocusIndex, onFocusChange, onFocusIndexChange, onSubFocusIndexChange]);
 
     useEffect(() => {
         return () => { if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current); };
     }, []);
-
-
 
     const handleRateChangeSource = useCallback((rate: 4 | 6 | 8) => {
         onUpdateConfig({ ...config, downsync_transfers: rate });
@@ -168,8 +152,6 @@ export const SyncPortal = React.memo(({
     const handleRateChangeDest = useCallback((rate: 4 | 6 | 8) => {
         onUpdateConfig({ ...config, upsync_transfers: rate });
     }, [config, onUpdateConfig]);
-
-
 
     // Tiered Responsive Layout Logic
     const MIN_PANEL_WIDTH = 40;
@@ -251,10 +233,10 @@ export const SyncPortal = React.memo(({
                 paddingLeft={1}
                 paddingRight={1}
                 height={5}
-                border={isGlobalFocused}
+                onMouseOver={() => debouncedFocus("header", 0, 0)}
+                border={isHeaderFocused}
                 borderStyle="single"
-                borderColor={isGlobalFocused ? colors.success : "transparent"}
-                onMouseOver={() => handleFocus("global")}
+                borderColor={isHeaderFocused ? colors.success : "transparent"}
             >
                 <box flexDirection="column" gap={0}>
                     <text fg={colors.fg} attributes={TextAttributes.BOLD}>SYNC PORTAL</text>
@@ -264,52 +246,52 @@ export const SyncPortal = React.memo(({
                 <box flexDirection="row" gap={2} alignItems="center">
                     {!isRunning ? (
                         <box
-                            onMouseOver={() => throttledFocus("global")}
+                            onMouseOver={() => debouncedFocus("header", 0, 0)}
                             onMouseDown={() => {
                                 // If already focused, trigger. If not, focus first.
-                                if (isGlobalFocused) {
+                                if (isHeaderFocused) {
                                     if (configLoaded) _onStart();
                                 } else {
-                                    handleFocus("global");
+                                    debouncedFocus("header", 0, 0);
                                 }
                             }}
                             paddingLeft={1}
                             paddingRight={1}
-                            border={isGlobalFocused}
+                            border={isHeaderFocused}
                             borderStyle="single"
-                            borderColor={isGlobalFocused ? colors.success : "transparent"}
+                            borderColor={isHeaderFocused ? colors.success : "transparent"}
                         >
                             <Hotkey
                                 keyLabel="t"
                                 label="START SYNC"
-                                isFocused={isGlobalFocused}
+                                isFocused={isHeaderFocused}
                                 bold
                             />
                         </box>
                     ) : (
                         <box
-                            onMouseOver={() => throttledFocus("global")}
+                            onMouseOver={() => debouncedFocus("header", 0, 0)}
                             onMouseDown={() => {
-                                // STOP is a critical action. Enforce focus first.
-                                if (isGlobalFocused) {
+                                // If already focused, trigger. If not, focus first.
+                                if (isHeaderFocused) {
                                     _onStop();
                                 } else {
-                                    handleFocus("global");
+                                    debouncedFocus("header", 0, 0);
                                 }
                             }}
                             paddingLeft={1}
                             paddingRight={1}
-                            border={isGlobalFocused}
+                            border={isHeaderFocused}
                             borderStyle="single"
-                            borderColor={isGlobalFocused ? colors.primary : "transparent"}
+                            borderColor={isHeaderFocused ? colors.primary : "transparent"}
                         >
                             <Hotkey
                                 keyLabel="t"
                                 label="STOP SYNC"
-                                isFocused={isGlobalFocused}
+                                isFocused={isHeaderFocused}
                                 bold
                                 hardened={true}
-                                color={isGlobalFocused ? colors.primary : colors.danger}
+                                color={isHeaderFocused ? colors.primary : colors.danger}
                             />
                         </box>
                     )}
@@ -339,8 +321,8 @@ export const SyncPortal = React.memo(({
                             maxFiles={getMaxFiles(getDynamicHeight(0, "source"), "source")}
                             transfers={config.downsync_transfers}
                             onRateChange={handleRateChangeSource}
-                            isFocused={focusArea === "body" && focusIndex === (visiblePanels.indexOf("source") + 1)}
-                            onFocus={(keep) => throttledFocus("source", keep)}
+                            isFocused={!!(isBodyFocused && focusIndex === (visiblePanels.indexOf("source") + 1))}
+                            onFocus={(keep) => debouncedFocus("body", visiblePanels.indexOf("source") + 1, 0, keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
                         />
@@ -362,8 +344,8 @@ export const SyncPortal = React.memo(({
                                     onPause={onPauseShield || onPause}
                                     onResume={onResumeShield || onResume}
                                     isPhasePaused={isPhasePaused}
-                                    isFocused={focusArea === "body" && focusIndex === (visiblePanels.indexOf("shield") + 1)}
-                                    onFocus={(keep) => throttledFocus("shield", keep)}
+                                    isFocused={!!(isBodyFocused && focusIndex === (visiblePanels.indexOf("shield") + 1))}
+                                    onFocus={(keep) => debouncedFocus("body", visiblePanels.indexOf("shield") + 1, 0, keep)}
                                     subFocusIndex={subFocusIndex}
                                     onSubFocusIndexChange={onSubFocusIndexChange}
                                     height={shieldHeight}
@@ -389,8 +371,8 @@ export const SyncPortal = React.memo(({
                             maxFiles={getMaxFiles(getDynamicHeight(visiblePanelCount - 1, "dest"), "dest")}
                             transfers={config.upsync_transfers}
                             onRateChange={handleRateChangeDest}
-                            isFocused={focusArea === "body" && focusIndex === (visiblePanels.indexOf("dest") + 1)}
-                            onFocus={(keep) => throttledFocus("dest", keep)}
+                            isFocused={!!(isBodyFocused && focusIndex === (visiblePanels.indexOf("dest") + 1))}
+                            onFocus={(keep) => debouncedFocus("body", visiblePanels.indexOf("dest") + 1, 0, keep)}
                             subFocusIndex={subFocusIndex}
                             onSubFocusIndexChange={onSubFocusIndexChange}
                         />
