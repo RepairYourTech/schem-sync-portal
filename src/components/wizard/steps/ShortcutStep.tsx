@@ -41,7 +41,7 @@ export const ShortcutStep = ({
                         onMouseDown={() => confirmSelection(getOptions()[i]!)}
                         paddingLeft={1}
                         paddingRight={1}
-                        border
+                        border={selectedIndex === i && focusArea === "body"}
                         borderStyle="single"
                         borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
                     >
@@ -60,7 +60,7 @@ export const ShortcutStep = ({
                 onMouseDown={() => confirmSelection({ value: "back", type: "back" })}
                 paddingLeft={1}
                 paddingRight={1}
-                border
+                border={selectedIndex === options.length && focusArea === "body"}
                 borderStyle="single"
                 borderColor={selectedIndex === options.length && focusArea === "body" ? colors.success : "transparent"}
             >

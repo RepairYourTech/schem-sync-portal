@@ -23,9 +23,9 @@ export const LocalDirStep = ({
                 marginTop={1}
                 onMouseOver={() => onFocusChange("body")}
                 onMouseDown={() => confirmSelection(getOptions()[0]!)}
-                border
+                border={focusArea === "body"}
                 borderStyle="double"
-                borderColor={focusArea === "body" ? colors.success : colors.dim}
+                borderColor={focusArea === "body" ? colors.success : "transparent"}
                 paddingLeft={1}
                 paddingRight={1}
                 alignItems="center"

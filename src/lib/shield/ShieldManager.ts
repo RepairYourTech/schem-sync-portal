@@ -4,14 +4,14 @@ import { Logger } from "../logger";
 import { Env } from "../env";
 import { ManifestParser } from "./manifestParser";
 import { type ShieldManifest } from "./types";
-import { PRIORITY_FILENAMES } from "./patterns";
+import { PRIORITY_FILENAMES, LEAN_MODE_EXCLUDE_PATTERNS } from "./patterns";
 import pkg from "../../../package.json";
 
 export interface ShieldMetadata {
     generatedAt: string;
     fileCount: number;
     timestamp: number;
-    policy: "purge" | "isolate";
+    policy: "purge" | "isolate" | "extract";
 }
 
 export const ShieldManager = {
@@ -41,7 +41,7 @@ export const ShieldManager = {
             generatedAt: new Date().toISOString(),
             fileCount: files.length,
             timestamp: Date.now(),
-            policy: policy as "purge" | "isolate"
+            policy: policy as "purge" | "isolate" | "extract"
         };
 
         const filteredFiles = files.filter(f => {
@@ -52,7 +52,7 @@ export const ShieldManager = {
         const manifest: ShieldManifest = {
             generatedAt: new Date(metadata.timestamp).toISOString(),
             version: pkg.version,
-            policy: policy as "purge" | "isolate",
+            policy: policy as "purge" | "isolate" | "extract",
             files: filteredFiles
         };
 
@@ -214,5 +214,23 @@ export const ShieldManager = {
      */
     getPriorityFilenames(): string[] {
         return [...PRIORITY_FILENAMES];
+    },
+
+    /**
+     * Checks if a path should be filtered based on BIOS/Lean Mode patterns.
+     */
+    isFilteredPath(relPath: string): boolean {
+        const lower = relPath.toLowerCase().replace(/\\/g, "/");
+        // Check for exact matches with boundaries
+        const matches = LEAN_MODE_EXCLUDE_PATTERNS.some((p: string) => {
+            const lowerP = p.toLowerCase().replace(/\\/g, "/");
+            // If pattern starts with /, check if path starts with it (after root normalization) or contains it
+            if (lowerP.startsWith("/")) {
+                return ("/" + lower).includes(lowerP);
+            }
+            return lower.includes(lowerP);
+        });
+        if (matches) Logger.info("SHIELD", `Path ${relPath} matched an exclude pattern.`);
+        return matches;
     }
 };

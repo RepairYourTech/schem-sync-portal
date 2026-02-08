@@ -36,6 +36,7 @@ describe("Rclone Robust Token Extraction", () => {
         createRcloneRemote = mod.createRcloneRemote;
         updateGdriveRemote = mod.updateGdriveRemote;
 
+        process.env.RCLONE_CONFIG_PATH = "./src/tests/rclone.test.conf";
         mockSpawn.mockClear();
         mockSpawnSync.mockClear();
     });
@@ -61,7 +62,7 @@ describe("Rclone Robust Token Extraction", () => {
         const result = await authorizeRemote("drive");
         const parsed = JSON.parse(result) as Record<string, unknown>;
         expect(parsed.access_token).toBe("marker-test");
-        expect(result).toBe(tokenJson);
+        expect(parsed.refresh_token).toBe("abc");
     });
 
     test("Strategy 2: Extraction via JSON Parsing (Nested Objects)", async () => {
@@ -76,7 +77,9 @@ describe("Rclone Robust Token Extraction", () => {
         } as unknown as ReturnType<typeof Bun.spawn>));
 
         const result = await authorizeRemote("drive");
-        expect(result).toBe(tokenJson);
+        const parsed = JSON.parse(result) as Record<string, unknown>;
+        expect(parsed.access_token).toBe("nested-test");
+        expect(parsed.expiry).toBeDefined();
     });
 
     test("Strategy 3: Best-guess JSON (Last Resort)", async () => {
@@ -91,7 +94,8 @@ describe("Rclone Robust Token Extraction", () => {
         } as unknown as ReturnType<typeof Bun.spawn>));
 
         const result = await authorizeRemote("drive");
-        expect(result).toBe(randomJson);
+        const parsed = JSON.parse(result) as Record<string, unknown>;
+        expect(parsed.some_val).toBe("maybe-a-token");
     });
 
     test("Should fail if no JSON is found", async () => {

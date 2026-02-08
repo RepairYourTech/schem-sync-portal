@@ -19,12 +19,13 @@ export const SecurityStep = ({
     const options = [
         { name: "RELOCATE & ISOLATE", description: "Move risks to local-only _risk_tools folder", value: "isolate", key: "1" },
         { name: "SURGICAL PURGE", description: "Delete risks after extraction", value: "purge", key: "2" },
-        { name: "DISABLED", description: "Keep everything as-is (High Cloud Flagging Risk)", value: false, key: "3" }
+        { name: "EXTRACT ALL", description: "Trust source & extract everything (Advanced)", value: "extract", key: "3" },
+        { name: "DISABLED", description: "Keep archives compressed (Not Recommended)", value: false, key: "4" }
     ];
 
-    // Enforce mandatory malware shield for Google Drive
+    // Enforce mandatory malware shield for Google Drive (exclude DISABLED and EXTRACT)
     const filteredOptions = config.backup_provider === "gdrive"
-        ? options.filter(o => o.value !== false)
+        ? options.filter(o => o.value !== false && o.value !== "extract")
         : options;
 
     const allOptions = getOptions();
@@ -53,7 +54,7 @@ export const SecurityStep = ({
                             onMouseDown={() => confirmSelection(allOptions[i]!)}
                             paddingLeft={1}
                             paddingRight={1}
-                            border
+                            border={isFocused}
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
                         >
@@ -78,7 +79,7 @@ export const SecurityStep = ({
                         onMouseDown={() => back()}
                         paddingLeft={1}
                         paddingRight={1}
-                        border
+                        border={isBackFocused}
                         borderStyle="single"
                         borderColor={isBackFocused ? colors.success : "transparent"}
                         flexDirection="row"

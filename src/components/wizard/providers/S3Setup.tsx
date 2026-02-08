@@ -53,7 +53,7 @@ export const S3Setup = ({
                                 onMouseDown={() => confirmSelection(allOptions[i]!)}
                                 paddingLeft={1}
                                 paddingRight={1}
-                                border
+                                border={isFocused}
                                 borderStyle="single"
                                 borderColor={isFocused ? colors.success : "transparent"}
                             >
@@ -78,7 +78,7 @@ export const S3Setup = ({
                             onMouseDown={() => back()}
                             paddingLeft={1}
                             paddingRight={1}
-                            border
+                            border={isBackFocused}
                             borderStyle="single"
                             borderColor={isBackFocused ? colors.success : "transparent"}
                             flexDirection="row"
@@ -133,9 +133,9 @@ export const S3Setup = ({
                     marginTop={1}
                     onMouseOver={() => onFocusChange("body")}
                     onMouseDown={() => next()}
-                    border
+                    border={focusArea === "body"}
                     borderStyle="double"
-                    borderColor={focusArea === "body" ? colors.success : colors.dim}
+                    borderColor={focusArea === "body" ? colors.success : "transparent"}
                     paddingLeft={1}
                     paddingRight={1}
                 >
@@ -152,7 +152,7 @@ export const S3Setup = ({
                     onMouseDown={() => back()}
                     paddingLeft={1}
                     paddingRight={1}
-                    border
+                    border={selectedIndex === 1 && focusArea === "body"}
                     borderStyle="single"
                     borderColor={selectedIndex === 1 && focusArea === "body" ? colors.success : "transparent"}
                 >

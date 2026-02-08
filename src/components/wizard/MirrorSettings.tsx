@@ -28,7 +28,7 @@ export const MirrorSettings = ({
         <box flexDirection="column" gap={1}>
             <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {String(getCurrentStepNumber())}: Sync Strategy</text>
             <text fg={colors.fg}>🔄 Enable Strict Mirroring (Deletion)?</text>
-            <box flexDirection="column" gap={0} marginTop={1}>
+            <box flexDirection="column" gap={0} marginTop={1} alignItems="flex-start">
                 {options.map((opt, i) => {
                     const isFocused = selectedIndex === i && focusArea === "body";
                     return (
@@ -40,7 +40,7 @@ export const MirrorSettings = ({
                             }}
                             onMouseDown={() => confirmSelection(allOptions[i]!)}
                             paddingLeft={2}
-                            border
+                            border={isFocused}
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
                             flexDirection="row"
@@ -68,7 +68,7 @@ export const MirrorSettings = ({
                         }}
                         onMouseDown={() => back()}
                         paddingLeft={2}
-                        border
+                        border={isBackFocused}
                         borderStyle="single"
                         borderColor={isBackFocused ? colors.success : "transparent"}
                         flexDirection="row"

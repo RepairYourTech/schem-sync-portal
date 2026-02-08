@@ -6,7 +6,7 @@ import { glob } from "glob";
 import { Env } from "./env";
 import { Logger } from "./logger";
 import { ShieldManager } from "./shield/ShieldManager";
-import { KEEP_EXTS, GARBAGE_PATTERNS, PRIORITY_FILENAMES, SAFE_PATTERNS } from "./shield/patterns";
+import { KEEP_EXTS, GARBAGE_PATTERNS, PRIORITY_FILENAMES, SAFE_PATTERNS, LEAN_STRICT_WHITELIST, LEAN_STRICT_BLACKLIST } from "./shield/patterns";
 import type { CleanupStats, SyncProgress } from "./sync/types";
 
 let _overrideSpawnSync: typeof bunSpawnSync | null = null;
@@ -33,7 +33,7 @@ export interface CleanupResult { completed: boolean; scannedArchives: string[]; 
 export async function runCleanupSweep(
     targetDir: string,
     excludeFile: string,
-    policy: "purge" | "isolate",
+    policy: "purge" | "isolate" | "extract",
     onProgress?: (stats: CleanupStats | Partial<SyncProgress>) => void,
     abortSignal?: AbortSignal,
     initialStats?: CleanupStats,
@@ -59,7 +59,15 @@ export async function runCleanupSweep(
         if (engine) {
             for (let i = 0; i < archives.length; i++) {
                 const archivePath = archives[i]!;
-                const relPath = relative(targetDir, archivePath);
+                const relPath = relative(targetDir, archivePath).replace(/\\/g, "/");
+
+                // FIX: Path Filtering Bypass - Check full path for BIOS exclusions in Lean Mode
+                if (mode === "lean" && ShieldManager.isFilteredPath(relPath)) {
+                    Logger.info("SHIELD", `Lean Mode: Skipping excluded archive path: ${relPath}`);
+                    unscannedArchives.push(relPath);
+                    continue;
+                }
+
                 if (abortSignal?.aborted) {
                     for (let j = i; j < archives.length; j++) unscannedArchives.push(relative(targetDir, archives[j]!));
                     return { completed: false, scannedArchives, unscannedArchives };
@@ -78,59 +86,70 @@ export async function runCleanupSweep(
             }
         } else {
             Logger.warn("SYSTEM", "Shield Archive Loop: Skipped (Tools not found).");
-            // If no engine, all archives are unscanned
-            for (const a of archives) unscannedArchives.push(relative(targetDir, a));
+            // If no engine, all archives are unscanned (but respect lean mode filtering)
+            for (const a of archives) {
+                const relPath = relative(targetDir, a).replace(/\\/g, "/");
+                if (mode === "lean" && ShieldManager.isFilteredPath(relPath)) {
+                    unscannedArchives.push(relPath);
+                    continue;
+                }
+                unscannedArchives.push(relPath);
+            }
         }
         stats.currentArchive = undefined;
 
         // PHASE 2: Standalone File Scanning
-        if (onProgress) onProgress(stats);
-        Logger.info("SHIELD", "Starting standalone file scanning phase");
+        if (policy === "extract") {
+            Logger.info("SHIELD", "Extract Policy: Skipping standalone file scanning phase (Trust Source).");
+        } else {
+            if (onProgress) onProgress(stats);
+            Logger.info("SHIELD", "Starting standalone file scanning phase");
 
-        try {
-            const standaloneFiles = await glob("**/*", {
-                cwd: targetDir,
-                absolute: true,
-                ignore: [
-                    "**/node_modules/**",
-                    "**/.git/**",
-                    "**/_risk_tools/**",
-                    "**/_shield_isolated/**",
-                    "**/*.zip",
-                    "**/*.7z",
-                    "**/*.rar"
-                ]
-            });
+            try {
+                const standaloneFiles = await glob("**/*", {
+                    cwd: targetDir,
+                    absolute: true,
+                    ignore: [
+                        "**/node_modules/**",
+                        "**/.git/**",
+                        "**/_risk_tools/**",
+                        "**/_shield_isolated/**",
+                        "**/*.zip",
+                        "**/*.7z",
+                        "**/*.rar"
+                    ]
+                });
 
-            stats.totalStandaloneFiles = standaloneFiles.length;
-            const extractedFileSet = new Set(stats.extractedFilePaths || []);
+                stats.totalStandaloneFiles = standaloneFiles.length;
+                const extractedFileSet = new Set(stats.extractedFilePaths || []);
 
-            for (let i = 0; i < standaloneFiles.length; i++) {
-                if (abortSignal?.aborted) break;
+                for (let i = 0; i < standaloneFiles.length; i++) {
+                    if (abortSignal?.aborted) break;
 
-                const filePath = standaloneFiles[i]!;
-                const relPath = relative(targetDir, filePath);
+                    const filePath = standaloneFiles[i]!;
+                    const relPath = relative(targetDir, filePath);
 
-                // Skip already-verified extracted files
-                if (extractedFileSet.has(relPath)) continue;
+                    // Skip already-verified extracted files
+                    if (extractedFileSet.has(relPath)) continue;
 
-                stats.scannedStandaloneFiles = i + 1;
-                stats.currentStandaloneFile = relPath;
-                if (onProgress) onProgress(stats);
+                    stats.scannedStandaloneFiles = i + 1;
+                    stats.currentStandaloneFile = relPath;
+                    if (onProgress) onProgress(stats);
 
-                const isFile = (await stat(filePath)).isFile();
-                if (isFile) {
-                    const cleaned = await cleanFile(filePath, targetDir, policy, stats, onProgress);
-                    if (cleaned) {
-                        stats.flaggedStandaloneFiles = (stats.flaggedStandaloneFiles || 0) + 1;
+                    const isFile = (await stat(filePath)).isFile();
+                    if (isFile) {
+                        const cleaned = await cleanFile(filePath, targetDir, policy, stats, onProgress, mode);
+                        if (cleaned) {
+                            stats.flaggedStandaloneFiles = (stats.flaggedStandaloneFiles || 0) + 1;
+                        }
                     }
                 }
-            }
 
-            stats.currentStandaloneFile = undefined;
-            Logger.info("SHIELD", `Standalone file scan complete: ${stats.scannedStandaloneFiles} scanned, ${stats.flaggedStandaloneFiles} flagged`);
-        } catch (err) {
-            Logger.error("SHIELD", "Error during standalone file scanning", err);
+                stats.currentStandaloneFile = undefined;
+                Logger.info("SHIELD", `Standalone file scan complete: ${stats.scannedStandaloneFiles} scanned, ${stats.flaggedStandaloneFiles} flagged`);
+            } catch (err) {
+                Logger.error("SHIELD", "Error during standalone file scanning", err);
+            }
         }
 
         if (onProgress) onProgress(stats);
@@ -145,7 +164,7 @@ export async function runCleanupSweep(
 interface CleanArchiveResult { flagged: boolean; extractedCount: number; failed?: boolean; }
 
 async function cleanArchive(
-    archivePath: string, baseDir: string, excludeFile: string, policy: "purge" | "isolate",
+    archivePath: string, baseDir: string, excludeFile: string, policy: "purge" | "isolate" | "extract",
     stats: CleanupStats, onProgress?: (stats: CleanupStats) => void, mode: "full" | "lean" = "full"
 ): Promise<CleanArchiveResult> {
     const relPath = relative(baseDir, archivePath);
@@ -170,7 +189,6 @@ async function cleanArchive(
         if (errorKeywords.some(kw => lowerListing.includes(kw))) return false;
 
         // Check if listing contains at least one file entry (basic heuristic)
-        // Look for common file patterns: extensions, dates, sizes
         const hasFileEntries = /\.\w{2,4}\s|^\s*\d+\s+\d{4}-\d{2}-\d{2}/m.test(listing);
         return hasFileEntries;
     };
@@ -189,95 +207,114 @@ async function cleanArchive(
     // Context-aware garbage detection
     const hasGarbage = failSafeTriggered || isKnownBad || (() => {
         const lowerListing = internalListing.toLowerCase();
+        if (GARBAGE_PATTERNS.some(p => lowerListing.includes(p.toLowerCase()))) return true;
 
-        // 1. Check exact High Confidence patterns
-        if (GARBAGE_PATTERNS.some(p => lowerListing.includes(p.toLowerCase()))) {
-            return true;
-        }
-
-        // 2. Check Medium Confidence patterns (need context)
         const mediumConfidence = ["activator", "bypass", "medicine", "fixed"];
         const hasMedium = mediumConfidence.some(p => {
             if (!lowerListing.includes(p)) return false;
-            // Only flag if it's an executable or in a suspicious path
             return lowerListing.includes(p + ".exe") ||
                 lowerListing.includes(p + "/") ||
                 lowerListing.includes("/" + p);
         });
 
         if (hasMedium) {
-            // 3. Whitelist check: If safe patterns are present (BIOS utilities), and no high-confidence garbage, it's likely safe
             const hasSafe = SAFE_PATTERNS.some((p: string) => lowerListing.includes(p.toLowerCase()));
             if (hasSafe) {
-                Logger.info("SHIELD", `Archive ${fileName} contains safe patterns (${SAFE_PATTERNS.filter((p: string) => lowerListing.includes(p.toLowerCase())).join(", ")}), suppressing medium-confidence alert.`);
+                Logger.info("SHIELD", `Archive ${fileName} contains safe patterns, suppressing medium-confidence alert.`);
                 return false;
             }
             return true;
         }
-
         return false;
     })();
 
-    if (hasGarbage) {
-        Logger.info("SHIELD", `Detected risky archive: ${relPath}`);
-        stats.riskyPatternCount++;
-        if (onProgress) onProgress(stats);
+    // DECISION: Decouple extraction from detection. Always extract unless policy prohibits.
+    const dirPath = dirname(archivePath);
+    const stagingDir = join(dirPath, `.shield_staging_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+    let extractedCount = 0;
 
-        const dirPath = dirname(archivePath);
-        const stagingDir = join(dirPath, `.shield_staging_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
-        let extractedCount = 0;
+    try {
+        if (!existsSync(stagingDir)) mkdirSync(stagingDir, { recursive: true });
+        const engine = getEngine();
+        if (engine) {
+            // Determine patterns to extract: schematic files + nested archives
+            // If policy is "extract", we extract ALL files (*)
+            const extractPatterns = policy === "extract" ? ["*"] : [...KEEP_EXTS, ".zip", ".7z", ".rar"];
 
-        try {
-            if (!existsSync(stagingDir)) mkdirSync(stagingDir, { recursive: true });
-            const engine = getEngine();
-            if (engine) {
-                // Determine patterns to extract: schematic files + nested archives
-                const extractPatterns = [...KEEP_EXTS, ".zip", ".7z", ".rar"];
+            for (const pattern of extractPatterns) {
+                // Determine if we need a wildcard prefix
+                const globPattern = pattern === "*" ? "*" : `*${pattern}`;
 
-                for (const ext of extractPatterns) {
-                    const extractCmd = engine.type === "7z"
-                        ? [engine.bin, "x", archivePath, `*${ext}`, `-o${stagingDir}`, "-r", "-y"]
-                        : [engine.bin, "x", "-r", "-y", archivePath, `*${ext}`, stagingDir];
+                const extractCmd = engine.type === "7z"
+                    ? [engine.bin, "x", archivePath, globPattern, `-o${stagingDir}`, "-r", "-y"]
+                    : [engine.bin, "x", "-r", "-y", archivePath, globPattern, stagingDir];
 
-                    const spawnRes = getSpawnSync()(extractCmd);
-                    if (spawnRes.success) {
-                        // Verification sweep in staging - only for KEEP_EXTS (legitimate schematic files)
-                        if (KEEP_EXTS.includes(ext)) {
-                            const matches = await glob(`**/*${ext}`, { cwd: stagingDir, absolute: true });
-                            for (const match of matches) {
-                                const destPath = join(dirPath, basename(match));
-                                if (!existsSync(destPath)) {
-                                    renameSync(match, destPath);
-                                    const relExtracted = relative(baseDir, destPath);
+                const spawnRes = getSpawnSync()(extractCmd);
+                if (spawnRes.success) {
+                    const patternToGlob = pattern === "*" ? "**/*" : `**/*${pattern}`;
+                    const matches = await glob(patternToGlob, { cwd: stagingDir, absolute: true });
 
-                                    // IMMEDIATE VERIFICATION: Verify extracted file immediately
-                                    await cleanFile(destPath, baseDir, policy, stats, onProgress);
+                    for (const match of matches) {
+                        const isFile = (await stat(match)).isFile();
+                        if (!isFile) continue;
 
-                                    if (existsSync(destPath)) {
-                                        Logger.info("SHIELD", `Successfully extracted and verified: ${relExtracted} from ${fileName}`);
-                                        extractedCount++;
+                        const relativeToStaging = relative(stagingDir, match);
+                        const destPath = join(dirPath, relativeToStaging); // FIX: Preserve folder structure
+                        const relExtracted = relative(baseDir, destPath);
 
-                                        // Track extracted paths in stats
-                                        const paths = stats.extractedFilePaths || [];
-                                        paths.push(relExtracted);
-                                        stats.extractedFilePaths = paths;
-                                    }
-                                }
+                        // Ensure destination directory exists
+                        const destSubDir = dirname(destPath);
+                        if (!existsSync(destSubDir)) mkdirSync(destSubDir, { recursive: true });
+
+                        if (!existsSync(destPath)) {
+                            renameSync(match, destPath);
+
+                            // Skip deep verification if policy is "extract" (trust source)
+                            if (policy !== "extract") {
+                                await cleanFile(destPath, baseDir, policy, stats, onProgress, mode);
+                            }
+
+                            if (existsSync(destPath)) {
+                                Logger.info("SHIELD", `Extracted: ${relExtracted} from ${fileName}`);
+                                extractedCount++;
+                                const paths = stats.extractedFilePaths || [];
+                                paths.push(relExtracted);
+                                stats.extractedFilePaths = paths;
                             }
                         }
                     }
                 }
+            }
 
-                // RECURSIVE SCANNING: Scan for nested archives in staging
+            // RECURSIVE SCANNING: Skip if policy is "extract"
+            if (policy !== "extract") {
                 await scanForNestedArchives(stagingDir, baseDir, policy, stats, onProgress, mode);
             }
-        } catch (err) {
-            Logger.error("SHIELD", `Error during extraction from ${relPath}`, err);
-        } finally {
-            try { if (existsSync(stagingDir)) rmSync(stagingDir, { recursive: true, force: true }); } catch { /* ignore */ }
         }
+    } catch (err) {
+        Logger.error("SHIELD", `Error during extraction from ${relPath}`, err);
+    } finally {
+        try { if (existsSync(stagingDir)) rmSync(stagingDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
 
-        stats.extractedFiles += extractedCount;
+    stats.extractedFiles += extractedCount;
+
+    // Handle "extract" policy (Trust Source)
+    if (policy === "extract") {
+        try {
+            unlinkSync(archivePath);
+            // stats.purgedFiles++; // Skip counting as threat purge in extract mode
+            Logger.info("SHIELD", `Extract policy: Purged archive after full extraction: ${relPath}`);
+            return { flagged: false, extractedCount };
+        } catch (e) {
+            Logger.error("SYNC", `Failed to purge archive under extract policy: ${relPath}`, e);
+            return { flagged: false, extractedCount, failed: true };
+        }
+    }
+
+    if (hasGarbage) {
+        Logger.info("SHIELD", `Detected risky archive: ${relPath}`);
+        stats.riskyPatternCount++;
 
         if (policy === "isolate") {
             const riskDir = join(baseDir, "_risk_tools");
@@ -293,7 +330,6 @@ async function cleanArchive(
             }
         }
 
-        // Add to offenders and exclusions BEFORE removal/move
         ShieldManager.addOffender(baseDir, relPath, "Archive contains malware patterns");
         ShieldManager.updateExclusions(baseDir, [relPath]);
 
@@ -304,16 +340,11 @@ async function cleanArchive(
                 const dest = join(riskDir, fileName);
                 const archiveData = readFileSync(archivePath);
                 writeFileSync(dest, archiveData);
-                if (!existsSync(dest)) throw new Error("Isolation copy failed.");
                 unlinkSync(archivePath);
-                if (existsSync(archivePath)) throw new Error("Isolation original removal failed.");
                 stats.isolatedFiles++;
                 Logger.info("SHIELD", `Isolated archive: ${relPath} -> _risk_tools/${fileName}`);
-                Logger.info("SHIELD", `Isolated archive: ${relPath} -> _risk_tools/${fileName}`);
             } else if (policy === "purge" || mode === "lean") {
-                // LEAN MODE override: Always purge analyzed archives in lean mode
                 unlinkSync(archivePath);
-                if (existsSync(archivePath)) throw new Error("Purge failed.");
                 stats.purgedFiles++;
                 Logger.info("SHIELD", mode === "lean" ? `Lean Mode: Purged archive after extraction: ${relPath}` : `Purged archive: ${relPath}`);
             }
@@ -324,21 +355,56 @@ async function cleanArchive(
         if (onProgress) onProgress(stats);
         return { flagged: true, extractedCount };
     }
-    return { flagged: false, extractedCount: 0 };
+
+    // Clean archive - extract according to policy
+    if (policy === "purge") {
+        unlinkSync(archivePath);
+        stats.purgedFiles++;
+        Logger.info("SHIELD", `Clean archive purged after extraction: ${relPath}`);
+    }
+
+    return { flagged: false, extractedCount };
 }
 
 export async function cleanFile(
-    filePath: string, baseDir: string, policy: "purge" | "isolate",
-    stats?: CleanupStats, onProgress?: (stats: CleanupStats) => void
+    filePath: string, baseDir: string, policy: "purge" | "isolate" | "extract",
+    stats?: CleanupStats, onProgress?: (stats: CleanupStats) => void,
+    mode: "full" | "lean" = "full"
 ): Promise<boolean> {
+    // Contract: Extract policy strictly trusts source content (bypass all surgery)
+    if (policy === "extract") return false;
+
     const relPath = relative(baseDir, filePath);
     const fileName = basename(relPath);
-    if (KEEP_EXTS.includes("." + (fileName.split(".").pop() || "").toLowerCase())) return false;
-    const isGarbage = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase()) ||
-        GARBAGE_PATTERNS.some(p => fileName.toLowerCase().includes(p.toLowerCase()));
+    const ext = "." + (fileName.split(".").pop() || "").toLowerCase();
+
+    // LEAN MODE: Surgical Whitelist Filtering
+    if (mode === "lean") {
+        if (LEAN_STRICT_WHITELIST.includes(ext.toLowerCase())) return false;
+        // If not in whitelist, treat as bloat (continue to purge/isolate logic)
+        Logger.info("SHIELD", `Lean Mode: Detected non-essential bloat: ${relPath}`);
+    } else {
+        // FULL MODE: Standard Extension Protection
+        if (KEEP_EXTS.includes(ext)) return false;
+    }
+
+    let isGarbage = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase()) ||
+        GARBAGE_PATTERNS.some(p => fileName.toLowerCase().includes(p.toLowerCase())) ||
+        (mode === "lean" && LEAN_STRICT_BLACKLIST.includes(ext.toLowerCase()));
+
+    // LEAN MODE: Strict non-whitelist purging
+    if (mode === "lean") {
+        const isWhitelisted = LEAN_STRICT_WHITELIST.includes(ext.toLowerCase());
+        if (!isWhitelisted) {
+            isGarbage = true;
+            Logger.info("SHIELD", `Lean Mode: Marking non-whitelisted file as garbage: ${relPath}`);
+        }
+    }
 
     if (isGarbage) {
-        Logger.info("SHIELD", `Detected risky individual file: ${relPath}`);
+        if (mode !== "lean") {
+            Logger.info("SHIELD", `Detected risky individual file: ${relPath}`);
+        }
         if (stats) {
             stats.riskyPatternCount++;
             stats.currentArchive = relPath; // Handle individual file as "currentArchive" for UI
@@ -355,14 +421,14 @@ export async function cleanFile(
                 unlinkSync(filePath);
                 if (existsSync(filePath)) throw new Error("Isolation original removal failed.");
                 if (stats) stats.isolatedFiles++;
-                Logger.info("SHIELD", `Isolated individual file: ${relPath}`);
+                Logger.info("SHIELD", (mode === "lean" ? `Lean Mode: Isolated bloat: ${relPath}` : `Isolated individual file: ${relPath}`));
             } else {
                 unlinkSync(filePath);
                 if (existsSync(filePath)) throw new Error("Purge failed.");
                 if (stats) stats.purgedFiles++;
-                Logger.info("SHIELD", `Purged individual file: ${relPath}`);
+                Logger.info("SHIELD", (mode === "lean" ? `Lean Mode: Purged bloat: ${relPath}` : `Purged individual file: ${relPath}`));
             }
-            ShieldManager.addOffender(baseDir, relPath, "File matches malware pattern");
+            ShieldManager.addOffender(baseDir, relPath, (mode === "lean" ? "Lean Mode: Excess data stripped" : "File matches malware pattern"));
             if (stats && onProgress) onProgress(stats);
             return true;
         } catch (e) {

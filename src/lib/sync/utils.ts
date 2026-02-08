@@ -241,9 +241,12 @@ export async function executeRcloneSimple(args: string[]): Promise<string> {
         env: process.env as Record<string, string>
     });
 
+    const stdoutPromise = new Response(proc.stdout).text();
+    const stderrPromise = new Response(proc.stderr).text();
+
     const exitCode = await proc.exited;
-    const stdout = await new Response(proc.stdout).text();
-    const stderr = await new Response(proc.stderr).text();
+    const stdout = await stdoutPromise;
+    const stderr = await stderrPromise;
 
     if (exitCode !== 0) {
         throw new Error(`rclone simple failed (${exitCode}): ${stderr}`);

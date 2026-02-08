@@ -21,6 +21,7 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
     const [targetDir, setTargetDir] = useState(initialTarget);
     const [progress, setProgress] = useState<ForensicProgress | null>(null);
     const [isStarted, setIsStarted] = useState(initialTarget !== "");
+    const [hoveredButton, setHoveredButton] = useState<number | null>(null);
 
     useEffect(() => {
         if (isStarted && targetDir) {
@@ -28,6 +29,10 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
             runForensicSweep(targetDir, excludeFile, gdriveRemote, (p) => setProgress(p));
         }
     }, [isStarted]); // Only run when isStarted changes to true
+
+    useEffect(() => {
+        setHoveredButton(null);
+    }, [isStarted, progress?.status]);
 
     useKeyboard((e) => {
         if (e.name === "escape") {
@@ -43,7 +48,7 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
     const percentage = progress?.totalFiles ? Math.round((progress.filesProcessed / progress.totalFiles) * 100) : 0;
 
     return (
-        <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ FORENSIC DEEP-SCAN ]" gap={1}>
+        <box flexDirection="column" flexGrow={1} padding={1} border borderStyle="double" borderColor={colors.primary} title="[ FORENSIC DEEP-SCAN ]" gap={1}>
             <text fg={colors.fg} attributes={TextAttributes.BOLD}>Surgical Malware Remediation Protocol 🛡️</text>
 
             {!isStarted ? (
@@ -62,24 +67,26 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
                     <text fg={colors.dim} marginTop={1}>Scan depth: UNLIMITED (All nested subfolders)</text>
                     <box marginTop={1} flexDirection="row" gap={2}>
                         <box
+                            onMouseOver={() => setHoveredButton(0)}
                             onMouseDown={() => { if (targetDir) setIsStarted(true); }}
-                            border
+                            border={hoveredButton === 0}
                             borderStyle="single"
-                            borderColor={colors.success}
+                            borderColor={hoveredButton === 0 ? colors.success : "transparent"}
                             paddingLeft={1}
                             paddingRight={1}
                         >
-                            <Hotkey keyLabel="enter" label="START SCAN" isFocused />
+                            <Hotkey keyLabel="enter" label="START SCAN" isFocused={hoveredButton === 0} />
                         </box>
                         <box
+                            onMouseOver={() => setHoveredButton(1)}
                             onMouseDown={onCancel}
-                            border
+                            border={hoveredButton === 1}
                             borderStyle="single"
-                            borderColor={colors.danger}
+                            borderColor={hoveredButton === 1 ? colors.success : "transparent"}
                             paddingLeft={1}
                             paddingRight={1}
                         >
-                            <Hotkey keyLabel="escape" label="CANCEL" />
+                            <Hotkey keyLabel="escape" label="CANCEL" isFocused={hoveredButton === 1} />
                         </box>
                     </box>
                 </box>
@@ -105,17 +112,18 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
                     </box>
 
                     {(progress?.status === "done" || progress?.status === "error") ? (
-                        <box marginTop={1} paddingLeft={1} paddingRight={1} height={5} border borderStyle="single" borderColor={colors.primary} flexDirection="column" justifyContent="center" alignItems="center">
+                        <box marginTop={1} paddingLeft={1} paddingRight={1} height={5} border={false} borderStyle="single" borderColor={colors.primary} flexDirection="column" justifyContent="center" alignItems="center">
                             <text fg={colors.fg} attributes={TextAttributes.BOLD}>{progress.status === "done" ? "🛡️ AUDIT COMPLETE" : "💥 ERROR OCCURRED"}</text>
                             <box marginTop={1}
+                                onMouseOver={() => setHoveredButton(2)}
                                 onMouseDown={onCancel}
-                                border
+                                border={hoveredButton === 2}
                                 borderStyle="single"
-                                borderColor={colors.primary}
+                                borderColor={hoveredButton === 2 ? colors.success : "transparent"}
                                 paddingLeft={1}
                                 paddingRight={1}
                             >
-                                <Hotkey keyLabel="escape" label="Return to Options" isFocused />
+                                <Hotkey keyLabel="escape" label="Return to Options" isFocused={hoveredButton === 2} />
                             </box>
                         </box>
                     ) : null}

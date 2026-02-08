@@ -40,36 +40,38 @@ export const AboutView = ({
     setUpdateStatus
 }: AboutViewProps) => {
     return (
-        <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ ABOUT & UPDATES ]" gap={1}>
-            <box flexDirection="column" gap={0} marginBottom={1}>
-                <text fg={colors.fg} attributes={TextAttributes.BOLD}>
-                    Schematic Sync Portal v{String(pkg.version)}
-                    <UpdateNotice available={updateCheck.updateInfo?.available} />
-                </text>
-                <text fg={colors.dim}>Universal Sync Client for CopyParty</text>
-                {!!updateCheck.updateInfo?.available && (
-                    <text fg={colors.success}>Latest: {updateCheck.updateInfo.latestVersion} ({new Date(updateCheck.updateInfo.publishedAt).toLocaleDateString()})</text>
-                )}
+        <box flexDirection="column" flexGrow={1} padding={1} border borderStyle="double" borderColor={colors.primary} title="[ ABOUT & UPDATES ]" gap={1}>
+            <box flexDirection="column" gap={0} flexGrow={1}>
+                <box flexDirection="column" gap={0} marginBottom={1}>
+                    <text fg={colors.fg} attributes={TextAttributes.BOLD}>
+                        Schematic Sync Portal v{String(pkg.version)}
+                        <UpdateNotice available={updateCheck.updateInfo?.available} />
+                    </text>
+                    <text fg={colors.dim}>Universal Sync Client for CopyParty</text>
+                    {!!updateCheck.updateInfo?.available && (
+                        <text fg={colors.success}>Latest: {updateCheck.updateInfo.latestVersion} ({new Date(updateCheck.updateInfo.publishedAt).toLocaleDateString()})</text>
+                    )}
+                </box>
+
+                <box flexDirection="column" gap={0}>
+                    <text fg={colors.primary}>REPO:</text>
+                    <text fg={colors.fg}>https://github.com/RepairYourTech/schem-sync-portal</text>
+                </box>
+
+                <box flexDirection="column" gap={0} marginTop={1}>
+                    <text fg={colors.primary}>CHANGELOG:</text>
+                    <text fg={colors.fg}>https://github.com/RepairYourTech/schem-sync-portal/releases</text>
+                </box>
+
+                <box flexDirection="column" gap={0} marginTop={1}>
+                    <text fg={colors.primary}>CREDITS:</text>
+                    <text fg={colors.fg}>• BirdMan & RepairYourTech Contributors</text>
+                    <text fg={colors.fg}>• Slime (IYKYK)</text>
+                    <text fg={colors.fg}>• Paul Daniels (FlexBV Developer)</text>
+                </box>
             </box>
 
-            <box flexDirection="column" gap={0}>
-                <text fg={colors.primary}>REPO:</text>
-                <text fg={colors.fg}>https://github.com/RepairYourTech/schem-sync-portal</text>
-            </box>
-
-            <box flexDirection="column" gap={0} marginTop={1}>
-                <text fg={colors.primary}>CHANGELOG:</text>
-                <text fg={colors.fg}>https://github.com/RepairYourTech/schem-sync-portal/releases</text>
-            </box>
-
-            <box flexDirection="column" gap={0} marginTop={1}>
-                <text fg={colors.primary}>CREDITS:</text>
-                <text fg={colors.fg}>• BirdMan & RepairYourTech Contributors</text>
-                <text fg={colors.fg}>• Slime (IYKYK)</text>
-                <text fg={colors.fg}>• Paul Daniels (FlexBV Developer)</text>
-            </box>
-
-            <box border borderStyle="single" borderColor={colors.border} padding={1} marginTop={1} flexDirection="column" gap={1}>
+            <box border borderStyle="single" borderColor={colors.border} padding={1} marginTop="auto" flexDirection="column" gap={1}>
                 <text fg={colors.fg}>Update application code (Non-Destructive):</text>
                 <box flexDirection="row" gap={2}>
                     <box
@@ -82,7 +84,7 @@ export const AboutView = ({
                             if (updateCheck.updateInfo?.available) handleUpdate();
                             else updateCheck.refresh();
                         }}
-                        border
+                        border={focusArea === "body" && selectedIndex === 0}
                         borderStyle="single"
                         borderColor={focusArea === "body" && selectedIndex === 0 ? colors.success : "transparent"}
                         paddingLeft={1}
@@ -103,7 +105,7 @@ export const AboutView = ({
                             setSubView("menu");
                             setUpdateStatus(null);
                         }}
-                        border
+                        border={focusArea === "body" && selectedIndex === 1}
                         borderStyle="single"
                         borderColor={focusArea === "body" && selectedIndex === 1 ? colors.success : "transparent"}
                         paddingLeft={1}
