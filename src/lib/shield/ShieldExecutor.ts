@@ -10,7 +10,7 @@ import type { CleanupStats, SyncProgress } from "../sync/types";
 export interface ShieldExecutionContext {
     type: "risky_sweep" | "realtime_clean" | "final_sweep" | "valuable_sweep";
     localDir: string;
-    policy: "purge" | "isolate";
+    policy: "purge" | "isolate" | "extract";
     onProgress?: (stats: Partial<SyncProgress>) => void;
     initialStats?: CleanupStats;
     // For realtime_clean
@@ -21,7 +21,7 @@ export interface ShieldExecutionContext {
 
 export interface ScanLocalContext {
     localDir: string;
-    policy: "purge" | "isolate";
+    policy: "purge" | "isolate" | "extract";
     onProgress?: (stats: Partial<SyncProgress>) => void;
 }
 
@@ -74,7 +74,7 @@ export class ShieldExecutor {
         try {
             if (type === "realtime_clean") {
                 if (!context.filePath) throw new Error("filePath is required for realtime_clean");
-                const result = await cleanFile(context.filePath, localDir, policy, stats, wrapProgress);
+                const result = await cleanFile(context.filePath, localDir, policy, stats, wrapProgress, mode);
                 Logger.info("SHIELD", `Completed ${type} for ${context.filePath} | result=${result}`);
                 return result;
             } else {

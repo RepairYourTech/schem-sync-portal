@@ -158,8 +158,7 @@ export async function runPullPhase(
             let candidates = missingFiltered;
             if (leanMode) {
                 candidates = missingFiltered.filter(f => {
-                    const filename = f.split('/').pop() || f;
-                    const keep = shouldDownloadInLeanMode(filename);
+                    const keep = shouldDownloadInLeanMode(f);
                     if (!keep) excludedFileCount++;
                     return keep;
                 });

@@ -60,33 +60,25 @@ export async function analyzeArchiveContent(archivePath: string): Promise<Archiv
 
 /**
  * Determines if an archive should be downloaded/kept in lean mode.
- * @param filename The name of the archive file
- * @param archiveListing Optional pre-fetched listing content
+ * @param relPath The full relative path of the file
+ * @param _archiveListing Optional pre-fetched listing content
  */
-export function shouldDownloadInLeanMode(filename: string, archiveListing?: string): boolean {
-    const lowerName = filename.toLowerCase();
+export function shouldDownloadInLeanMode(relPath: string): boolean {
+    const lowerPath = relPath.toLowerCase().replace(/\\/g, "/");
 
-    // 1. Explicit Exclusions (Filename based)
-    if (LEAN_MODE_EXCLUDE_PATTERNS.some(p => lowerName.includes(p.toLowerCase()))) {
+    // 1. Tier 0: The "Surgical" Path Gate
+    // We block specific paths (BIOS, Drivers, Firmware, etc.) that are pure bloat.
+    const isExcluded = LEAN_MODE_EXCLUDE_PATTERNS.some(p => {
+        const lowerP = p.toLowerCase().replace(/\\/g, "/");
+        const normalizedPattern = lowerP.startsWith("/") ? lowerP : "/" + lowerP;
+        return ("/" + lowerPath).includes(normalizedPattern);
+    });
+
+    if (isExcluded) {
         return false;
     }
 
-    // 2. Explicit Indicators (Filename based)
-    if (VALUABLE_ARCHIVE_INDICATORS.some(ind => lowerName.includes(ind.toLowerCase()))) {
-        return true;
-    }
-
-    // 3. Content Analysis (if listing provided)
-    if (archiveListing) {
-        const lowerListing = archiveListing.toLowerCase();
-        if (VALUABLE_ARCHIVE_INDICATORS.some(ind => lowerListing.includes(ind.toLowerCase()))) {
-            return true;
-        }
-        if (LEAN_MODE_EXCLUDE_PATTERNS.some(p => lowerListing.includes(p.toLowerCase()))) {
-            return false;
-        }
-    }
-
-    // Default: keep ambiguous files to avoid data loss when content analysis is unavailable.
+    // 2. Everyone else passes through to the "Integrity" layer (Shield)
+    // The Shield Gate in cleanup.ts will perform final surgery on extracted content.
     return true;
 }

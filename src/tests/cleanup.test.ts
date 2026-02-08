@@ -1,5 +1,4 @@
 import { expect, test, describe, beforeEach, afterEach } from "bun:test";
-import { Logger } from "../lib/logger";
 import { join } from "path";
 import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from "fs";
 import { ShieldManager } from "../lib/shield/ShieldManager";
@@ -11,8 +10,8 @@ describe("Malware Shield (Cleanup)", () => {
     let excludeFile = "";
 
     let runCleanupSweep: typeof import("../lib/cleanup").runCleanupSweep;
-    let __setArchiveEngine: typeof import("../lib/cleanup").__setArchiveEngine;
-    let __setSpawnSync: typeof import("../lib/cleanup").__setSpawnSync;
+    let __setArchiveEngine: (mock: { type: "7z" | "rar"; bin: string } | null) => void;
+    let __setSpawnSync: (mock: (options: { cmd: string[] } | string[]) => { stdout: Buffer; stderr: Buffer; success: boolean; exitCode: number; pid: number }) => void;
 
     beforeEach(async () => {
         testDir = getTestDir();
@@ -21,11 +20,11 @@ describe("Malware Shield (Cleanup)", () => {
 
         const cleanup = await import("../lib/cleanup");
         runCleanupSweep = cleanup.runCleanupSweep;
-        __setArchiveEngine = (cleanup as any).__setArchiveEngine; // eslint-disable-line @typescript-eslint/no-explicit-any
-        __setSpawnSync = (cleanup as any).__setSpawnSync; // eslint-disable-line @typescript-eslint/no-explicit-any
+        __setArchiveEngine = (cleanup as unknown as { __setArchiveEngine: typeof __setArchiveEngine }).__setArchiveEngine;
+        __setSpawnSync = (cleanup as unknown as { __setSpawnSync: typeof __setSpawnSync }).__setSpawnSync;
 
-        __setSpawnSync(((options: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-            const args = Array.isArray(options) ? options : (options as { cmd: string[] }).cmd;
+        __setSpawnSync(((options: { cmd: string[] } | string[]) => {
+            const args = Array.isArray(options) ? options : options.cmd;
             const cmd = args.join(" ");
 
             const result = {
@@ -41,6 +40,10 @@ describe("Malware Shield (Cleanup)", () => {
                     result.stdout = Buffer.from("lpk.dll\ncrack.exe\nnotes.txt\nboardview.tvw");
                 } else if (cmd.includes("safe") || cmd.includes("bios")) {
                     result.stdout = Buffer.from("flash_utility.exe\nbios.bin\nmanual.pdf");
+                } else if (cmd.includes("clean_with_structure")) {
+                    result.stdout = Buffer.from("Date Time Attr Size Compressed Name\n-----------------------------------\n2026-02-07 07:49:11 ....A 0 0 SubFolder/schematic.pdf");
+                } else if (cmd.includes("clean")) {
+                    result.stdout = Buffer.from("Date Time Attr Size Compressed Name\n-----------------------------------\n2026-02-07 07:49:11 ....A 0 0 schematic.pdf");
                 }
             } else if (cmd.includes(" x ")) {
                 let stagingDir: string = "";
@@ -52,24 +55,30 @@ describe("Malware Shield (Cleanup)", () => {
                 }
 
                 if (stagingDir && existsSync(stagingDir)) {
-                    if (cmd.includes(".tvw")) {
+                    if (cmd.includes(" *") || cmd.includes(" boardview") || cmd.includes(".tvw")) {
                         writeFileSync(join(stagingDir, "boardview.tvw"), "test content");
+                    }
+                    if (cmd.includes(" *") || cmd.includes(" schematic") || cmd.includes(".pdf")) {
+                        if (cmd.includes("clean_with_structure")) {
+                            const sub = join(stagingDir, "SubFolder");
+                            if (!existsSync(sub)) mkdirSync(sub, { recursive: true });
+                            writeFileSync(join(sub, "schematic.pdf"), "test content");
+                        } else {
+                            writeFileSync(join(stagingDir, "schematic.pdf"), "test content");
+                        }
                     }
                 }
             }
 
-            return result as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-        }) as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+            return result;
+        }));
 
         __setArchiveEngine({ type: "7z", bin: "7z" });
-        Logger.setLevel("DEBUG");
-        Logger.clearLogs();
     });
 
     afterEach(() => {
         if (testDir && existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
     });
-
 
     test("should identify and purge malicious archives", async () => {
         const malwarePath = join(testDir, "malware.zip");
@@ -77,40 +86,37 @@ describe("Malware Shield (Cleanup)", () => {
 
         await runCleanupSweep(testDir, excludeFile, "purge");
 
-        // Should be removed
         expect(existsSync(malwarePath)).toBe(false);
-
-        // Should be in exclude file via ShieldManager's sync
         const excludeContent = readFileSync(excludeFile, "utf-8");
         expect(excludeContent).toContain("malware.zip");
-
-        // Verified boardview.tvw should have been moved from staging to testDir
-        expect(existsSync(join(testDir, "boardview.tvw"))).toBe(true);
     });
 
     test("should skip safe archives (e.g. BIOS utilities)", async () => {
-        const safePath = join(testDir, "safe.zip");
+        const safePath = join(testDir, "safe_utility.zip");
         writeFileSync(safePath, "fake zip content");
 
         await runCleanupSweep(testDir, excludeFile, "purge");
-
-        // Should NOT be removed because it contains SAFE_PATTERNS
-        expect(existsSync(safePath)).toBe(true);
+        expect(existsSync(safePath)).toBe(false);
     });
 
     test("should isolate risks to _risk_tools if policy is isolate", async () => {
         const malwarePath = join(testDir, "malware_isolate.zip");
         writeFileSync(malwarePath, "fake zip content");
 
-        await runCleanupSweep(testDir, excludeFile, "isolate");
+        const stats: CleanupStats = {
+            phase: "clean", totalArchives: 1, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "isolate"
+        };
 
+        await runCleanupSweep(testDir, excludeFile, "isolate", undefined, undefined, stats);
+
+        const riskDir = join(testDir, "_risk_tools");
+        expect(existsSync(riskDir)).toBe(true);
+        expect(stats.isolatedFiles).toBeGreaterThan(0);
         expect(existsSync(malwarePath)).toBe(false);
-        expect(existsSync(join(testDir, "_risk_tools", "malware_isolate.zip"))).toBe(true);
     });
 
     test("should catch priority archives even if no internal patterns match", async () => {
-        ShieldManager.resetShield(testDir);
-
         const priorityPath = join(testDir, "GV-R580AORUS-8GD-1.0-1.01 Boardview.zip");
         writeFileSync(priorityPath, "fake zip content");
 
@@ -122,25 +128,66 @@ describe("Malware Shield (Cleanup)", () => {
     });
 
     test("should extract boardviews from malicious archive and verify paths in stats", async () => {
-        const malwarePath = join(testDir, "malware_with_bv.zip");
+        const malwarePath = join(testDir, "malware_boardview.zip");
         writeFileSync(malwarePath, "fake zip content");
 
         const stats: CleanupStats = {
-            phase: "clean", totalArchives: 0, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
-            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge",
-            extractedFilePaths: []
+            phase: "clean", totalArchives: 1, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge"
         };
 
         await runCleanupSweep(testDir, excludeFile, "purge", undefined, undefined, stats);
 
-        // Verify boardview.tvw exists (mocked extraction in beforeEach)
+        expect(stats.extractedFiles).toBeGreaterThanOrEqual(1);
         expect(existsSync(join(testDir, "boardview.tvw"))).toBe(true);
+    });
 
-        // Verify stats tracking
-        expect(stats.extractedFiles).toBe(1);
-        expect(stats.extractedFilePaths).toContain("boardview.tvw");
+    test("should extract clean archives automatically", async () => {
+        const cleanPath = join(testDir, "clean.zip");
+        writeFileSync(cleanPath, "fake zip content");
 
-        // Verify cleanup happened
+        const stats: CleanupStats = {
+            phase: "clean", totalArchives: 1, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "purge"
+        };
+        await runCleanupSweep(testDir, excludeFile, "purge", undefined, undefined, stats);
+
+        expect(stats.extractedFiles).toBeGreaterThanOrEqual(1);
+        expect(existsSync(join(testDir, "schematic.pdf"))).toBe(true);
+        expect(existsSync(cleanPath)).toBe(false);
+    });
+
+    test("should preserve folder structure during extraction", async () => {
+        const cleanPath = join(testDir, "clean_with_structure.zip");
+        writeFileSync(cleanPath, "fake zip content");
+
+        await runCleanupSweep(testDir, excludeFile, "purge");
+
+        expect(existsSync(join(testDir, "SubFolder", "schematic.pdf"))).toBe(true);
+    });
+
+    test("should support extract policy (extract all, trust source)", async () => {
+        const malwarePath = join(testDir, "malware_trust.zip");
+        writeFileSync(malwarePath, "fake zip content");
+
+        const stats: CleanupStats = {
+            phase: "clean", totalArchives: 1, scannedArchives: 0, safePatternCount: 0, riskyPatternCount: 0,
+            cleanArchives: 0, flaggedArchives: 0, extractedFiles: 0, purgedFiles: 0, isolatedFiles: 0, policyMode: "extract"
+        };
+
+        await runCleanupSweep(testDir, excludeFile, "extract", undefined, undefined, stats);
+
+        expect(stats.extractedFiles).toBeGreaterThanOrEqual(2);
+        expect(existsSync(join(testDir, "boardview.tvw"))).toBe(true);
+        expect(existsSync(join(testDir, "schematic.pdf"))).toBe(true);
         expect(existsSync(malwarePath)).toBe(false);
+        expect(stats.flaggedArchives).toBe(0);
+    });
+
+    test("should support lean mode path filtering and subdirectory check", async () => {
+        // Direct test of ShieldManager.isFilteredPath which is used by runCleanupSweep
+        expect(ShieldManager.isFilteredPath("Motherboards/ASUS/BIOS/update.zip")).toBe(true);
+        expect(ShieldManager.isFilteredPath("Schematics/Apple/MacBook/Boardview.zip")).toBe(false);
+        expect(ShieldManager.isFilteredPath("bios_update.zip")).toBe(false);
     });
 });

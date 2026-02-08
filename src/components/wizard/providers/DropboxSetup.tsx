@@ -53,7 +53,7 @@ export const DropboxSetup = ({
                                 onMouseDown={() => confirmSelection(allOptions[i]!)}
                                 paddingLeft={1}
                                 paddingRight={1}
-                                border
+                                border={isFocused}
                                 borderStyle="single"
                                 borderColor={isFocused ? colors.success : "transparent"}
                             >
@@ -78,7 +78,7 @@ export const DropboxSetup = ({
                             onMouseDown={() => back()}
                             paddingLeft={1}
                             paddingRight={1}
-                            border
+                            border={isBackFocused}
                             borderStyle="single"
                             borderColor={isBackFocused ? colors.success : "transparent"}
                             flexDirection="row"

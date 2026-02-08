@@ -86,7 +86,7 @@ export function ManualFontGuide({ returnView: _returnView, onClose }: ManualFont
             <box flexDirection="row" gap={2}>
                 <box
                     onMouseDown={onClose}
-                    border
+                    border={true}
                     borderStyle="single"
                     borderColor={colors.success}
                     paddingLeft={1}
@@ -96,9 +96,7 @@ export function ManualFontGuide({ returnView: _returnView, onClose }: ManualFont
                 </box>
                 <box
                     onMouseDown={onClose}
-                    border
-                    borderStyle="single"
-                    borderColor={colors.danger}
+                    border={false}
                     paddingLeft={1}
                     paddingRight={1}
                 >

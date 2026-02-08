@@ -5,7 +5,7 @@
 export interface ShieldManifest {
     generatedAt: string; // ISO Date
     version: string;     // e.g., "1.0.0-alpha.1" (syncs with package.json)
-    policy: "purge" | "isolate";
+    policy: "purge" | "isolate" | "extract";
     files: string[];     // Relative paths, sorted alphabetically
 }
 

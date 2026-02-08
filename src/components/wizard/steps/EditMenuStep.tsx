@@ -26,7 +26,7 @@ export const EditMenuStep = ({
         <box flexDirection="column" gap={1}>
             <text attributes={TextAttributes.BOLD} fg={colors.fg}>Configuration Menu</text>
             <text fg={colors.fg}>Select a section to edit:</text>
-            <box flexDirection="column" gap={0} marginTop={1}>
+            <box flexDirection="column" gap={0} marginTop={1} alignItems="flex-start">
                 {options.map((opt, i) => {
                     const isSelected = selectedIndex === i && focusArea === "body";
                     return (

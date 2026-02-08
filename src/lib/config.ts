@@ -18,7 +18,7 @@ export interface PortalConfig {
 
     // 3. Security & Policy
     enable_malware_shield: boolean;
-    malware_policy: "purge" | "isolate";
+    malware_policy: "purge" | "isolate" | "extract";
 
     // 4. Persistence & UI State
     last_sync_stats?: {
@@ -103,6 +103,11 @@ export function loadConfig(): PortalConfig {
                 parsed.log_level = "DEBUG";
             } else if (parsed.log_level === undefined) {
                 parsed.log_level = "NORMAL";
+            }
+
+            // MIGRATION: malware_policy from enable_malware_shield
+            if (!parsed.malware_policy) {
+                parsed.malware_policy = "purge";
             }
 
             // MIGRATION: SECURITY HARDENING - Remove plaintext credentials (Issue #12)

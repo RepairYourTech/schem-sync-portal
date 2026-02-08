@@ -55,7 +55,7 @@ export const MegaSetup = ({
                                 onMouseDown={() => confirmSelection(allOptions[i]!)}
                                 paddingLeft={1}
                                 paddingRight={1}
-                                border
+                                border={isFocused}
                                 borderStyle="single"
                                 borderColor={isFocused ? colors.success : "transparent"}
                             >
@@ -80,7 +80,7 @@ export const MegaSetup = ({
                             onMouseDown={() => back()}
                             paddingLeft={1}
                             paddingRight={1}
-                            border
+                            border={isBackFocused}
                             borderStyle="single"
                             borderColor={isBackFocused ? colors.success : "transparent"}
                             flexDirection="row"
@@ -126,9 +126,9 @@ export const MegaSetup = ({
                     marginTop={1}
                     onMouseOver={() => onFocusChange("body")}
                     onMouseDown={() => next()}
-                    border
+                    border={focusArea === "body"}
                     borderStyle="double"
-                    borderColor={focusArea === "body" ? colors.success : colors.dim}
+                    borderColor={focusArea === "body" ? colors.success : "transparent"}
                     paddingLeft={1}
                     paddingRight={1}
                     alignItems="center"
@@ -146,7 +146,7 @@ export const MegaSetup = ({
                     onMouseDown={() => back()}
                     paddingLeft={1}
                     paddingRight={1}
-                    border
+                    border={selectedIndex === 1 && focusArea === "body"}
                     borderStyle="single"
                     borderColor={selectedIndex === 1 && focusArea === "body" ? colors.success : "transparent"}
                 >

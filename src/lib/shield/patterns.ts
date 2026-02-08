@@ -4,6 +4,20 @@ export const KEEP_EXTS = [
     ".bin", ".rom", ".cap", ".fd", ".wph", ".hex", ".txt", ".json"
 ];
 
+// "The Goods" - Only these survive Lean Shield extraction
+export const LEAN_STRICT_WHITELIST = [
+    ".pdf", ".txt",
+    ".brd", ".pcb", ".tvw", ".fz", ".faz", ".cad", ".bdv", ".bv", ".cst", ".gr", ".obdata",
+    ".sqlite3", ".obdlocal", ".obdlog", ".obdq"
+];
+
+// "The Excess" - Explicitly purged in Lean Mode even if safe
+export const LEAN_STRICT_BLACKLIST = [
+    ".bin", ".rom", ".cap", ".fd", ".hex", ".wph",
+    ".exe", ".dll", ".sys", ".msi", ".bat", ".cmd", ".vbs", ".js", ".com", ".scr",
+    ".inf", ".cat", ".drv"
+];
+
 export const SAFE_PATTERNS = ["flash", "afud", "insyde", "h2o", "utility", "update", "phlash", "ami", "phoenix", "dell", "hp", "lenovo", "bios"];
 
 export const GARBAGE_PATTERNS = [
@@ -57,21 +71,23 @@ export const PRIORITY_FILENAMES = [
     "GV-N4090GAMING-OC-24GD r1.0 boardview.zip"
 ];
 
+
 export const LEAN_MODE_EXCLUDE_PATTERNS = [
-    // Files/Archives to SKIP in lean mode
-    "BIOS_", "bios_", "Bios_",                 // BIOS dumps
-    "Firmware", "firmware",                    // Firmware files
-    "UPDATE", "update", "Update",              // Update tools/packages
-    "Utility", "utility",                      // Tools/Utilities
-    "Driver", "driver",                        // Drivers
-    "Software", "software",                    // Software packages
-    "ME Region", "me region",                  // ME Region dumps
-    "EC", "ec", "Ec", "KB", "kb",              // EC/KBC dumps
-    ".exe", ".EXE", ".bat", ".BAT",            // Executables/Scripts
-    ".cmd", ".CMD", ".msi", ".MSI",            // Installers/Scripts
-    ".dll", ".DLL", ".sys", ".SYS",            // System files
-    "flash_tool", "Flash_Tool", "FlashTool",   // Flasher tools
-    "Installer", "installer", "setup"          // Installers
+    // Strict path-scoped patterns to prevent false positives (e.g., BIOS_Schematic.pdf)
+    "/bios/", "\\bios\\", "bios/", "bios\\",
+    "/firmware/", "\\firmware\\", "firmware/", "firmware\\",
+    "/drivers/", "\\drivers\\", "drivers/", "drivers\\",
+    "/driver/", "\\driver\\", "driver/", "driver\\",
+    "/utilities/", "\\utilities\\", "utilities/", "utilities\\",
+    "/utility/", "\\utility\\", "utility/", "utility\\",
+    "/tools/", "\\tools\\", "tools/", "tools\\",
+    "/software/", "\\software\\", "software/", "software\\",
+    "/update/", "\\update\\", "update/", "update\\",
+    "/updates/", "\\updates\\", "updates/", "updates\\",
+    "/me_region/", "\\me_region\\", "me_region/", "me_region\\",
+    "/ec/", "\\ec\\",
+    "/fw/", "\\fw\\",
+    "setup.exe", "install.exe", "installer.exe"
 ];
 
 export const VALUABLE_ARCHIVE_INDICATORS = [

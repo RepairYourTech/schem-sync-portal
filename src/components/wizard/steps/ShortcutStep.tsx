@@ -28,31 +28,34 @@ export const ShortcutStep = ({
         <box flexDirection="column" gap={1}>
             <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {String(getCurrentStepNumber())}: System Integration</text>
             <text fg={isShortcutMissing ? colors.danger : colors.fg}>
-                {String(isShortcutMissing ? "⚠️  Shortcut missing! Did you move it standard location?" : "Add Portal to Desktop Apps?")}
+                {String(isShortcutMissing ? "⚠️  Shortcut missing! Did you move it from the standard location?" : "Add Portal to Desktop Apps?")}
             </text>
             <box flexDirection="column" gap={0} marginTop={1}>
-                {options.map((opt, i) => (
-                    <box
-                        key={i}
-                        onMouseOver={() => {
-                            onFocusChange("body");
-                            setSelectedIndex(i);
-                        }}
-                        onMouseDown={() => confirmSelection(getOptions()[i]!)}
-                        paddingLeft={1}
-                        paddingRight={1}
-                        border
-                        borderStyle="single"
-                        borderColor={selectedIndex === i && focusArea === "body" ? colors.success : "transparent"}
-                    >
-                        <Hotkey
-                            keyLabel={opt.key}
-                            label={opt.name}
-                            isFocused={selectedIndex === i && focusArea === "body"}
-                        />
-                        <text fg={selectedIndex === i && focusArea === "body" ? colors.fg : colors.dim}> - {String(opt.description)}</text>
-                    </box>
-                ))}
+                {options.map((opt, i) => {
+                    const isFocused = selectedIndex === i && focusArea === "body";
+                    return (
+                        <box
+                            key={i}
+                            onMouseOver={() => {
+                                onFocusChange("body");
+                                setSelectedIndex(i);
+                            }}
+                            onMouseDown={() => confirmSelection(getOptions()[i]!)}
+                            paddingLeft={1}
+                            paddingRight={1}
+                            border={isFocused}
+                            borderStyle="single"
+                            borderColor={isFocused ? colors.success : "transparent"}
+                        >
+                            <Hotkey
+                                keyLabel={opt.key}
+                                label={opt.name}
+                                isFocused={isFocused}
+                            />
+                            <text fg={isFocused ? colors.fg : colors.dim}> - {String(opt.description)}</text>
+                        </box>
+                    );
+                })}
             </box>
             <box
                 marginTop={1}
@@ -60,7 +63,7 @@ export const ShortcutStep = ({
                 onMouseDown={() => confirmSelection({ value: "back", type: "back" })}
                 paddingLeft={1}
                 paddingRight={1}
-                border
+                border={selectedIndex === options.length && focusArea === "body"}
                 borderStyle="single"
                 borderColor={selectedIndex === options.length && focusArea === "body" ? colors.success : "transparent"}
             >

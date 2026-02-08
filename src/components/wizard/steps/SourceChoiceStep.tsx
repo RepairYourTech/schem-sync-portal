@@ -33,7 +33,7 @@ export const SourceChoiceStep = ({
         <box flexDirection="column" gap={1}>
             <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {String(getCurrentStepNumber())}: Source Provider</text>
             <text fg={colors.fg}>🔗 Select your "Source of Truth":</text>
-            <box flexDirection="column" gap={0} marginTop={1}>
+            <box flexDirection="column" gap={0} marginTop={1} alignItems="flex-start">
                 {getOptions().map((opt, i) => {
                     const p = providers[opt.value as string];
                     const isFocused = selectedIndex === i && focusArea === "body";

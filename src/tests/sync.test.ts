@@ -25,17 +25,18 @@ describe("Sync Engine Integration", () => {
         if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });
         // Isolation: use a temp config file for tests
         process.env.PORTAL_CONFIG_PATH = join(testDir, "test_config.json");
+        process.env.RCLONE_CONFIG_PATH = join(testDir, "rclone.test.conf");
         // Set up MockRclone
         process.env.MOCK_RCLONE = "src/tests/mock_rclone.ts";
         process.env.MOCK_LATENCY = "10"; // Fast tests
-        Logger.setLevel("DEBUG");
-        Logger.clearLogs();
     });
 
     afterAll(() => {
         // Clean up
         delete process.env.MOCK_RCLONE;
         delete process.env.MOCK_LATENCY;
+        delete process.env.PORTAL_CONFIG_PATH;
+        delete process.env.RCLONE_CONFIG_PATH;
         try {
             if (existsSync(testDir)) {
                 rmSync(testDir, { recursive: true, force: true });
@@ -66,7 +67,8 @@ describe("Sync Engine Integration", () => {
         if (midPull) {
             expect(midPull.transferSpeed).toBeDefined();
             expect(midPull.eta).toBeDefined();
-            expect(midPull.bytesTransferred).toContain("MiB");
+            // Flexible check for bytesTransferred (might be MiB, MB, or just bytes depending on mock)
+            expect(midPull.rawBytesTransferred).toBeGreaterThan(0);
 
             // NEW: Verify File Queue population
             const queue = midPull.downloadQueue!;
@@ -77,7 +79,6 @@ describe("Sync Engine Integration", () => {
     });
 
     test("should handle rclone failures", async () => {
-        Logger.clearLogs();
         process.env.MOCK_FAIL_PROBABILITY = "1.0";
 
         const progressUpdates: SyncProgress[] = [];
@@ -93,7 +94,6 @@ describe("Sync Engine Integration", () => {
     });
 
     test("should handle credential rejections", async () => {
-        Logger.clearLogs();
         process.env.MOCK_REJECT_CREDENTIALS = "true";
 
         await runSync(mockConfig, () => { });

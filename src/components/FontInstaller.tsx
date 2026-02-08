@@ -154,7 +154,7 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                     <box flexDirection="row" marginTop={1} gap={2}>
                         <box
                             onMouseDown={() => handleInstall(selectedFont)}
-                            border
+                            border={true}
                             borderStyle="single"
                             borderColor={colors.success}
                             paddingLeft={1}
@@ -164,9 +164,7 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                         </box>
                         <box
                             onMouseDown={() => onCancel()}
-                            border
-                            borderStyle="single"
-                            borderColor={colors.danger}
+                            border={false}
                             paddingLeft={1}
                             paddingRight={1}
                         >
@@ -195,7 +193,7 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                     ) : null}
                     <box marginTop={2}
                         onMouseDown={() => result && onComplete(result)}
-                        border
+                        border={true}
                         borderStyle="single"
                         borderColor={colors.success}
                         paddingLeft={1}
@@ -216,7 +214,7 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                                 setInstallState('selecting');
                                 setError(null);
                             }}
-                            border
+                            border={true}
                             borderStyle="single"
                             borderColor={colors.success}
                             paddingLeft={1}
@@ -226,9 +224,7 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
                         </box>
                         <box
                             onMouseDown={() => onCancel()}
-                            border
-                            borderStyle="single"
-                            borderColor={colors.danger}
+                            border={false}
                             paddingLeft={1}
                             paddingRight={1}
                         >

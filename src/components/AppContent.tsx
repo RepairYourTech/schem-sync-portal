@@ -8,6 +8,7 @@ import { Dashboard } from "./Dashboard";
 import { Wizard } from "./Wizard";
 import { Options } from "./Options";
 import { ForensicView } from "./ForensicView";
+import { DoctorView } from "./DoctorView";
 import { SyncPortal } from "./SyncPortal";
 import { useTheme } from "../lib/theme";
 import { saveConfig, type PortalConfig } from "../lib/config";
@@ -350,89 +351,24 @@ export function AppContent() {
 
     const activeFontVersion = config.nerd_font_version || 2;
 
-    const renderDashboard = () => (
-        <box flexShrink={0}>
-            <Dashboard
-                config={config}
-                isFocused={focusArea === "body"}
-                selectedIndex={bodyIndex}
-                onSelectionChange={setBodyIndex}
-                onFocusChange={setFocusArea}
-                onAction={(key) => {
-                    if (key === "s") { setWizardReturnView("dashboard"); setView("wizard"); setWizardMode("restart"); }
-                    else if (key === "c") { setWizardReturnView("dashboard"); setView("wizard"); setWizardMode("continue"); }
-                    else if (key === "t") { setView("sync"); }
-                }}
-            />
-        </box>
-    );
-
-    const renderDoctor = () => (
-        <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ SYSTEM DIAGNOSTICS ]" gap={1}>
-            {deps ? (
-                <>
-                    <text fg={deps.bun ? colors.success : colors.danger}>Bun Runtime: {String(deps.bun || "MISSING")}</text>
-                    <text fg={deps.zig ? colors.success : colors.danger}>Zig Compiler: {String(deps.zig || "MISSING")}</text>
-                    <text fg={deps.rclone ? colors.success : colors.danger}>Rclone Sync: {String(deps.rclone || "MISSING")}{String(deps.rcloneVersion ? ` (${deps.isRcloneModern ? "Modern" : "Legacy"} v${deps.rcloneVersion})` : "")}</text>
-                    <text fg={deps.archive ? colors.success : colors.danger}>Archive Engines (7z/RAR): {String(deps.archive || "MISSING")}</text>
-                    <text fg={deps.clipboard ? colors.success : colors.warning}>Clipboard Utility: {String(deps.clipboard || "NOT FOUND (OSC 52 Fallback)")}</text>
-                    <box flexDirection="column" border borderStyle="single" borderColor={colors.border} padding={1} marginTop={1}>
-                        <text fg={colors.primary} attributes={TextAttributes.BOLD}>Font Health: {String(deps.nerdFontDetailed.isInstalled ? "INSTALLED" : "NOT DETECTED")}</text>
-                        <text fg={colors.primary}>Detection Method: {String(deps.nerdFontDetailed.method)}</text>
-                        <text fg={colors.primary}>Confidence Level: {String(deps.nerdFontDetailed.confidence)}%</text>
-                        <text fg={deps.nerdFontDetailed.version === 3 ? colors.success : (deps.nerdFontDetailed.version === 2 ? colors.setup : colors.danger)}>Version: v{String(deps.nerdFontDetailed.version || "Unknown")}</text>
-                        {deps.nerdFontDetailed.installedFonts.length > 0 && <text fg={colors.dim} attributes={TextAttributes.DIM}>Installed: {String(deps.nerdFontDetailed.installedFonts.slice(0, 3).join(", "))}</text>}
-                    </box>
-                    <box flexDirection="column" marginTop={1} padding={1} border borderStyle="single" borderColor={colors.border} title="[ FONT MANAGEMENT ]">
-                        <box flexDirection="row" gap={2} flexWrap="wrap">
-                            {(() => {
-                                const showRepair = !deps?.nerdFontDetailed.isInstalled || deps?.nerdFontDetailed.version === 2;
-                                const showUpgrade = deps?.nerdFontDetailed.version === 2;
-                                let currentIdx = 0;
-                                const elements = [];
-                                if (showRepair) {
-                                    const isFocused = focusArea === "body" && doctorIndex === currentIdx;
-                                    elements.push(<box key="r" border={isFocused} borderStyle="single" borderColor={isFocused ? colors.success : "transparent"} paddingLeft={1} paddingRight={1} height={1}><Hotkey keyLabel="r" label="Repair/Install" isFocused={isFocused} /></box>);
-                                    currentIdx++;
-                                }
-                                if (showUpgrade) {
-                                    const isFocused = focusArea === "body" && doctorIndex === currentIdx;
-                                    elements.push(<box key="u" border={isFocused} borderStyle="single" borderColor={isFocused ? colors.success : "transparent"} paddingLeft={1} paddingRight={1} height={1}><Hotkey keyLabel="u" label="Upgrade to v3" isFocused={isFocused} /></box>);
-                                    currentIdx++;
-                                }
-                                const tFocused = focusArea === "body" && doctorIndex === currentIdx;
-                                elements.push(<box key="t" border={tFocused} borderStyle="single" borderColor={tFocused ? colors.success : "transparent"} paddingLeft={1} paddingRight={1} height={1}><Hotkey keyLabel="t" label="Test Glyphs" isFocused={tFocused} /></box>);
-                                currentIdx++;
-                                const mFocused = focusArea === "body" && doctorIndex === currentIdx;
-                                elements.push(<box key="m" onMouseDown={() => spawn(process.platform === "win32" ? "start" : (process.platform === "darwin" ? "open" : "xdg-open"), ["https://pldaniels.com/flexbv5/manual.html"], { detached: true, stdio: "ignore" })} border={mFocused} borderStyle="single" borderColor={mFocused ? colors.success : "transparent"} paddingLeft={1} paddingRight={1} height={1}><Hotkey keyLabel="m" label="Manual Guide" isFocused={mFocused} /></box>);
-                                currentIdx++;
-                                const bFocused = focusArea === "body" && doctorIndex === currentIdx;
-                                elements.push(<box key="b" onMouseDown={handleBack} border={bFocused} borderStyle="single" borderColor={bFocused ? colors.success : "transparent"} paddingLeft={1} paddingRight={1} height={1}><Hotkey keyLabel="b" label="Back" isFocused={bFocused} /></box>);
-                                return elements;
-                            })()}
-                        </box>
-                    </box>
-                    <box flexDirection="column" marginTop={1} padding={1} border borderStyle="rounded" borderColor={glyphHighlight ? colors.primary : colors.success} title="[ GLYPH TEST ]">
-                        <box flexDirection="row" gap={2}>
-                            <text fg={activeFontVersion === 2 ? colors.success : colors.dim}>[ {'\uf61a'} ] Legacy Cat (v2){activeFontVersion === 2 ? " ★" : ""}</text>
-                            <text fg={activeFontVersion === 3 ? colors.success : colors.dim}>[ {'\ueeed'} ] Modern Cat (v3 FA){activeFontVersion === 3 ? " ★" : ""}</text>
-                        </box>
-                        <box flexDirection="row" gap={2}>
-                            <text fg={activeFontVersion === 3 ? colors.success : colors.dim}>[ {'\u{f011b}'} ] MDI Cat (v3 MDI)</text>
-                            <text fg={colors.success}>[ {'\uf07b'} ] Folder</text>
-                            <text fg={colors.success}>[ {'\ue615'} ] Gear</text>
-                        </box>
-                    </box>
-                </>
-            ) : <text fg={colors.dim}>Running diagnostics...</text>}
-        </box>
-    );
-
     return (
         <box flexDirection="column" height={height} width={width} backgroundColor="transparent" padding={1}>
             <box flexDirection="column" flexGrow={1} paddingBottom={1}>
                 {view === "dashboard" && !isRunning ? <Splash updateInfo={updateCheck.updateInfo} /> : null}
-                {view === "dashboard" ? renderDashboard() : null}
+                {view === "dashboard" ? (
+                    <Dashboard
+                        config={config}
+                        isFocused={focusArea === "body"}
+                        selectedIndex={bodyIndex}
+                        onSelectionChange={setBodyIndex}
+                        onFocusChange={setFocusArea}
+                        onAction={(key) => {
+                            if (key === "s") { setWizardReturnView("dashboard"); setView("wizard"); setWizardMode("restart"); }
+                            else if (key === "c") { setWizardReturnView("dashboard"); setView("wizard"); setWizardMode("continue"); }
+                            else if (key === "t") { setView("sync"); }
+                        }}
+                    />
+                ) : null}
                 {showFontInstallPrompt && view === "dashboard" ? (
                     <FontMissingBanner
                         onInstall={() => { setShowFontInstallPrompt(false); setFontInstallerReturnView("dashboard"); setView('fontinstaller'); }}
@@ -444,7 +380,22 @@ export function AppContent() {
                 {view === "wizard" ? <Wizard initialConfig={config} mode={wizardMode} onUpdate={onUpdateWizard} onComplete={onWizardComplete} onCancel={() => setView(wizardReturnView)} onQuit={() => renderer.destroy()} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} backSignal={backSignal} /> : null}
                 {view === "options" ? <Options onDoctor={() => setView("doctor")} onSetup={() => { setWizardReturnView("options"); setView("wizard"); setWizardMode("edit"); }} onScan={onScan} onForensic={() => setView("forensic")} onReset={onReset} onResetShield={onResetShield} onBack={() => setView("dashboard")} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} config={config} onUpdateConfig={(nc) => { saveConfig(nc); setConfig(nc); }} updateCheck={updateCheck} /> : null}
                 {view === "forensic" ? <ForensicView targetDir={config.local_dir && config.local_dir !== "none" ? config.local_dir : ""} gdriveRemote={config.source_provider === "gdrive" ? Env.REMOTE_PORTAL_SOURCE : (config.backup_provider === "gdrive" ? Env.REMOTE_PORTAL_BACKUP : null)} onComplete={() => setView("options")} onCancel={() => setView("options")} /> : null}
-                {view === "doctor" ? renderDoctor() : null}
+                {view === "doctor" ? (
+                    <DoctorView
+                        colors={colors}
+                        deps={deps}
+                        focusArea={focusArea}
+                        doctorIndex={doctorIndex}
+                        activeFontVersion={activeFontVersion}
+                        glyphHighlight={glyphHighlight}
+                        setFocusArea={setFocusArea}
+                        setDoctorIndex={setDoctorIndex}
+                        setView={setView}
+                        setFontInstallerReturnView={setFontInstallerReturnView}
+                        setGlyphHighlight={setGlyphHighlight}
+                        handleBack={handleBack}
+                    />
+                ) : null}
                 {view === "fontinstaller" ? <FontInstaller returnView={fontInstallerReturnView} onComplete={async (res) => { if (res.success) { const next = { ...config, nerd_font_version: 3 as const, nerd_font_installed_family: res.installedFamily, nerd_font_last_check: Date.now() }; setConfig(next); saveConfig(next); setDeps(await checkDependencies()); } setView(fontInstallerReturnView); }} onCancel={() => setView(fontInstallerReturnView)} /> : null}
                 {view === "fontguide" ? <ManualFontGuide returnView={fontInstallerReturnView} onClose={() => setView(fontInstallerReturnView)} /> : null}
             </box>

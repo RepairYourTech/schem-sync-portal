@@ -48,7 +48,7 @@ export const DownloadModeStep = ({
                             onMouseDown={() => confirmSelection(opt)}
                             paddingLeft={1}
                             paddingRight={1}
-                            border
+                            border={isFocused}
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
                             flexDirection="column"
@@ -88,7 +88,7 @@ export const DownloadModeStep = ({
                         onMouseDown={() => back()}
                         paddingLeft={1}
                         paddingRight={1}
-                        border
+                        border={isBackFocused}
                         borderStyle="single"
                         borderColor={isBackFocused ? colors.success : "transparent"}
                         flexDirection="row"

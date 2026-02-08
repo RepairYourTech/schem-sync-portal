@@ -29,7 +29,7 @@ export const SourceChoice = ({
         <box flexDirection="column" gap={1}>
             <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {String(getCurrentStepNumber())}: Source Provider</text>
             <text fg={colors.fg}>🔗 Select your "Source of Truth":</text>
-            <box flexDirection="column" gap={0} marginTop={1}>
+            <box flexDirection="column" gap={0} marginTop={1} alignItems="flex-start">
                 {allOptions.filter(o => o.type !== "back").map((opt, i) => {
                     const meta = getProviderMetadata(opt.value as PortalProvider);
                     const isFocused = selectedIndex === i && focusArea === "body";
@@ -42,7 +42,7 @@ export const SourceChoice = ({
                             }}
                             onMouseDown={() => confirmSelection(opt)}
                             paddingLeft={2}
-                            border
+                            border={isFocused}
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
                             flexDirection="row"
@@ -70,7 +70,7 @@ export const SourceChoice = ({
                         }}
                         onMouseDown={() => back()}
                         paddingLeft={2}
-                        border
+                        border={isBackFocused}
                         borderStyle="single"
                         borderColor={isBackFocused ? colors.success : "transparent"}
                         flexDirection="row"

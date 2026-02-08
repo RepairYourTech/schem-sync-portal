@@ -217,9 +217,9 @@ export const SyncPortal = React.memo(({
                 paddingLeft={1}
                 paddingRight={1}
                 height={5}
-                border
+                border={isGlobalFocused}
                 borderStyle="single"
-                borderColor={isGlobalFocused ? colors.primary : colors.dim + "33"}
+                borderColor={isGlobalFocused ? colors.primary : "transparent"}
                 onMouseOver={() => handleFocus("global")}
             >
                 <box flexDirection="column" gap={0}>

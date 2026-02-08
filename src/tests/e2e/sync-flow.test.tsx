@@ -1,38 +1,42 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach, spyOn } from "bun:test";
 import { runSync, clearSyncSession, type SyncProgress } from "../../lib/sync";
 import { createMockConfig } from "../ui-test-helpers";
 import type { PortalConfig } from "../../lib/config";
 import { join } from "path";
 import { existsSync, rmSync, mkdirSync, writeFileSync } from "fs";
-
-
-const mockSaveConfig = mock(() => Promise.resolve());
-mock.module("../../lib/config", () => ({
-    saveConfig: mockSaveConfig,
-    loadConfig: mock(() => ({})),
-    EMPTY_CONFIG: {
-        source_provider: "unconfigured",
-        backup_provider: "unconfigured",
-        local_dir: "",
-        upsync_enabled: false,
-        enable_malware_shield: false
-    }
-}));
+import * as Config from "../../lib/config";
 
 describe("E2E: Sync Flow", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let saveConfigSpy: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let loadConfigSpy: any;
     const originalMockRclone = process.env.MOCK_RCLONE;
 
     beforeEach(() => {
         // Point to our mock rclone script
         process.env.MOCK_RCLONE = "src/tests/mock_rclone.ts";
+        // Use a temp file for rclone config to avoid UNAUTHORIZED SYSTEM ACCESS errors
+        process.env.RCLONE_CONFIG_PATH = join(process.cwd(), "test_sync_flow_rclone.conf");
+        if (!existsSync(process.env.RCLONE_CONFIG_PATH)) writeFileSync(process.env.RCLONE_CONFIG_PATH, "");
+
         process.env.SYNC_POLL_INTERVAL_MS = "100";
         clearSyncSession();
-        mockSaveConfig.mockClear();
-    });
 
+        saveConfigSpy = spyOn(Config, "saveConfig").mockImplementation(() => Promise.resolve());
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        loadConfigSpy = spyOn(Config, "loadConfig").mockImplementation(() => ({}) as any);
+    });
 
     afterEach(() => {
         process.env.MOCK_RCLONE = originalMockRclone;
+        delete process.env.PORTAL_CONFIG_PATH;
+        delete process.env.RCLONE_CONFIG_PATH;
+        saveConfigSpy.mockRestore();
+        loadConfigSpy.mockRestore();
+        if (process.env.RCLONE_CONFIG_PATH && existsSync(process.env.RCLONE_CONFIG_PATH)) {
+            rmSync(process.env.RCLONE_CONFIG_PATH, { force: true });
+        }
     });
 
     it("should progress through pull, clean, and cloud phases", async () => {
@@ -65,6 +69,7 @@ describe("E2E: Sync Flow", () => {
         // Verify phase sequence
         expect(phases).toContain("syncing");
         // Note: 'clean' is now integrated into pull/syncing phase in the orchestrator
+        // We expect to reach 'done' eventually
         expect(phases).toContain("done");
 
         // Verify queue updates
@@ -78,8 +83,8 @@ describe("E2E: Sync Flow", () => {
         expect(lastUpdate?.description).toContain("MISSION ACCOMPLISHED");
 
         // Verify persistence: saveConfig should have been called at the end
-        expect(mockSaveConfig).toHaveBeenCalled();
-        const calls = mockSaveConfig.mock.calls;
+        expect(saveConfigSpy).toHaveBeenCalled();
+        const calls = saveConfigSpy.mock.calls;
         if (calls.length === 0) throw new Error("saveConfig not called");
         const finalPersistedConfig = (calls[0] as unknown[])?.[0] as PortalConfig;
 

@@ -30,7 +30,6 @@ const mockReadFileSync = spyOn(fs, "readFileSync").mockImplementation(() => Buff
 
 // 3. Import system under test
 import { createRcloneRemote } from "../lib/rclone";
-import { Logger } from "../lib/logger";
 
 describe("Rclone Config Sanitization", () => {
     afterAll(() => {
@@ -53,7 +52,6 @@ describe("Rclone Config Sanitization", () => {
         mockMkdirSync.mockClear();
         mockWriteFileSync.mockClear();
         mockReadFileSync.mockClear();
-        Logger.setLevel("DEBUG");
     });
 
     test("should preserve token JSON structure including newlines", () => {

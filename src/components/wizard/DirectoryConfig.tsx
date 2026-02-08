@@ -46,9 +46,9 @@ export const DirectoryConfig = ({
             <box
                 onMouseOver={() => { onFocusChange("body"); setSelectedIndex(1); }}
                 onMouseDown={() => confirmSelection(allOptions[1] || allOptions[0]!)}
-                border
+                border={isConfirmFocused}
                 borderStyle="double"
-                borderColor={isConfirmFocused ? colors.success : colors.dim}
+                borderColor={isConfirmFocused ? colors.success : "transparent"}
                 paddingLeft={2}
                 paddingRight={2}
                 alignItems="center"
@@ -65,7 +65,7 @@ export const DirectoryConfig = ({
                     marginTop={1}
                     onMouseOver={() => { onFocusChange("body"); setSelectedIndex(backIdx); }}
                     onMouseDown={() => back()}
-                    border
+                    border={isBackFocused}
                     borderStyle="single"
                     borderColor={isBackFocused ? colors.success : "transparent"}
                     paddingLeft={2}

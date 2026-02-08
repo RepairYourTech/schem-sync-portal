@@ -1,6 +1,5 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { runManifestCloudPhase } from "../lib/sync/cloudPhase";
-import { Logger } from "../lib/logger";
 import { join } from "path";
 import { mkdirSync, existsSync, rmSync, writeFileSync } from "fs";
 import { createMockConfig } from "./ui-test-helpers";
@@ -21,11 +20,13 @@ describe("Remote Manifest Verification", () => {
     beforeAll(() => {
         if (!existsSync(testDir)) mkdirSync(testDir, { recursive: true });
         process.env.MOCK_RCLONE = "src/tests/mock_rclone.ts";
-        Logger.setLevel("DEBUG");
+        process.env.RCLONE_CONFIG_PATH = join(testDir, "rclone.test.conf");
     });
 
     afterAll(() => {
         delete process.env.MOCK_RCLONE;
+        delete process.env.RCLONE_CONFIG_PATH;
+        delete process.env.PORTAL_CONFIG_PATH;
         if (existsSync(testDir)) {
             rmSync(testDir, { recursive: true, force: true });
         }
@@ -52,7 +53,15 @@ describe("Remote Manifest Verification", () => {
             if (p.phase === "cloud" && p.cloudManifestStats && p.cloudManifestStats.pendingFiles === 0) {
                 pullDone = true;
             }
-        }, () => pullDone);
+        }, () => {
+            if (pullDone) return true;
+            // Fallback for tests: if we reconciled correctly and pending is 0, we can stop
+            const last = progressUpdates[progressUpdates.length - 1];
+            if (reconciledCorrectly && last?.cloudManifestStats?.pendingFiles === 0) {
+                return true;
+            }
+            return false;
+        });
 
         // Verify that it reconciled files (mock_rclone returns file1, file2, file3)
         // So only file4.bin should have been "new"

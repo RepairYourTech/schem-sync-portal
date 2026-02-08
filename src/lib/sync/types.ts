@@ -47,7 +47,7 @@ export interface CleanupStats {
     isolatedFiles: number;
     extractedFilePaths?: string[]; // NEW: Track actual extracted files
     executionContext?: "risky_sweep" | "realtime_clean" | "final_sweep" | "valuable_sweep";
-    policyMode: "purge" | "isolate";
+    policyMode: "purge" | "isolate" | "extract";
 
     // NEW HARDENING FIELDS
     invalidListingArchives?: number;      // Archives with failed/empty listings
@@ -117,6 +117,6 @@ export interface SyncProgress {
     manifestInfo?: {
         generatedAt: string;
         fileCount: number;
-        policy: "purge" | "isolate";
+        policy: "purge" | "isolate" | "extract";
     };
 }

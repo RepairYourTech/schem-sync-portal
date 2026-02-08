@@ -68,19 +68,24 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
         {
             label: `SHIELD POLICY: [${config.enable_malware_shield ? config.malware_policy.toUpperCase() : "OFF"}]`,
             action: () => {
-                if (config.backup_provider === "gdrive") {
+                if ((config.backup_provider as string) === "gdrive") {
                     Logger.warn("UI", "Shield cannot be disabled for Google Drive backups.");
-                    return;
                 }
-                const options: (false | "purge" | "isolate")[] = [false, "purge", "isolate"];
+                const baseOptions: (false | "purge" | "isolate" | "extract")[] = [false, "purge", "isolate", "extract"];
+                const options = (config.backup_provider as string) === "gdrive"
+                    ? baseOptions.filter(o => o !== false && o !== "extract")
+                    : baseOptions;
+
                 const current = config.enable_malware_shield ? config.malware_policy : false;
-                const nextIdx = (options.indexOf(current) + 1) % options.length;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const currentIndex = options.indexOf(current as any);
+                const nextIdx = (currentIndex + 1) % options.length;
                 const next = options[nextIdx];
 
                 if (next === false) {
                     onUpdateConfig({ ...config, enable_malware_shield: false });
                 } else {
-                    onUpdateConfig({ ...config, enable_malware_shield: true, malware_policy: next as "purge" | "isolate" });
+                    onUpdateConfig({ ...config, enable_malware_shield: true, malware_policy: next as "purge" | "isolate" | "extract" });
                 }
             },
             description: config.backup_provider === "gdrive"
@@ -259,7 +264,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                                 setLogSelectedIndex(0);
                             }}
                             onMouseDown={handleRefreshLogs}
-                            border={!!(logSelectedIndex === 0 && focusArea === "body")}
+                            border={logSelectedIndex === 0 && focusArea === "body"}
                             borderStyle="single"
                             borderColor={(logSelectedIndex === 0 && focusArea === "body") ? colors.success : "transparent"}
                             paddingLeft={1}
@@ -273,7 +278,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                                 setLogSelectedIndex(1);
                             }}
                             onMouseDown={handleCopyLogs}
-                            border={!!(logSelectedIndex === 1 && focusArea === "body")}
+                            border={logSelectedIndex === 1 && focusArea === "body"}
                             borderStyle="single"
                             borderColor={(logSelectedIndex === 1 && focusArea === "body") ? colors.success : "transparent"}
                             paddingLeft={1}
@@ -291,7 +296,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                                 setLogSelectedIndex(2);
                             }}
                             onMouseDown={handleClearLogs}
-                            border={!!(logSelectedIndex === 2 && focusArea === "body")}
+                            border={logSelectedIndex === 2 && focusArea === "body"}
                             borderStyle="single"
                             borderColor={(logSelectedIndex === 2 && focusArea === "body") ? colors.success : "transparent"}
                             paddingLeft={1}
@@ -312,7 +317,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                             setLogSelectedIndex(3);
                         }}
                         onMouseDown={() => setSubView("debug")}
-                        border={!!(logSelectedIndex === 3 && focusArea === "body")}
+                        border={logSelectedIndex === 3 && focusArea === "body"}
                         borderStyle="single"
                         borderColor={(logSelectedIndex === 3 && focusArea === "body") ? colors.success : "transparent"}
                         paddingLeft={1}
@@ -348,7 +353,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
 
     return (
         <box flexDirection="column" flexGrow={1} padding={1} border borderStyle="double" borderColor={colors.primary} title={`[ ${title} ]`} gap={1}>
-            <box flexDirection="column" gap={0} flexGrow={1}>
+            <box flexDirection="column" gap={0} alignItems="flex-start" flexGrow={1}>
                 {options.map((opt, i) => {
                     const isSelected = i === selectedIndex && focusArea === "body";
                     return (
