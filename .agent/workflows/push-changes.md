@@ -73,7 +73,98 @@ for i in {1..10}; do
   sleep 30
 done
 ```
-**ACTION REQUIRED**: Read the comments output above. Address all critical items and ensure the review is approved/passed before proceeding to merge.
+**ACTION REQUIRED**: Read the comments output above. Address all critical items in code before proceeding.
+
+> [!CAUTION]
+> **ZERO BYPASS POLICY**: You are STRICTLY FORBIDDEN from using `--admin` or any other administrative bypass to merge a Pull Request. Proceeding to merge without meeting all criteria is a **Critical Workflow Failure**.
+
+### 6.1 Address and Resolve Review Comments
+For each review comment from CodeRabbit or human reviewers:
+1. **Read** the comment and understand the feedback
+2. **Implement** the fix in code
+3. **Commit and push** the fix
+4. **Resolve** the thread programmatically via GraphQL API
+
+// turbo
+```bash
+# Get PR number
+PR_NUMBER=$(gh pr view --json number -q .number)
+
+# List all unresolved review threads
+echo "Fetching unresolved review threads..."
+THREADS=$(gh api graphql -f query='
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100) {
+          nodes {
+            id
+            isResolved
+            comments(first: 1) {
+              nodes { body author { login } }
+            }
+          }
+        }
+      }
+    }
+  }
+' -f owner="RepairYourTech" -f repo="schem-sync-portal" -F pr=$PR_NUMBER)
+
+echo "$THREADS" | jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)'
+```
+
+After addressing each comment in code and pushing fixes, resolve all threads:
+// turbo
+```bash
+# Resolve all unresolved threads (only after fixes are pushed!)
+PR_NUMBER=$(gh pr view --json number -q .number)
+THREAD_IDS=$(gh api graphql -f query='
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100) {
+          nodes { id isResolved }
+        }
+      }
+    }
+  }
+' -f owner="RepairYourTech" -f repo="schem-sync-portal" -F pr=$PR_NUMBER \
+  | jq -r '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | .id')
+
+for THREAD_ID in $THREAD_IDS; do
+  echo "Resolving thread: $THREAD_ID"
+  gh api graphql -f query='
+    mutation($threadId: ID!) {
+      resolveReviewThread(input: {threadId: $threadId}) {
+        thread { isResolved }
+      }
+    }
+  ' -f threadId="$THREAD_ID"
+done
+echo "All review threads resolved."
+```
+
+### 6.2 Verify and Merge
+Confirm all checks pass and merge the PR (NO admin bypass).
+// turbo
+```bash
+PR_NUMBER=$(gh pr view --json number -q .number)
+
+# Verify all requirements are met
+echo "Checking PR merge readiness..."
+gh pr view $PR_NUMBER --json reviewDecision,statusCheckRollup,mergeable
+
+# Wait for CI to pass and merge (this will fail if requirements aren't met - that's correct behavior)
+gh pr merge $PR_NUMBER --squash --delete-branch
+```
+
+> [!IMPORTANT]
+> The merge command above will **fail** if:
+> - Unresolved review threads remain
+> - Required status checks haven't passed
+> - No approving review exists
+> 
+> This is correct behavior. Do NOT use `--admin` to bypass. Fix the underlying issue instead.
 
 ### 7. Finalizing (On Main after Merge)
 Once the PR is merged, run this to finalize the version bump:

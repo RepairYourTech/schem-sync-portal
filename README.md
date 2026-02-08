@@ -1,7 +1,7 @@
 # 📜 Schematic Sync Portal - ****BETA****
 > **Surgical Schematic Sync for the Repair Community**
 
-![Version](https://img.shields.io/badge/version-1.3.1-blue)
+![Version](https://img.shields.io/badge/version-1.4.0-blue)
 ![License](https://img.shields.io/badge/license-Custom--Attribution-blue)
 
 The **Schematic Sync Portal** is a TUI (Terminal User Interface) application designed to update local schematic archives from a cloud source and optionaly create redundant cloud backups.

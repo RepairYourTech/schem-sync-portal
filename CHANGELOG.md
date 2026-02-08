@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0
+
+### Minor Changes
+
+- 5c9f020: Standardize Header/Footer focus and navigation, unified FocusArea types, and hardened sync stop reliability.
+
 ## 1.3.1
 
 ### Patch Changes
