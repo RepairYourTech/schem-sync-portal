@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1
+
+### Patch Changes
+
+- e1802f4: Fix workflow discovery by removing duplicate frontmatter and making file public
+
 ## 1.4.0
 
 ### Minor Changes
