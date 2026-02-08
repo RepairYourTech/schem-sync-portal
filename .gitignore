@@ -157,3 +157,6 @@ isolation_manual_check.ts
 restore_wizard_loops.js
 config.json
 .update-cache.json
+
+# Maintainer-only workflow (private)
+.agent/workflows/merge-and-release.md
