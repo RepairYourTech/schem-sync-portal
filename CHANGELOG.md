@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1
+
+### Patch Changes
+
+- 3557f79: Hardened Lean Mode with surgical non-whitelist purging, path-aware filtering for BIOS directories, and enforced 'extract' policy trust contract. Added regression tests.
+- 3557f79: Hardened Lean Mode logic, enforced extract policy trust, restored documentation, and implemented system-wide test environment isolation.
+
 ## 1.3.0
 
 ### Minor Changes
