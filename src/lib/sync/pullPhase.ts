@@ -87,10 +87,12 @@ function processManifest(localManifest: string, localDir: string): { remoteFiles
 
 /**
  * Runs the Pull Phase: Manifest discovery -> Stage 1 (Risky) -> Stage 2 (Standard).
+ * @param mode - The download mode, passed explicitly from runSync to avoid state file timing issues.
  */
 export async function runPullPhase(
     config: PortalConfig,
-    onProgress: (p: Partial<SyncProgress>) => void
+    onProgress: (p: Partial<SyncProgress>) => void,
+    mode: "full" | "lean" = "full"
 ): Promise<void> {
     const approvedFiles = new Set<string>();
     const releasePending = () => {
@@ -136,7 +138,11 @@ export async function runPullPhase(
         policyMode: config.malware_policy || "purge"
     };
 
-    const leanMode = config.download_mode === "lean";
+    const effectiveMode = mode;
+    const leanMode = effectiveMode === "lean";
+
+    Logger.info("SYNC", `Pull phase mode: ${effectiveMode}`);
+
     let excludedFileCount = 0;
     let valuableFileCount = 0;
 
@@ -247,13 +253,13 @@ export async function runPullPhase(
         if (isStopRequested()) return;
         // Neutralize through both archive sweep AND direct file cleanup
         await ShieldExecutor.execute({
-            type: config.download_mode === "lean" ? "valuable_sweep" : "risky_sweep",
+            type: effectiveMode === "lean" ? "valuable_sweep" : "risky_sweep",
             localDir: config.local_dir,
             policy: config.malware_policy || "purge",
             excludeFile,
             onProgress,
             initialStats: cleanupStats,
-            mode: config.download_mode || "full"
+            mode: effectiveMode
         });
 
         if (isStopRequested()) return;
@@ -268,7 +274,7 @@ export async function runPullPhase(
                     filePath: fullPath,
                     onProgress,
                     initialStats: cleanupStats,
-                    mode: config.download_mode || "full"
+                    mode: effectiveMode
                 });
 
                 if (existsSync(fullPath)) {
@@ -300,7 +306,7 @@ export async function runPullPhase(
     } else if (!localManifest) {
         // DISCOVERY MODE: No manifest - use filters and exclusion list
         standardArgs.push("--exclude-from", excludeFile, "--exclude", "_risk_tools/**");
-        if (config.download_mode === "lean") {
+        if (effectiveMode === "lean") {
             LEAN_MODE_EXCLUDE_PATTERNS.forEach(p => standardArgs.push("--exclude", `*${p}*`));
         }
     } else {
@@ -339,7 +345,7 @@ export async function runPullPhase(
                     filePath: fullPath,
                     onProgress,
                     initialStats: cleanupStats,
-                    mode: config.download_mode || "full"
+                    mode: effectiveMode
                 });
             }
         }
@@ -369,7 +375,7 @@ export async function runPullPhase(
             excludeFile,
             onProgress,
             initialStats: cleanupStats,
-            mode: config.download_mode || "full"
+            mode: effectiveMode
         });
 
         // After final sweep, ensure we capture extracted files

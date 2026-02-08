@@ -9,7 +9,7 @@ import { resetSessionState, resetSessionCompletions, parseJsonLog } from "./prog
 import { runCleanupSweep } from "../cleanup";
 import { Env } from "../env";
 import { ShieldManager } from "../shield/ShieldManager";
-import { loadSyncState } from "../syncState";
+import { loadSyncState, createEmptyState, saveSyncState } from "../syncState";
 
 import {
     stopSync,
@@ -129,23 +129,35 @@ export async function runSync(
     try {
         const state = loadSyncState(config.local_dir);
 
-        // Comment 2: Respect provided sessionId or adopt persisted one
+        // Refinement: Only adopt session from state if it's actually resumable (not idle)
+        const isResumableRaw = state ? (
+            state.downsyncStatus === "incomplete" || state.downsyncStatus === "paused" ||
+            state.shieldStatus === "incomplete" || state.shieldStatus === "paused" ||
+            state.upsyncStatus === "incomplete" || state.upsyncStatus === "paused"
+        ) : false;
+
         if (sessionId) {
             setSessionId(sessionId);
-        } else if (!getCurrentSessionId() && state && state.upsyncStatus !== "complete") {
+        } else if (!getCurrentSessionId() && state && isResumableRaw && state.upsyncStatus !== "complete") {
             setSessionId(state.sessionId);
             Logger.info("SYNC", `Adopting incomplete session from state: ${state.sessionId}`);
         }
 
-        const activeSessionId = getCurrentSessionId() || "";
-        const isResumingMatch = state && activeSessionId === state.sessionId && state.upsyncStatus !== "complete";
+        const isResumingMatch = state && getCurrentSessionId() === state.sessionId && isResumableRaw;
 
         if (!isResumingMatch && (!sessionId || isNewSession(sessionId))) {
             // New session or no session ID: Clear any stale state
             resetSessionState();
             resetExecutorState();
             startNewSession();
-            Logger.info("SYNC", "Starting new sync session");
+
+            // Step 1: Initialize session state with downloadMode
+            const newState = createEmptyState();
+            newState.sessionId = getCurrentSessionId() || newState.sessionId; // Refinement: Sync sessionId
+            newState.downloadMode = config.download_mode;
+            saveSyncState(config.local_dir, newState);
+
+            Logger.info("SYNC", `Starting new sync session (mode: ${config.download_mode || "full"})`);
         } else {
             // Resuming: The cloudPhase will load its own state internally
             Logger.info("SYNC", `Resuming existing session: ${getCurrentSessionId()}`);
@@ -155,10 +167,13 @@ export async function runSync(
         let pullDone = false;
         let shieldError: Error | null = null;
 
+        // Resolve effective mode once and pass explicitly to pull phase
+        const effectiveMode = (state?.downloadMode || config.download_mode || "full") as "full" | "lean";
+
         if (showPull) {
             tasks.push((async () => {
                 try {
-                    await runPullPhase(config, wrapProgress);
+                    await runPullPhase(config, wrapProgress, effectiveMode);
                 } catch (err) {
                     shieldError = err as Error;
                     throw err;
@@ -228,6 +243,10 @@ export async function runSync(
             percentage: 100,
             isPaused: false
         });
+
+        // Refinement: Clear sync state on successful completion (Step 3)
+        const { clearSyncState } = await import("../syncState");
+        clearSyncState(config.local_dir);
 
         // PERSISTENCE: Save final stats to config
         const finalStats = lastProgressRef.current;
