@@ -4,6 +4,7 @@ import { Logger } from "../lib/logger";
 import { cleanFile, runCleanupSweep } from "../lib/cleanup";
 import { ShieldManager } from "../lib/shield/ShieldManager";
 import { mkdirSync, writeFileSync, existsSync, rmSync } from "fs";
+import { createEmptyState, saveSyncState, loadSyncState } from "../lib/syncState";
 import { join } from "path";
 import { tmpdir } from "os";
 
@@ -143,6 +144,29 @@ describe("Lean Mode & Shield Hardening", () => {
 
             expect(existsSync(standaloneBin)).toBe(true);
             expect(stats.purgedFiles).toBe(0);
+        });
+        describe("Resume Logic", () => {
+            test("Resume lean sync after app restart excludes BIOS files", () => {
+                // 1. Simulate interrupted lean sync
+                const state = createEmptyState();
+                state.downloadMode = "lean";
+                state.downsyncStatus = "incomplete";
+                saveSyncState(testDir, state);
+
+                // 2. Restore state (as app would on restart)
+                const restoredState = loadSyncState(testDir);
+                expect(restoredState?.downloadMode).toBe("lean");
+
+                // 3. Verify effective mode decision logic
+                const effectiveMode = restoredState?.downloadMode || "full";
+                expect(effectiveMode).toBe("lean");
+
+                // 4. Verify that in this mode, BIOS files are excluded
+                if (effectiveMode === "lean") {
+                    const shouldDownload = shouldDownloadInLeanMode("Computers/BIOS/archive.zip");
+                    expect(shouldDownload).toBe(false);
+                }
+            });
         });
     });
 });
