@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.2
+
+### Patch Changes
+
+- 56eebaa: fix: lean mode pattern matching now uses word boundary detection to block folders like '10 BIOS'
+
 ## 1.4.1
 
 ### Patch Changes
