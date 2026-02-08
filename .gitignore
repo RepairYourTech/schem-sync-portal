@@ -159,4 +159,3 @@ config.json
 .update-cache.json
 
 # Maintainer-only workflow (private)
-.agent/workflows/merge-and-release.md
