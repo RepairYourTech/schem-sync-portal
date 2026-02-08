@@ -77,6 +77,10 @@ Before taking ANY action on a task, you MUST follow this exact sequence:
 1. Guidelines: [.agent/workflows/push-changes.md](file:///home/birdman/schem-sync-portal/.agent/workflows/push-changes.md)
 2. Automated workflow for branching, changesets, and PR creation.
 
+### /merge-and-release
+1. Guidelines: [.agent/workflows/merge-and-release.md](file:///home/birdman/schem-sync-portal/.agent/workflows/merge-and-release.md)
+2. Maintainer-only workflow for merging approved PRs and creating releases.
+
 ### New Features
 1. Use `brainstorming` skill
 2. Use `EnterPlanMode` for planning
