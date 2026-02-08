@@ -75,6 +75,14 @@ done
 ```
 **ACTION REQUIRED**: Read the comments output above. Address all critical items and ensure the review is approved/passed before proceeding to merge.
 
+> [!CAUTION]
+> **ZERO BYPASS POLICY**: You are STRICTLY FORBIDDEN from using `--admin` or any other administrative bypass to merge a Pull Request.
+> 1.  Every CodeRabbit comment MUST be addressed in the code.
+> 2.  Every comment MUST be explicitly "Resolved" on the GitHub platform before merging.
+> 3.  The PR MUST be in an "Approved" state by the required reviewers (human or bot) before proceeding.
+> 
+> Proceeding to merge without meeting these criteria is a **Critical Workflow Failure**.
+
 ### 7. Finalizing (On Main after Merge)
 Once the PR is merged, run this to finalize the version bump:
 // turbo

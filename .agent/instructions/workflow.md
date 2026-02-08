@@ -58,6 +58,8 @@ Before taking ANY action on a task, you MUST follow this exact sequence:
 - Get user confirmation for complex or ambiguous tasks
 - Document your plan in scratchpad or plan.md if complex
 - **Workflow Mapping**: If a task involves a predefined workflow (e.g. `/push-changes`), you MUST explicitly map every step of that workflow into your `task.md` before execution.
+- **Workflow Discipline**: NEVER skip steps or summarize a workflow as "complete" until every command has been run and verified.
+- **PR Review Discipline**: When resolving PR feedback, you MUST implement the fix, push it, AND verify that the platform (GitHub) reflects the resolution before merging. Using `--admin` to bypass review gates is a **FIREABLE OFFENSE** for an AI agent.
 
 ### Bug Fixes
 1. Use `systematic-debugging` skill
@@ -122,6 +124,7 @@ Before taking ANY action on a task, you MUST follow this exact sequence:
 - **Create "standardized" patterns that contradict the actual codebase** - DOCUMENT WHAT EXISTS, DON'T INVENT PATTERNS
 - **Apply patterns without checking 5+ files first** - ALWAYS verify against multiple examples
 - **Change code to match documentation** - DOCUMENTATION SHOULD MATCH CODE, NOT THE OTHER WAY AROUND
+- **Bypass Review Gates**: NEVER use administrative flags to force-merge a PR that has unresolved comments or lacks approval. This is an absolute security and quality violation.
 
 ---
 
