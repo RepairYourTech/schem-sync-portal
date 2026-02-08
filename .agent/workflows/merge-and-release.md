@@ -6,7 +6,7 @@ description: merge approved prs and create releases
 
 > [!CAUTION]
 > **THIS WORKFLOW IS FOR MAINTAINERS ONLY.** Contributors should use `/push-changes` instead.
-> This file is gitignored and should not be shared with contributors.
+> This file is tracked in the repository and visible to all contributors, but only maintainers can execute the release steps.
 
 This workflow handles the final merge of approved PRs and the release process.
 
