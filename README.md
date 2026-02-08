@@ -1,16 +1,16 @@
-# 🦅 Schematic Sync Portal - ****ALPHA****
-> **Surgical Cloud Isolation for the Repair Community**
+# 📜 Schematic Sync Portal - ****BETA****
+> **Surgical Schematic Sync for the Repair Community**
 
-![Version](https://img.shields.io/badge/version-1.2.1-green)
+![Version](https://img.shields.io/badge/version-1.3.1-blue)
 ![License](https://img.shields.io/badge/license-Custom--Attribution-blue)
 
-The **Schematic Sync Portal** is a high-security TUI (Terminal User Interface) application designed to bridge local schematic archives with the cloud without compromising system integrity.
+The **Schematic Sync Portal** is a TUI (Terminal User Interface) application designed to update local schematic archives from a cloud source and optionaly create redundant cloud backups.
 
 ---
 
 ## 🏛️ The Portal Pillars
 
-| 🛡️ Surgical Isolation | ⚡ Zero-Terminal Setup | 🧼 Malware Shield |
+| 🛡️ Surgical Isolation | 🖥️ Zero-Terminal Setup | 🧹 Multiple Cleaning Options |
 | :--- | :--- | :--- |
 | Dedicated Rclone remotes that never touch your global system configuration. | Complete OAuth handshake within the TUI—no manual config editing required. | Pipelined scanning that purges or isolates threats before backup. |
 
@@ -37,7 +37,7 @@ The **Schematic Sync Portal** is a high-security TUI (Terminal User Interface) a
 
 ---
 
-## � Installation & Setup
+## 📥 Installation & Setup
 
 ### 1. Quick Start (Development)
 ```bash
@@ -55,16 +55,16 @@ bun dev
 ### 2. First-Run Wizard
 Upon first launch, the Portal will guide you through:
 1.  **System Integration**: Creating a desktop/launcher shortcut.
-2.  **Visual Audit**: Verifying Nerd Font support (and offering auto-install if missing).
-3.  **Source Config**: Connecting to your schematic source (HTTP/WebDAV).
-4.  **Cloud Selection**: Authenticating with your preferred provider (8+ supported).
+2.  **Source Config**: Connecting to your schematic source (HTTP/WebDAV).
+3.  **Cloud Selection**: Authenticating with your preferred provider (8+ supported).
+4.  **Local Shield**: Choose to isolate or purge files know to flag cloud malware scanners.
 
 ---
 
 ## 🛡️ Features & Security
 
 ### ☁️ Sovereign Cloud Containers
-The Portal is specifically optimized for **Slime's CopyParty server** (Primary Source). All other source options are currently considered **BETA**.
+The Portal is specifically optimized for **Slime's CopyParty server** (Primary Source). All other source options are currently supported.
 
 Support for **8+ Cloud Providers** in isolated environments:
 *   **GDrive**, **Backblaze B2**, **Cloudflare R2**, **pCloud**, **OneDrive**, **Dropbox**, **Mega.nz**, and **SFTP**.
@@ -76,11 +76,24 @@ Support for **8+ Cloud Providers** in isolated environments:
 
 The Malware Shield provides a three-layered defense against malicious files:
 
-*   **Fail-Safe Archive Validation**: Automatically flags archives that cannot be reliably listed (due to corruption or tool failure) as suspicious.
-*   **Recursive Nested Scanning**: Automatically detects and scans nested archives (`.zip`, `.7z`, `.rar`) inside risky parent archives BEFORE disposal.
-*   **Standalone File Scanning**: A dedicated phase that scans all pre-existing files in the local directory (not just new downloads) for malware patterns.
+*   **Fail-Safe Archive Validation**: Automatically flags archives that cannot be reliably listed as suspicious.
+*   **Recursive Nested Scanning**: Automatically detects and scans nested archives (`.zip`, `.7z`, `.rar`) inside risky parent archives.
+*   **Standalone File Scanning**: A dedicated phase that scans all pre-existing files in the local directory for malware patterns.
 
-Files matching `GARBAGE_PATTERNS` or `PRIORITY_FILENAMES` are either purged (deleted) or isolated (moved to `_risk_tools/`) based on policy. Legitimate schematic files are automatically extracted and verified before the parent archive is removed.
+---
+
+## 📐 Synchronicity: Modes & Policies
+
+To balance security and archival completeness, the Portal offers granular control over how files are processed.
+
+### 🔄 Sync Modes: Lean vs Full
+*   **Lean Mode (Surgical)**: **[Recommended]** Specifically designed for schematic collectors. It uses strict path-pattern matching to purge non-schematic files (like `.BIN`, `.EXE`, `.MSI` or Large BIOS dumps) while preserving repair artifacts (`.PDF`, `.BRD`, `.TVW`). This minimizes cloud storage bloat and maximizes security.
+*   **Full Mode (Archival)**: Allows all files to pass through to the local archive. Local Shield can be used to purge or isolate known flagged files or to ignore them. Best for users who require total mirror parity.
+
+### 🛡️ Shield Policies: Purge vs Isolate
+*   **Purge (Maximum Safety)**: Matches that violate security rules or Lean boundaries are **permanently deleted** from the local environment before they can reach the cloud.
+*   **Isolate (Audit Mode)**: Matches are moved to a quarantined `_risk_tools/` directory in your local schematics folder. This allows advanced users to manually inspect "detections" without risking cloud contamination.
+*   **Both options will check archives (zip, rar) for known useful schematics etc and surgically extract them to their appropriate place in the local copy before purging or isolating the known bad files from the archives, keeping the good and not the bad. 
 
 ---
 
@@ -106,9 +119,9 @@ graph LR
 
 ## 🤖 Agent-Assisted Development
 
-This repository includes specialized tools for contributors using AI agents (e.g., Roo-Code, Windsurf, Cursor). 
+This repository includes specialized tools for contributors using AI agents (e.g., Roo-Code, Windsurf, Cursor, Claude Code, Kilo Code). 
 
-*   **Local Skills**: Found in `.agent/skills/`, these provide agents with deep project context, including OpenTUI patterns and release management standards.
+*   **Local Skills**: Found in `.agent/skills/`, these provide agents with deep project context.
 *   **Standardized Workflows**: Found in `.agent/workflows/`, these allow agents to automate complex tasks like pushing changes and creating PRs consistently.
 
 ---
@@ -116,7 +129,7 @@ This repository includes specialized tools for contributors using AI agents (e.g
 ## 🔧 Troubleshooting
 
 *   **Browser Auth Fails**: Ensure your default browser is accessible; Rclone requires it for the OAuth callback.
-*   **Missing Icons**: Enable a Nerd Font in your terminal settings. If not installed, use the Portal's built-in font installer.
+*   **Missing Icons**: Enable a Nerd Font in your terminal settings.
 *   **Safe Mode (Reset)**: If configuration is broken, go to **Options** (Hotkey `o`) and select **RESET CONFIGURATION**.
 
 ---
@@ -127,14 +140,13 @@ We welcome contributions from the repair community!
 
 *   **Want to help?** Read our [COLLABORATION.md](file:///home/birdman/schem-sync-portal/COLLABORATION.md) for technical standards.
 *   **Found a bug?** Use our [Bug Report](https://github.com/RepairYourTech/schem-sync-portal/issues/new?template=bug_report.yml) template.
-*   **Have an idea?** Submit a [Feature Request](https://github.com/RepairYourTech/schem-sync-portal/issues/new?template=feature_request.yml).
 
 ---
 
 ## ⚖️ Governance & Redistribution
-*   **License**: This project uses the **BirdMan-Slime Attribution License**. 
+*   **License**: This project uses the **BirdMan Attribution License**. 
 *   **Mandatory Attribution**: You MUST credit **BirdMan**, **Slime**, and **PD (FlexBV)** in all forks.
 See the [LICENSE](file:///home/birdman/schem-sync-portal/LICENSE) file for details.
 
 ---
-*Built for the Repair community, keep Right to Repair alive and thriving. 🦅*
+*Built for the Repair community, keep Right to Repair alive and thriving. 📐*
