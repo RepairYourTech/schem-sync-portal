@@ -86,3 +86,4 @@ export const MirrorSettings = ({
         </box>
     );
 };
+MirrorSettings.displayName = "MirrorSettings";

@@ -76,3 +76,4 @@ export const EditMenuStep = ({
         </box>
     );
 };
+EditMenuStep.displayName = "EditMenuStep";

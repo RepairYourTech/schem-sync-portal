@@ -88,3 +88,4 @@ export const SourceChoice = ({
         </box>
     );
 };
+SourceChoice.displayName = "SourceChoice";

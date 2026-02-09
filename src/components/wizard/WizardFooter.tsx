@@ -14,3 +14,4 @@ export const WizardFooter = () => {
         </box>
     );
 };
+WizardFooter.displayName = "WizardFooter";

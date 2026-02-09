@@ -49,7 +49,7 @@ export const AboutView = ({
                     </text>
                     <text fg={colors.dim}>Universal Sync Client for CopyParty</text>
                     {!!updateCheck.updateInfo?.available && (
-                        <text fg={colors.success}>Latest: {updateCheck.updateInfo.latestVersion} ({new Date(updateCheck.updateInfo.publishedAt).toLocaleDateString()})</text>
+                        <text fg={colors.success}>Latest: {String(updateCheck.updateInfo.latestVersion)} ({String(new Date(updateCheck.updateInfo.publishedAt).toLocaleDateString())})</text>
                     )}
                 </box>
 

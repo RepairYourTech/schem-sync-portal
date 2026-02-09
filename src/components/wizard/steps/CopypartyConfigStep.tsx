@@ -101,7 +101,7 @@ export const CopypartyConfigStep = ({
                                 borderColor={isFocused ? colors.success : (isSelected ? colors.primary : "transparent")}
                             >
                                 <text fg={isSelected ? colors.success : colors.dim}>{isSelected ? "● " : "○ "}</text>
-                                <text fg={isFocused ? colors.fg : (isSelected ? colors.fg : colors.dim)}>{m.name}</text>
+                                <text fg={isFocused ? colors.fg : (isSelected ? colors.fg : colors.dim)}>{String(m.name)}</text>
                             </box>
                         );
                     })}
@@ -140,9 +140,10 @@ export const CopypartyConfigStep = ({
 
             {!!authStatus && (
                 <text marginTop={1} fg={authStatus.includes("✅") ? colors.success : (authStatus.includes("⚠️") || authStatus.includes("❌") || authStatus.includes("💥") ? colors.danger : colors.primary)}>
-                    {authStatus}
+                    {String(authStatus)}
                 </text>
             )}
         </box>
     );
 };
+CopypartyConfigStep.displayName = "CopypartyConfigStep";

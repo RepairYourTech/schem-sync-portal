@@ -29,3 +29,4 @@ export const CloudProviderBase = ({ title, subtitle, info, stepNumber, context, 
         </box>
     );
 };
+CloudProviderBase.displayName = "CloudProviderBase";

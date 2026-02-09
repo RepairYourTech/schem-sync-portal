@@ -83,3 +83,4 @@ export const UpsyncAskStep = ({
         </box>
     );
 };
+UpsyncAskStep.displayName = "UpsyncAskStep";

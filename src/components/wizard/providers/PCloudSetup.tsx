@@ -117,7 +117,7 @@ export const PCloudSetup = ({
                 <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {String(stepNumber)}: {String(guide.title)}</text>
                 <box flexDirection="column">
                     {guide.lines.map((line, i) => (
-                        <text key={i} fg={colors.fg}>{line}</text>
+                        <text key={i} fg={colors.fg}>{String(line)}</text>
                     ))}
                 </box>
                 <box
@@ -155,3 +155,4 @@ export const PCloudSetup = ({
 
     return null;
 };
+PCloudSetup.displayName = "PCloudSetup";

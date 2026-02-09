@@ -96,3 +96,4 @@ export const SecurityStep = ({
         </box>
     );
 };
+SecurityStep.displayName = "SecurityStep";

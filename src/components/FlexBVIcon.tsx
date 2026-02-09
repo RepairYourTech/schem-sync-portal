@@ -20,3 +20,4 @@ export function FlexBVIcon() {
         </box>
     );
 }
+FlexBVIcon.displayName = "FlexBVIcon";

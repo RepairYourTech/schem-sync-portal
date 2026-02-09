@@ -92,3 +92,4 @@ export const DestCloudSelectStep = ({
         </box>
     );
 };
+DestCloudSelectStep.displayName = "DestCloudSelectStep";

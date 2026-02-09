@@ -76,3 +76,4 @@ export const ShortcutStep = ({
         </box>
     );
 };
+ShortcutStep.displayName = "ShortcutStep";

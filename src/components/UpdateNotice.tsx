@@ -7,3 +7,4 @@ export function UpdateNotice({ available }: { available?: boolean }) {
     if (!available) return null;
     return <text fg={colors.danger}> (Update Available!)</text>;
 }
+UpdateNotice.displayName = "UpdateNotice";
