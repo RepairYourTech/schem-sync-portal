@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { getCopypartyCookie } from "../lib/auth";
-import { authorizeRemote, updateGdriveRemote, updateGenericRemote } from "../lib/rclone";
+import { authorizeRemote, updateGdriveRemote, updateGenericRemote, createHttpRemote } from "../lib/rclone";
 import { Env } from "../lib/env";
 import type { PortalConfig, PortalProvider } from "../lib/config";
 import { getProviderMetadata } from "../lib/providers";
