@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+### Minor Changes
+
+- 4c0a8dd: Implement comprehensive OpenTUI linter with 9 safety rules, fix manual guide runtime bug, and add displayName to all components.
+
 ## 1.4.2
 
 ### Patch Changes
