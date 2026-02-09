@@ -11,18 +11,18 @@ interface WizardAuthProps {
     config: PortalConfig;
     setAuthStatus: (status: string) => void;
     setIsAuthLoading: (loading: boolean) => void;
-    urlRef: React.RefObject<string>;
-    userRef: React.RefObject<string>;
-    passRef: React.RefObject<string>;
-    clientIdRef: React.RefObject<string>;
-    clientSecretRef: React.RefObject<string>;
-    b2IdRef: React.RefObject<string>;
-    b2KeyRef: React.RefObject<string>;
+    urlRef: React.MutableRefObject<string>;
+    userRef: React.MutableRefObject<string>;
+    passRef: React.MutableRefObject<string>;
+    clientIdRef: React.MutableRefObject<string>;
+    clientSecretRef: React.MutableRefObject<string>;
+    b2IdRef: React.MutableRefObject<string>;
+    b2KeyRef: React.MutableRefObject<string>;
     authAbortControllerRef: React.MutableRefObject<AbortController | null>;
     oauthTokenRef: React.MutableRefObject<string | null>;
     wizardContext: "source" | "dest" | null;
-    pendingSourceProviderRef: React.RefObject<PortalProvider>;
-    pendingBackupProviderRef: React.RefObject<PortalProvider>;
+    pendingSourceProviderRef: React.MutableRefObject<PortalProvider>;
+    pendingBackupProviderRef: React.MutableRefObject<PortalProvider>;
     abortAuth: () => void;
 }
 
@@ -158,6 +158,10 @@ export function useWizardAuth({
         activeAuthRequestRef.current = true;
         console.log("[AUTH] Running direct auth handler for", provider);
 
+        const updateGenericRemoteSync = (remoteName: string, providerName: string, options: Record<string, string>) => {
+            return updateGenericRemote(remoteName, providerName, options);
+        };
+
         const runAsync = async () => {
             try {
                 await meta.directAuthHandler?.({
@@ -169,7 +173,7 @@ export function useWizardAuth({
                     next,
                     handleGdriveAuth,
                     startGenericAuth,
-                    updateGenericRemote: updateGenericRemote as (remoteName: string, provider: string, options: Record<string, string>) => void
+                    updateGenericRemote: updateGenericRemoteSync
                 });
             } finally {
                 activeAuthRequestRef.current = false;
@@ -189,7 +193,7 @@ export function useWizardAuth({
                     next,
                     handleGdriveAuth,
                     startGenericAuth,
-                    updateGenericRemote: updateGenericRemote as (remoteName: string, provider: string, options: Record<string, string>) => void
+                    updateGenericRemote: updateGenericRemoteSync
                 });
             } finally {
                 activeAuthRequestRef.current = false;
