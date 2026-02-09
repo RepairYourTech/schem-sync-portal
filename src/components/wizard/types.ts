@@ -21,8 +21,8 @@ export type Step =
      * Provider-specific steps (dynamic)
      * Convention: `${provider}_intro` or `${provider}_guide_${number}`
      */
-    | `${string}_intro`
-    | `${string}_guide_${number}`;
+    | `${PortalProvider}_intro`
+    | `${PortalProvider}_guide_${number}`;
 
 // Wizard option types for different use cases
 export type WizardOptionType =
