@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { getCopypartyCookie } from "../lib/auth";
 import { authorizeRemote, updateGdriveRemote, updateGenericRemote } from "../lib/rclone";
 import { Env } from "../lib/env";
@@ -26,7 +26,6 @@ interface WizardAuthProps {
     abortAuth: () => void;
 }
 
-import { useRef } from "react";
 
 export function useWizardAuth({
     next, updateConfig, config, setAuthStatus, setIsAuthLoading,
@@ -128,7 +127,7 @@ export function useWizardAuth({
             if (token) {
                 oauthTokenRef.current = token;
                 const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                await updateGenericRemote(remoteName, provider as PortalProvider, { token });
+                await updateGenericRemote(remoteName, provider, { token });
                 const field = wizardContext === "source" ? "source_provider" : "backup_provider";
                 const pending = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
                 updateConfig(prev => ({ ...prev, [field]: pending }));
@@ -190,7 +189,7 @@ export function useWizardAuth({
                 }
             }
         }
-    }, [wizardContext, urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef, updateConfig, next, handleGdriveAuth, startGenericAuth]);
+    }, [wizardContext, urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef, updateConfig, next, handleGdriveAuth, startGenericAuth, pendingSourceProviderRef, pendingBackupProviderRef]);
 
     return {
         handleAuth,

@@ -17,7 +17,10 @@ export type Step =
     | "security"
     | "deploy"
     | "cloud_direct_entry"
-    // Provider-specific steps (dynamic)
+    /**
+     * Provider-specific steps (dynamic)
+     * Convention: `${provider}_intro` or `${provider}_guide_${number}`
+     */
     | `${string}_intro`
     | `${string}_guide_${number}`;
 
@@ -44,8 +47,8 @@ export type WizardOptionType =
 
 // Flexible WizardOption that matches actual usage
 export interface WizardOption {
-    value: PortalProvider | string | number | boolean;
-    type: WizardOptionType | string;
+    value: PortalProvider | (string & {}) | number | boolean;
+    type: WizardOptionType | (string & {});
     label?: string;
     description?: string;
     name?: string;
