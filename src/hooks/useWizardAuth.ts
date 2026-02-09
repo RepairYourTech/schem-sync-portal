@@ -26,7 +26,6 @@ interface WizardAuthProps {
     abortAuth: () => void;
 }
 
-
 export function useWizardAuth({
     next, updateConfig, config, setAuthStatus, setIsAuthLoading,
     urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef,
@@ -78,7 +77,7 @@ export function useWizardAuth({
             activeAuthRequestRef.current = false;
             setIsAuthLoading(false);
         }
-    }, [next, updateConfig, config.copyparty_method, setAuthStatus, setIsAuthLoading, urlRef, passRef]);
+    }, [next, updateConfig, config.copyparty_method, setAuthStatus, setIsAuthLoading, urlRef, userRef, passRef]);
 
     const handleGdriveAuth = useCallback(async (clientId: string, clientSecret: string) => {
         if (activeAuthRequestRef.current) {
@@ -149,7 +148,6 @@ export function useWizardAuth({
 
     const dispatchDirectAuth = useCallback((provider: PortalProvider) => {
         const meta = getProviderMetadata(provider);
-        const isAsyncOAuth = provider === "gdrive" || provider === "onedrive" || provider === "dropbox" || provider === "b2" || provider === "pcloud";
 
         if (activeAuthRequestRef.current) {
             console.warn("[AUTH] Direct auth already in progress, aborting");
@@ -157,10 +155,6 @@ export function useWizardAuth({
         }
         activeAuthRequestRef.current = true;
         console.log("[AUTH] Running direct auth handler for", provider);
-
-        const updateGenericRemoteSync = (remoteName: string, providerName: string, options: Record<string, string>) => {
-            return updateGenericRemote(remoteName, providerName, options);
-        };
 
         const runAsync = async () => {
             try {
@@ -173,40 +167,28 @@ export function useWizardAuth({
                     next,
                     handleGdriveAuth,
                     startGenericAuth,
-                    updateGenericRemote: updateGenericRemoteSync
+                    updateGenericRemote
                 });
+            } catch (err) {
+                console.error("[AUTH] Direct auth error:", err);
+                setAuthStatus(`❌ Auth error: ${(err as Error).message}`);
             } finally {
                 activeAuthRequestRef.current = false;
             }
         };
 
-        if (isAsyncOAuth) {
-            runAsync();
-        } else {
-            try {
-                meta.directAuthHandler?.({
-                    wizardContext,
-                    pendingSourceProvider: pendingSourceProviderRef.current,
-                    pendingBackupProvider: pendingBackupProviderRef.current,
-                    refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
-                    updateConfig,
-                    next,
-                    handleGdriveAuth,
-                    startGenericAuth,
-                    updateGenericRemote: updateGenericRemoteSync
-                });
-            } finally {
-                activeAuthRequestRef.current = false;
-            }
-        }
-    }, [wizardContext, urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef, updateConfig, next, handleGdriveAuth, startGenericAuth, pendingSourceProviderRef, pendingBackupProviderRef]);
+        runAsync().catch(err => {
+            console.error("[AUTH] Fatal direct auth error:", err);
+            activeAuthRequestRef.current = false;
+        });
+    }, [wizardContext, urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef, updateConfig, next, handleGdriveAuth, startGenericAuth, setAuthStatus, pendingSourceProviderRef, pendingBackupProviderRef]);
 
     return {
         handleAuth,
         handleGdriveAuth,
         startGenericAuth,
         dispatchDirectAuth,
-        activeAuthRequestRef, // ✅ EXPOSE THIS REF
+        activeAuthRequestRef,
         refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef }
     };
 }
