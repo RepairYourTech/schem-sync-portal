@@ -29,6 +29,7 @@ export const LocalDirStep = ({
                 paddingLeft={1}
                 paddingRight={1}
                 alignItems="center"
+                height={1}
             >
                 <Hotkey keyLabel="ENTER" label="CONFIRM PATH" isFocused={focusArea === "body"} />
             </box>

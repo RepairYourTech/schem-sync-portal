@@ -371,7 +371,7 @@ export function AppContent() {
                             <text onMouseDown={() => spawn(process.platform === "win32" ? "start" : (process.platform === "darwin" ? "open" : "xdg-open"), ["https://slimeinacloak.github.io/crypto"], { detached: true, stdio: "ignore" })} fg="#ffff00" attributes={TextAttributes.UNDERLINE}>Buy Slime A Coffee</text>
                         </box>
                     </box>
-                    <box flexDirection="row" gap={2}>
+                    <box flexDirection="row" gap={2} alignItems="flex-start">
                         {(getFooterActions() || []).map((action, i) => {
                             const isFocused = focusArea === "footer" && footerFocus === i;
                             return (

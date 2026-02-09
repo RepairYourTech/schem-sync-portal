@@ -17,10 +17,10 @@ export const SecurityStep = ({
     back
 }: WizardStepProps) => {
     const options = [
-        { name: "RELOCATE & ISOLATE", description: "Move risks to local-only _risk_tools folder", value: "isolate", key: "1" },
-        { name: "SURGICAL PURGE", description: "Delete risks after extraction", value: "purge", key: "2" },
-        { name: "EXTRACT ALL", description: "Trust source & extract everything (Advanced)", value: "extract", key: "3" },
-        { name: "DISABLED", description: "Keep archives compressed (Not Recommended)", value: false, key: "4" }
+        { name: "RELOCATE & ISOLATE", description: "Move risks to local-only _risk_tools folder", value: "isolate", key: "1", type: "sec_policy" },
+        { name: "SURGICAL PURGE", description: "Delete risks after extraction", value: "purge", key: "2", type: "sec_policy" },
+        { name: "EXTRACT ALL", description: "Trust source & extract everything (Advanced)", value: "extract", key: "3", type: "sec_policy" },
+        { name: "DISABLED", description: "Keep archives compressed (Not Recommended)", value: false, key: "4", type: "sec_toggle" }
     ];
 
     // Enforce mandatory malware shield for Google Drive (exclude DISABLED and EXTRACT)
@@ -57,6 +57,7 @@ export const SecurityStep = ({
                             border={isFocused}
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
+                            height={1}
                         >
                             <Hotkey
                                 keyLabel={opt.key}
@@ -84,6 +85,7 @@ export const SecurityStep = ({
                         borderColor={isBackFocused ? colors.success : "transparent"}
                         flexDirection="row"
                         alignItems="center"
+                        height={1}
                     >
                         <Hotkey
                             keyLabel="b"

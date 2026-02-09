@@ -31,6 +31,7 @@ export const BackupDirStep = ({ config, updateConfig, next: _next, back, getCurr
                 paddingLeft={1}
                 paddingRight={1}
                 alignItems="center"
+                height={1}
             >
                 <Hotkey keyLabel="ENTER" label="CONFIRM PATH" isFocused={selectedIndex === 1 && focusArea === "body"} />
             </box>
@@ -46,6 +47,7 @@ export const BackupDirStep = ({ config, updateConfig, next: _next, back, getCurr
                 paddingLeft={1}
                 paddingRight={1}
                 alignItems="center"
+                height={1}
             >
                 <Hotkey keyLabel="b" label="Back" isFocused={selectedIndex === 2 && focusArea === "body"} />
             </box>

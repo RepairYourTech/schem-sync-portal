@@ -89,6 +89,7 @@ export const AboutView = ({
                         borderColor={focusArea === "body" && selectedIndex === 0 ? colors.success : "transparent"}
                         paddingLeft={1}
                         paddingRight={1}
+                        height={1}
                     >
                         <Hotkey
                             keyLabel="u"
@@ -110,6 +111,7 @@ export const AboutView = ({
                         borderColor={focusArea === "body" && selectedIndex === 1 ? colors.success : "transparent"}
                         paddingLeft={1}
                         paddingRight={1}
+                        height={1}
                     >
                         <Hotkey
                             keyLabel="b"

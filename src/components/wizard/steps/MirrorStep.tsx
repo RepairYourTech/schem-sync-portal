@@ -42,6 +42,7 @@ export const MirrorStep = ({
                             flexDirection="row"
                             alignItems="center"
                             gap={1}
+                            height={1}
                         >
                             <Hotkey
                                 keyLabel={opt.key}

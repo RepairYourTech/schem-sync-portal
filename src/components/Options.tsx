@@ -41,6 +41,8 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
     const [isUpdating, setIsUpdating] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
     const [copyStatus, setCopyStatus] = useState("");
+    const [logScrollOffset, setLogScrollOffset] = useState(0);
+    const [totalLogCount, setTotalLogCount] = useState(0);
 
     const debugOptions = [
         {
@@ -130,10 +132,6 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
         }
     }, [focusArea, tabTransition, subView, options.length]);
 
-    const handleClearLogs = () => {
-        Logger.clearLogs();
-        setLogs([]);
-    };
 
     const handleCopyLogs = async () => {
         const content = Logger.getAllLogsContent();
@@ -155,7 +153,35 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
     };
 
     const handleRefreshLogs = useCallback(() => {
-        setLogs(Logger.getRecentLogs(25));
+        const allLogs = Logger.getAllLogsContent()
+            .split("\n")
+            .filter(l => l.trim() !== "");
+        setTotalLogCount(allLogs.length);
+        setLogs(allLogs);
+        setLogScrollOffset(Math.max(0, allLogs.length - 25));
+    }, []);
+
+    const handleScrollUp = useCallback(() => {
+        setLogScrollOffset(prev => Math.max(0, prev - 5));
+    }, []);
+
+    const handleScrollDown = useCallback(() => {
+        setLogScrollOffset(prev => Math.min(Math.max(0, totalLogCount - 25), prev + 5));
+    }, [totalLogCount]);
+
+    const handleScrollToTop = useCallback(() => {
+        setLogScrollOffset(0);
+    }, []);
+
+    const handleScrollToBottom = useCallback(() => {
+        setLogScrollOffset(Math.max(0, totalLogCount - 25));
+    }, [totalLogCount]);
+
+    const handleClearLogsWithReset = useCallback(() => {
+        Logger.clearLogs();
+        setLogs([]);
+        setLogScrollOffset(0);
+        setTotalLogCount(0);
     }, []);
 
     useKeyboard((e) => {
@@ -216,6 +242,18 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                     setLogSelectedIndex(prev => (prev > 0 ? prev - 1 : 3));
                 } else if (e.name === "right") {
                     setLogSelectedIndex(prev => (prev < 3 ? prev + 1 : 0));
+                } else if (e.name === "up" || e.name === "k") {
+                    handleScrollUp();
+                } else if (e.name === "down" || e.name === "j") {
+                    handleScrollDown();
+                } else if (e.name === "pageup") {
+                    setLogScrollOffset(prev => Math.max(0, prev - 25));
+                } else if (e.name === "pagedown") {
+                    setLogScrollOffset(prev => Math.min(Math.max(0, totalLogCount - 25), prev + 25));
+                } else if (e.name === "home") {
+                    handleScrollToTop();
+                } else if (e.name === "end") {
+                    handleScrollToBottom();
                 } else if (e.name === "r") {
                     setLogSelectedIndex(0);
                     handleRefreshLogs();
@@ -224,11 +262,11 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                     handleCopyLogs();
                 } else if (e.name === "c") {
                     setLogSelectedIndex(2);
-                    handleClearLogs();
+                    handleClearLogsWithReset();
                 } else if (e.name === "return") {
                     if (logSelectedIndex === 0) handleRefreshLogs();
                     else if (logSelectedIndex === 1) handleCopyLogs();
-                    else if (logSelectedIndex === 2) handleClearLogs();
+                    else if (logSelectedIndex === 2) handleClearLogsWithReset();
                 } else if (e.name === "b") {
                     setLogSelectedIndex(3);
                     setSubView("debug");
@@ -250,14 +288,38 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
     });
 
     if (subView === "logs") {
+        const visibleLogs = logs.slice(logScrollOffset, logScrollOffset + 25);
+        const showTopIndicator = logScrollOffset > 0;
+        const showBottomIndicator = logScrollOffset + 25 < totalLogCount;
+        const showScrollHint = totalLogCount > 25;
         return (
-            <box flexDirection="column" padding={1} border borderStyle="double" borderColor={colors.primary} title="[ SYSTEM LOGS ]" gap={1}>
-                <box flexDirection="column" gap={0} marginBottom={1} height={12}>
-                    {logs.length === 0 ? <text fg={colors.dim}>Empty.</text> :
-                        logs.map((L, i) => <text key={i} fg={L.includes("ERROR") ? colors.danger : colors.fg}>{String(L)}</text>)}
+            <box flexDirection="column" flexGrow={1} padding={1} border borderStyle="double" borderColor={colors.primary} title="[ SYSTEM LOGS ]" gap={1}>
+                <box flexDirection="column" gap={0} marginBottom={1} flexGrow={1}>
+                    {logs.length === 0 ? <text fg={colors.dim}>Empty.</text> : (
+                        <>
+                            {showTopIndicator ? (
+                                <text fg={colors.dim}>
+                                    ▲ Showing {String(logScrollOffset + 1)}-{String(Math.min(logScrollOffset + 25, totalLogCount))} of {String(totalLogCount)} logs ▲
+                                </text>
+                            ) : null}
+                            {visibleLogs.map((L, i) => (
+                                <text key={logScrollOffset + i} fg={L.includes("ERROR") ? colors.danger : colors.fg}>{String(L)}</text>
+                            ))}
+                            {showBottomIndicator ? (
+                                <text fg={colors.dim}>
+                                    ▼ {String(totalLogCount - (logScrollOffset + 25))} more logs below ▼
+                                </text>
+                            ) : null}
+                        </>
+                    )}
                 </box>
 
-                <box flexDirection="column" gap={1}>
+                <box marginTop="auto" flexDirection="column" gap={1}>
+                    {showScrollHint ? (
+                        <box padding={1} border borderStyle="single" borderColor={colors.border}>
+                            <text fg={colors.dim}>↑↓ Scroll | PgUp/PgDn Jump | Home/End Edges</text>
+                        </box>
+                    ) : null}
                     <box border borderStyle="single" borderColor={colors.border} padding={1} flexDirection="row" gap={2}>
                         <box
                             onMouseOver={() => {
@@ -270,6 +332,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                             borderColor={(logSelectedIndex === 0 && focusArea === "body") ? colors.success : "transparent"}
                             paddingLeft={1}
                             paddingRight={1}
+                            height={1}
                         >
                             <Hotkey keyLabel="r" label="Refresh" isFocused={!!(logSelectedIndex === 0 && focusArea === "body")} />
                         </box>
@@ -284,6 +347,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                             borderColor={(logSelectedIndex === 1 && focusArea === "body") ? colors.success : "transparent"}
                             paddingLeft={1}
                             paddingRight={1}
+                            height={1}
                         >
                             <Hotkey
                                 keyLabel="y"
@@ -296,12 +360,13 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                                 onFocusChange("body");
                                 setLogSelectedIndex(2);
                             }}
-                            onMouseDown={handleClearLogs}
+                            onMouseDown={handleClearLogsWithReset}
                             border={logSelectedIndex === 2 && focusArea === "body"}
                             borderStyle="single"
                             borderColor={(logSelectedIndex === 2 && focusArea === "body") ? colors.success : "transparent"}
                             paddingLeft={1}
                             paddingRight={1}
+                            height={1}
                         >
                             <Hotkey keyLabel="c" label="Clear Logs" isFocused={!!(logSelectedIndex === 2 && focusArea === "body")} />
                         </box>
@@ -312,19 +377,7 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                         ) : null}
                     </box>
 
-                    <box
-                        onMouseOver={() => {
-                            onFocusChange("body");
-                            setLogSelectedIndex(3);
-                        }}
-                        onMouseDown={() => setSubView("debug")}
-                        border={logSelectedIndex === 3 && focusArea === "body"}
-                        borderStyle="single"
-                        borderColor={(logSelectedIndex === 3 && focusArea === "body") ? colors.success : "transparent"}
-                        paddingLeft={1}
-                        paddingRight={1}
-                        width={20}
-                    >
+                    <box onMouseOver={() => { onFocusChange("body"); setLogSelectedIndex(3); }} onMouseDown={() => setSubView("debug")} border={logSelectedIndex === 3 && focusArea === "body"} borderStyle="single" borderColor={(logSelectedIndex === 3 && focusArea === "body") ? colors.success : "transparent"} paddingLeft={1} paddingRight={1} width={20} height={1}>
                         <Hotkey keyLabel="b" label="Back" isFocused={!!(logSelectedIndex === 3 && focusArea === "body")} />
                     </box>
                 </box>
@@ -421,12 +474,14 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                             onMouseDown={onBack}
                             paddingLeft={1}
                             paddingRight={1}
-                            border={false}
+                            border={focusArea === "body" && selectedIndex === options.length + 1}
+                            borderStyle="single"
+                            borderColor={(focusArea === "body" && selectedIndex === options.length + 1) ? colors.success : "transparent"}
                             height={1}
                             alignItems="center"
                             marginLeft="auto"
                         >
-                            <Hotkey keyLabel="v" label="Save & Exit" isFocused={false} />
+                            <Hotkey keyLabel="v" label="Save & Exit" isFocused={focusArea === "body" && selectedIndex === options.length + 1} />
                         </box>
                     )}
                 </box>

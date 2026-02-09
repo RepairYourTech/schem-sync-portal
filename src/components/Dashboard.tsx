@@ -133,6 +133,7 @@ export const Dashboard = React.memo(({ config, isFocused, selectedIndex, onSelec
                         borderColor={(isFocused && selectedIndex === 0) ? colors.success : "transparent"}
                         paddingLeft={1}
                         paddingRight={1}
+                        height={1}
                     >
                         <Hotkey keyLabel="s" label="Begin Setup" isFocused={!!(isFocused && selectedIndex === 0)} bold />
                     </box>
@@ -149,6 +150,7 @@ export const Dashboard = React.memo(({ config, isFocused, selectedIndex, onSelec
                             borderColor={(isFocused && selectedIndex === 0) ? colors.success : "transparent"}
                             paddingLeft={1}
                             paddingRight={1}
+                            height={1}
                         >
                             <Hotkey keyLabel="c" label="[C]ontinue Setup" isFocused={!!(isFocused && selectedIndex === 0)} bold />
                         </box>
@@ -164,6 +166,7 @@ export const Dashboard = React.memo(({ config, isFocused, selectedIndex, onSelec
                             borderColor={(isFocused && selectedIndex === 1) ? colors.success : "transparent"}
                             paddingLeft={1}
                             paddingRight={1}
+                            height={1}
                         >
                             <Hotkey keyLabel="s" label="Restart Setup" isFocused={!!(isFocused && selectedIndex === 1)} />
                         </box>
@@ -180,6 +183,7 @@ export const Dashboard = React.memo(({ config, isFocused, selectedIndex, onSelec
                         borderColor={(isFocused && selectedIndex === 0) ? colors.success : "transparent"}
                         paddingLeft={1}
                         paddingRight={1}
+                        height={1}
                     >
                         <Hotkey keyLabel="t" label="Sync Por[T]al" isFocused={!!(isFocused && selectedIndex === 0)} bold />
                     </box>

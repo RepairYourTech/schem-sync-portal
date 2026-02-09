@@ -99,6 +99,7 @@ export const CopypartyConfigStep = ({
                                 border
                                 borderStyle="single"
                                 borderColor={isFocused ? colors.success : (isSelected ? colors.primary : "transparent")}
+                                height={1}
                             >
                                 <text fg={isSelected ? colors.success : colors.dim}>{isSelected ? "● " : "○ "}</text>
                                 <text fg={isFocused ? colors.fg : (isSelected ? colors.fg : colors.dim)}>{String(m.name)}</text>
@@ -119,6 +120,7 @@ export const CopypartyConfigStep = ({
                 paddingLeft={1}
                 paddingRight={1}
                 alignItems="center"
+                height={1}
             >
                 <Hotkey keyLabel="ENTER" label={isAuthLoading ? "CONNECTING..." : "TEST & CONNECT"} isFocused={copyparty_config_index === 4} />
             </box>
@@ -134,6 +136,7 @@ export const CopypartyConfigStep = ({
                 paddingLeft={1}
                 paddingRight={1}
                 alignItems="center"
+                height={1}
             >
                 <Hotkey keyLabel="b" label="Back" isFocused={copyparty_config_index === 5} />
             </box>

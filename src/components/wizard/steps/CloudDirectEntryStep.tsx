@@ -135,6 +135,7 @@ export const CloudDirectEntryStep = ({
                     paddingLeft={1}
                     paddingRight={1}
                     alignItems="center"
+                    height={1}
                 >
                     <text fg={isConnectFocused ? colors.success : colors.dim}>
                         {String(isAuthLoading ? "🔄 CONNECTING..." : "[ VERIFY & CONNECT ]")}
@@ -152,6 +153,7 @@ export const CloudDirectEntryStep = ({
                     paddingLeft={1}
                     paddingRight={1}
                     alignItems="center"
+                    height={1}
                 >
                     <Hotkey keyLabel="b" label="Back" isFocused={direct_entry_index === fields.length + 1} />
                 </box>

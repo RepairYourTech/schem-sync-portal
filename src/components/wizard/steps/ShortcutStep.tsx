@@ -46,6 +46,7 @@ export const ShortcutStep = ({
                             border={isFocused}
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
+                            height={1}
                         >
                             <Hotkey
                                 keyLabel={opt.key}
@@ -66,6 +67,7 @@ export const ShortcutStep = ({
                 border={selectedIndex === options.length && focusArea === "body"}
                 borderStyle="single"
                 borderColor={selectedIndex === options.length && focusArea === "body" ? colors.success : "transparent"}
+                height={1}
             >
                 <Hotkey
                     keyLabel="b"

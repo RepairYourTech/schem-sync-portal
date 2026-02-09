@@ -1,6 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { getCopypartyCookie } from "../lib/auth";
-import { authorizeRemote, updateGdriveRemote, updateGenericRemote } from "../lib/rclone";
+import { authorizeRemote, updateGdriveRemote, updateGenericRemote, createHttpRemote } from "../lib/rclone";
 import { Env } from "../lib/env";
 import type { PortalConfig, PortalProvider } from "../lib/config";
 import { getProviderMetadata } from "../lib/providers";
@@ -11,22 +11,20 @@ interface WizardAuthProps {
     config: PortalConfig;
     setAuthStatus: (status: string) => void;
     setIsAuthLoading: (loading: boolean) => void;
-    urlRef: React.RefObject<string>;
-    userRef: React.RefObject<string>;
-    passRef: React.RefObject<string>;
-    clientIdRef: React.RefObject<string>;
-    clientSecretRef: React.RefObject<string>;
-    b2IdRef: React.RefObject<string>;
-    b2KeyRef: React.RefObject<string>;
+    urlRef: React.MutableRefObject<string>;
+    userRef: React.MutableRefObject<string>;
+    passRef: React.MutableRefObject<string>;
+    clientIdRef: React.MutableRefObject<string>;
+    clientSecretRef: React.MutableRefObject<string>;
+    b2IdRef: React.MutableRefObject<string>;
+    b2KeyRef: React.MutableRefObject<string>;
     authAbortControllerRef: React.MutableRefObject<AbortController | null>;
     oauthTokenRef: React.MutableRefObject<string | null>;
     wizardContext: "source" | "dest" | null;
-    pendingSourceProviderRef: React.RefObject<PortalProvider>;
-    pendingBackupProviderRef: React.RefObject<PortalProvider>;
+    pendingSourceProviderRef: React.MutableRefObject<PortalProvider>;
+    pendingBackupProviderRef: React.MutableRefObject<PortalProvider>;
     abortAuth: () => void;
 }
-
-import { useRef } from "react";
 
 export function useWizardAuth({
     next, updateConfig, config, setAuthStatus, setIsAuthLoading,
@@ -64,11 +62,13 @@ export function useWizardAuth({
                 if (!pass) { setAuthStatus("⚠️ Password required."); setIsAuthLoading(false); return; }
                 const cookie = await getCopypartyCookie(url, user || "", pass);
                 if (cookie) {
-                    const { createHttpRemote } = await import("../lib/rclone");
                     await createHttpRemote(Env.REMOTE_PORTAL_SOURCE, url, cookie);
                     updateConfig(prev => ({ ...prev, source_provider: "copyparty", copyparty_method: "http" }));
                     next();
-                } else setAuthStatus("❌ Auth failed.");
+                } else {
+                    setAuthStatus("❌ Auth failed.");
+                    return;
+                }
             }
             console.log("[AUTH] Auth completed successfully");
         } catch (err) {
@@ -77,7 +77,7 @@ export function useWizardAuth({
             activeAuthRequestRef.current = false;
             setIsAuthLoading(false);
         }
-    }, [next, updateConfig, config.copyparty_method, setAuthStatus, setIsAuthLoading, urlRef, passRef]);
+    }, [next, updateConfig, config.copyparty_method, setAuthStatus, setIsAuthLoading, urlRef, userRef, passRef]);
 
     const handleGdriveAuth = useCallback(async (clientId: string, clientSecret: string) => {
         if (activeAuthRequestRef.current) {
@@ -128,7 +128,7 @@ export function useWizardAuth({
             if (token) {
                 oauthTokenRef.current = token;
                 const remoteName = wizardContext === "source" ? Env.REMOTE_PORTAL_SOURCE : Env.REMOTE_PORTAL_BACKUP;
-                await updateGenericRemote(remoteName, provider as PortalProvider, { token });
+                await updateGenericRemote(remoteName, provider, { token });
                 const field = wizardContext === "source" ? "source_provider" : "backup_provider";
                 const pending = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
                 updateConfig(prev => ({ ...prev, [field]: pending }));
@@ -148,52 +148,47 @@ export function useWizardAuth({
 
     const dispatchDirectAuth = useCallback((provider: PortalProvider) => {
         const meta = getProviderMetadata(provider);
-        const isAsyncOAuth = provider === "gdrive" || provider === "onedrive" || provider === "dropbox" || provider === "b2" || provider === "pcloud";
 
-        if (meta.directAuthHandler) {
-            if (isAsyncOAuth) {
-                // Delegate mutex management to the async handlers (they set their own)
-                console.log("[AUTH] Delegating mutex handling to async handler for", provider);
-                meta.directAuthHandler({
+        if (activeAuthRequestRef.current) {
+            console.warn("[AUTH] Direct auth already in progress, aborting");
+            return;
+        }
+        activeAuthRequestRef.current = true;
+        console.log("[AUTH] Running direct auth handler for", provider);
+
+        const runAsync = async () => {
+            try {
+                await meta.directAuthHandler?.({
                     wizardContext,
+                    pendingSourceProvider: pendingSourceProviderRef.current,
+                    pendingBackupProvider: pendingBackupProviderRef.current,
                     refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
                     updateConfig,
                     next,
                     handleGdriveAuth,
                     startGenericAuth,
-                    updateGenericRemote: updateGenericRemote as (remoteName: string, provider: PortalProvider, options: Record<string, string>) => void
+                    updateGenericRemote
                 });
-            } else {
-                // For sync direct handlers, manage mutex here
-                if (activeAuthRequestRef.current) {
-                    console.warn("[AUTH] Direct auth already in progress, aborting");
-                    return;
-                }
-                activeAuthRequestRef.current = true;
-                console.log("[AUTH] Running sync direct auth handler for", provider);
-                try {
-                    meta.directAuthHandler({
-                        wizardContext,
-                        refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
-                        updateConfig,
-                        next,
-                        handleGdriveAuth,
-                        startGenericAuth,
-                        updateGenericRemote: updateGenericRemote as (remoteName: string, provider: PortalProvider, options: Record<string, string>) => void
-                    });
-                } finally {
-                    activeAuthRequestRef.current = false;
-                }
+            } catch (err) {
+                console.error("[AUTH] Direct auth error:", err);
+                setAuthStatus(`❌ Auth error: ${(err as Error).message}`);
+            } finally {
+                activeAuthRequestRef.current = false;
             }
-        }
-    }, [wizardContext, urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef, updateConfig, next, handleGdriveAuth, startGenericAuth]);
+        };
+
+        runAsync().catch(err => {
+            console.error("[AUTH] Fatal direct auth error:", err);
+            activeAuthRequestRef.current = false;
+        });
+    }, [wizardContext, urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef, updateConfig, next, handleGdriveAuth, startGenericAuth, setAuthStatus, pendingSourceProviderRef, pendingBackupProviderRef]);
 
     return {
         handleAuth,
         handleGdriveAuth,
         startGenericAuth,
         dispatchDirectAuth,
-        activeAuthRequestRef, // ✅ EXPOSE THIS REF
+        activeAuthRequestRef,
         refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef }
     };
 }

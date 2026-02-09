@@ -47,6 +47,7 @@ export const UpsyncAskStep = ({
                             flexDirection="row"
                             alignItems="center"
                             gap={1}
+                            height={1}
                         >
                             <text fg={colors.primary}>{String(opt.icon)}</text>
                             <Hotkey keyLabel={opt.key} label={opt.name} color={isFocused ? colors.success : colors.primary} isFocused={isFocused} />
@@ -71,6 +72,7 @@ export const UpsyncAskStep = ({
                         borderColor={isBackFocused ? colors.success : "transparent"}
                         flexDirection="row"
                         alignItems="center"
+                        height={1}
                     >
                         <Hotkey
                             keyLabel="b"

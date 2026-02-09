@@ -74,6 +74,7 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
                             borderColor={hoveredButton === 0 ? colors.success : "transparent"}
                             paddingLeft={1}
                             paddingRight={1}
+                            height={1}
                         >
                             <Hotkey keyLabel="enter" label="START SCAN" isFocused={hoveredButton === 0} />
                         </box>
@@ -85,6 +86,7 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
                             borderColor={hoveredButton === 1 ? colors.success : "transparent"}
                             paddingLeft={1}
                             paddingRight={1}
+                            height={1}
                         >
                             <Hotkey keyLabel="escape" label="CANCEL" isFocused={hoveredButton === 1} />
                         </box>
@@ -122,6 +124,7 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
                                 borderColor={hoveredButton === 2 ? colors.success : "transparent"}
                                 paddingLeft={1}
                                 paddingRight={1}
+                                height={1}
                             >
                                 <Hotkey keyLabel="escape" label="Return to Options" isFocused={hoveredButton === 2} />
                             </box>
