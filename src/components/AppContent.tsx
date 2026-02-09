@@ -390,3 +390,4 @@ export function AppContent() {
         </box>
     );
 }
+AppContent.displayName = "AppContent";

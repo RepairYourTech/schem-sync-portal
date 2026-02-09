@@ -61,9 +61,7 @@ export function ManualFontGuide({ returnView: _returnView, onClose }: ManualFont
             backgroundColor={colors.bg}
             flexGrow={1}
         >
-            <text attributes={TextAttributes.BOLD} marginBottom={1}>
-                <text fg={colors.accent}>Detected Platform: {String(Env.isWin ? "Windows" : (Env.isMac ? "macOS" : "Linux"))}</text>
-            </text>
+            <text fg={colors.accent} attributes={TextAttributes.BOLD} marginBottom={1}>Detected Platform: {String(Env.isWin ? "Windows" : (Env.isMac ? "macOS" : "Linux"))}</text>
 
             <box flexDirection="column" marginBottom={1}>
                 {renderPlatformSteps().map((step, i) => (
@@ -106,3 +104,4 @@ export function ManualFontGuide({ returnView: _returnView, onClose }: ManualFont
         </box>
     );
 }
+ManualFontGuide.displayName = "ManualFontGuide";

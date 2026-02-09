@@ -236,3 +236,4 @@ export function FontInstaller({ returnView: _returnView, onComplete, onCancel }:
         </box>
     );
 }
+FontInstaller.displayName = "FontInstaller";

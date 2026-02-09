@@ -115,3 +115,4 @@ export function Hotkey({
         </box>
     );
 }
+Hotkey.displayName = "Hotkey";

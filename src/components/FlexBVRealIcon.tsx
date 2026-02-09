@@ -43,3 +43,4 @@ export function FlexBVRealIcon() {
         </box>
     );
 }
+FlexBVRealIcon.displayName = "FlexBVRealIcon";

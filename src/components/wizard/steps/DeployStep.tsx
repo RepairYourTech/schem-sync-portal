@@ -90,3 +90,4 @@ export const DeployStep = ({
         </box>
     );
 };
+DeployStep.displayName = "DeployStep";

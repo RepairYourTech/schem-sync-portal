@@ -126,7 +126,7 @@ export const R2Setup = ({
                 <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {String(stepNumber)}: {String(guide.title)}</text>
                 <box flexDirection="column">
                     {guide.lines.map((line, i) => (
-                        <text key={i} fg={colors.fg}>{line}</text>
+                        <text key={i} fg={colors.fg}>{String(line)}</text>
                     ))}
                 </box>
                 <box
@@ -164,3 +164,4 @@ export const R2Setup = ({
 
     return null;
 };
+R2Setup.displayName = "R2Setup";

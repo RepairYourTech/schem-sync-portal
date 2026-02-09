@@ -56,3 +56,4 @@ export const BackupDirStep = ({ config, updateConfig, next: _next, back, getCurr
         </box>
     );
 };
+BackupDirStep.displayName = "BackupDirStep";

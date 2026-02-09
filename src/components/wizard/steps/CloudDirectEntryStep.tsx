@@ -165,3 +165,4 @@ export const CloudDirectEntryStep = ({
         </box>
     );
 };
+CloudDirectEntryStep.displayName = "CloudDirectEntryStep";

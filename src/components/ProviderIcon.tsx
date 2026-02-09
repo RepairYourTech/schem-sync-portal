@@ -29,3 +29,4 @@ export function ProviderIcon({ provider, version = 2, color }: ProviderIconProps
 
     return <text fg={color}>{String(glyph)}</text>;
 }
+ProviderIcon.displayName = "ProviderIcon";

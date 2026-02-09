@@ -56,3 +56,4 @@ export const MirrorStep = ({
         </box>
     );
 };
+MirrorStep.displayName = "MirrorStep";

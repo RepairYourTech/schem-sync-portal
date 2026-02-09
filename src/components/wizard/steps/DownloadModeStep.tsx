@@ -113,3 +113,4 @@ export const DownloadModeStep = ({
         </box>
     );
 };
+DownloadModeStep.displayName = "DownloadModeStep";

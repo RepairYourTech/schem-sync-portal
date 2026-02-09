@@ -96,3 +96,4 @@ export function Splash({ updateInfo }: { updateInfo?: UpdateInfo | null }) {
         </box>
     );
 }
+Splash.displayName = "Splash";

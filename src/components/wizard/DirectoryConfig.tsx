@@ -81,3 +81,4 @@ export const DirectoryConfig = ({
         </box>
     );
 };
+DirectoryConfig.displayName = "DirectoryConfig";

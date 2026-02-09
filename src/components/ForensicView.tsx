@@ -133,3 +133,4 @@ export function ForensicView({ targetDir: initialTarget, gdriveRemote, onComplet
         </box>
     );
 }
+ForensicView.displayName = "ForensicView";

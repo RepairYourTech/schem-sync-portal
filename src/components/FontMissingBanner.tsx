@@ -89,3 +89,4 @@ export function FontMissingBanner({ onInstall, onSkip, onLearnMore }: FontMissin
         </box>
     );
 }
+FontMissingBanner.displayName = "FontMissingBanner";

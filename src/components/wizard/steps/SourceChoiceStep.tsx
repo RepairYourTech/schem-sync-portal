@@ -68,3 +68,4 @@ export const SourceChoiceStep = ({
         </box>
     );
 };
+SourceChoiceStep.displayName = "SourceChoiceStep";

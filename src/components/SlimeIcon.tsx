@@ -26,3 +26,4 @@ export function SlimeIcon({ version = 2 }: { version?: 2 | 3 }) {
         </box>
     );
 }
+SlimeIcon.displayName = "SlimeIcon";
