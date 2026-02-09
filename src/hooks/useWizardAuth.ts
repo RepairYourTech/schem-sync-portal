@@ -156,12 +156,14 @@ export function useWizardAuth({
                 console.log("[AUTH] Delegating mutex handling to async handler for", provider);
                 meta.directAuthHandler({
                     wizardContext,
+                    pendingSourceProvider: pendingSourceProviderRef.current,
+                    pendingBackupProvider: pendingBackupProviderRef.current,
                     refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
                     updateConfig,
                     next,
                     handleGdriveAuth,
                     startGenericAuth,
-                    updateGenericRemote: updateGenericRemote as (remoteName: string, provider: PortalProvider, options: Record<string, string>) => void
+                    updateGenericRemote: updateGenericRemote as (remoteName: string, provider: string, options: Record<string, string>) => void
                 });
             } else {
                 // For sync direct handlers, manage mutex here
@@ -174,12 +176,14 @@ export function useWizardAuth({
                 try {
                     meta.directAuthHandler({
                         wizardContext,
+                        pendingSourceProvider: pendingSourceProviderRef.current,
+                        pendingBackupProvider: pendingBackupProviderRef.current,
                         refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
                         updateConfig,
                         next,
                         handleGdriveAuth,
                         startGenericAuth,
-                        updateGenericRemote: updateGenericRemote as (remoteName: string, provider: PortalProvider, options: Record<string, string>) => void
+                        updateGenericRemote: updateGenericRemote as (remoteName: string, provider: string, options: Record<string, string>) => void
                     });
                 } finally {
                     activeAuthRequestRef.current = false;

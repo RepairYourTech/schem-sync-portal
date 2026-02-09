@@ -44,6 +44,7 @@ export const EditMenuStep = ({
                             border
                             borderStyle="single"
                             borderColor={isSelected ? colors.success : "transparent"}
+                            height={1}
                         >
                             <Hotkey
                                 keyLabel={opt.key}
@@ -66,6 +67,7 @@ export const EditMenuStep = ({
                 border
                 borderStyle="single"
                 borderColor={selectedIndex === options.length && focusArea === "body" ? colors.success : "transparent"}
+                height={1}
             >
                 <Hotkey
                     keyLabel="b"

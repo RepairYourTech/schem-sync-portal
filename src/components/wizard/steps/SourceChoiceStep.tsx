@@ -53,6 +53,7 @@ export const SourceChoiceStep = ({
                             flexDirection="row"
                             alignItems="center"
                             gap={1}
+                            height={1}
                         >
                             <ProviderIcon provider={opt.value as string} version={fontVersion} color={colors.primary} />
                             <Hotkey

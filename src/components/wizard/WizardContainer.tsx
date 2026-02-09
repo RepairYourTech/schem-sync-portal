@@ -406,7 +406,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
 
     const stepProps: WizardStepProps = {
         config, updateConfig, next, back, onComplete, onCancel, onQuit: _onQuit, getCurrentStepNumber,
-        colors, focusArea, onFocusChange: _onFocusChange, selectedIndex, setSelectedIndex, confirmSelection,
+        colors, focusArea: focusArea as "body" | "footer", onFocusChange: _onFocusChange, selectedIndex, setSelectedIndex, confirmSelection,
         getOptions, isAuthLoading, authStatus, setAuthStatus, handleAuth, handleGdriveAuth, startGenericAuth,
         dispatchDirectAuth,
         wizardInputs, updateInput, refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },

@@ -101,81 +101,66 @@ const PerformanceSelector = React.memo(({ current, onRateChange, colors, width, 
     const isCompact = width < 38;
 
     return (
-        <box flexDirection="row" gap={isCompact ? 0 : 1} paddingLeft={1} paddingRight={1} alignItems="center" flexShrink={0} flexWrap="wrap">
-            <box flexDirection="row" alignItems="center" flexShrink={0}>
+        <>
+            <box flexDirection="row" alignItems="center" flexShrink={0} marginLeft={1}>
                 <text fg={colors.fg}>{isCompact ? "SPD:" : "SPEED:"} </text>
                 {!isCompact && <text fg={colors.fg} marginLeft={1}>{String(current)}</text>}
             </box>
             <box
-                onMouseOver={() => {
+                onMouseOver={() => { if (onFocus) onFocus(true); if (onSubFocusIndexChange) onSubFocusIndexChange(1); }}
+                onMouseDown={() => {
+                    onRateChange(4);
                     if (onFocus) onFocus(true);
                     if (onSubFocusIndexChange) onSubFocusIndexChange(1);
-                }}
-                onMouseDown={() => {
-                    // Only confirm if already focused
-                    if (isFocused && subFocusIndex === 1) {
-                        onRateChange(4);
-                    } else {
-                        if (onFocus) onFocus(true);
-                        if (onSubFocusIndexChange) onSubFocusIndexChange(1);
-                    }
                 }}
                 paddingLeft={1}
                 paddingRight={1}
                 flexShrink={0}
+                flexDirection="row"
                 border={!!(isFocused && subFocusIndex === 1) || current === 4}
                 borderStyle="single"
                 borderColor={!!(isFocused && subFocusIndex === 1) ? colors.success : (current === 4 ? colors.primary : "transparent")}
+                alignSelf="flex-start"
             >
                 <Hotkey keyLabel="4" isFocused={!!(isFocused && subFocusIndex === 1)} hardened={true} />
             </box>
             <box
-                onMouseOver={() => {
+                onMouseOver={() => { if (onFocus) onFocus(true); if (onSubFocusIndexChange) onSubFocusIndexChange(2); }}
+                onMouseDown={() => {
+                    onRateChange(6);
                     if (onFocus) onFocus(true);
                     if (onSubFocusIndexChange) onSubFocusIndexChange(2);
-                }}
-                onMouseDown={() => {
-                    // Only confirm if already focused
-                    if (isFocused && subFocusIndex === 2) {
-                        onRateChange(6);
-                    } else {
-                        if (onFocus) onFocus(true);
-                        if (onSubFocusIndexChange) onSubFocusIndexChange(2);
-                    }
                 }}
                 paddingLeft={1}
                 paddingRight={1}
                 flexShrink={0}
+                flexDirection="row"
                 border={!!(isFocused && subFocusIndex === 2) || current === 6}
                 borderStyle="single"
                 borderColor={!!(isFocused && subFocusIndex === 2) ? colors.success : (current === 6 ? colors.primary : "transparent")}
+                alignSelf="flex-start"
             >
                 <Hotkey keyLabel="6" isFocused={!!(isFocused && subFocusIndex === 2)} hardened={true} />
             </box>
             <box
-                onMouseOver={() => {
+                onMouseOver={() => { if (onFocus) onFocus(true); if (onSubFocusIndexChange) onSubFocusIndexChange(3); }}
+                onMouseDown={() => {
+                    onRateChange(8);
                     if (onFocus) onFocus(true);
                     if (onSubFocusIndexChange) onSubFocusIndexChange(3);
-                }}
-                onMouseDown={() => {
-                    // Only confirm if already focused
-                    if (isFocused && subFocusIndex === 3) {
-                        onRateChange(8);
-                    } else {
-                        if (onFocus) onFocus(true);
-                        if (onSubFocusIndexChange) onSubFocusIndexChange(3);
-                    }
                 }}
                 paddingLeft={1}
                 paddingRight={1}
                 flexShrink={0}
+                flexDirection="row"
                 border={!!(isFocused && subFocusIndex === 3) || current === 8}
                 borderStyle="single"
                 borderColor={!!(isFocused && subFocusIndex === 3) ? colors.success : (current === 8 ? colors.primary : "transparent")}
+                alignSelf="flex-start"
             >
                 <Hotkey keyLabel="8" isFocused={!!(isFocused && subFocusIndex === 3)} hardened={true} />
             </box>
-        </box>
+        </>
     );
 });
 PerformanceSelector.displayName = "PerformanceSelector";
@@ -232,50 +217,45 @@ export const PanelControls = React.memo(({
     const isActionFocused = isFocused && subFocusIndex === 0;
 
     return (
-        <box flexDirection="column" gap={0} padding={0} marginTop={0} flexShrink={0} alignSelf="flex-start" width="auto">
-            <box flexDirection="row" justifyContent="flex-start" alignItems="center" gap={1} flexWrap="wrap">
-                {/* Pause/Resume Action */}
-                <box flexDirection="row" alignItems="center" flexShrink={0}>
-                    <box
-                        onMouseOver={() => {
-                            if (onFocus) onFocus(true);
-                            if (onSubFocusIndexChange) onSubFocusIndexChange(0);
-                        }}
-                        onMouseDown={() => {
-                            // Only confirm if already focused
-                            if (isActionFocused) {
-                                (onPause || onResume)?.();
-                            } else {
-                                if (onFocus) onFocus(true);
-                                if (onSubFocusIndexChange) onSubFocusIndexChange(0);
-                            }
-                        }}
-                        paddingLeft={1}
-                        paddingRight={1}
-                        flexShrink={0}
-                        border={isActionFocused}
-                        borderStyle="single"
-                        borderColor={isActionFocused ? colors.success : "transparent"}
-                    >
-                        {onPause ? <Hotkey keyLabel="p" label="PAUSE" isFocused={isActionFocused} hardened={true} /> : null}
-                        {onResume ? <Hotkey keyLabel="r" label="RESUME" isFocused={isActionFocused} color={colors.success} hardened={true} /> : null}
-                        {!onPause && !onResume ? <text fg={colors.dim} flexShrink={0}>[ READY ]</text> : null}
-                    </box>
-                </box>
-
-                {onRateChange ? (
-                    <PerformanceSelector
-                        current={transfers || 4}
-                        onRateChange={onRateChange}
-                        colors={colors}
-                        width={width}
-                        isFocused={isFocused}
-                        subFocusIndex={subFocusIndex}
-                        onSubFocusIndexChange={onSubFocusIndexChange}
-                        onFocus={onFocus}
-                    />
-                ) : null}
+        <box flexDirection="row" gap={1} alignItems="flex-start" flexShrink={0}>
+            {/* Pause/Resume Action */}
+            <box
+                flexDirection="row"
+                onMouseOver={() => {
+                    if (onFocus) onFocus(true);
+                    if (onSubFocusIndexChange) onSubFocusIndexChange(0);
+                }}
+                onMouseDown={() => {
+                    // Trigger immediately AND focus
+                    (onPause || onResume)?.();
+                    if (onFocus) onFocus(true);
+                    if (onSubFocusIndexChange) onSubFocusIndexChange(0);
+                }}
+                paddingLeft={1}
+                paddingRight={1}
+                flexShrink={0}
+                border={isActionFocused}
+                borderStyle="single"
+                borderColor={isActionFocused ? colors.success : "transparent"}
+                alignSelf="flex-start"
+            >
+                {onPause ? <Hotkey keyLabel="p" label="PAUSE" isFocused={isActionFocused} hardened={true} /> : null}
+                {onResume ? <Hotkey keyLabel="r" label="RESUME" isFocused={isActionFocused} color={colors.success} hardened={true} /> : null}
+                {!onPause && !onResume ? <text fg={colors.dim} flexShrink={0}>[ READY ]</text> : null}
             </box>
+
+            {onRateChange ? (
+                <PerformanceSelector
+                    current={transfers || 4}
+                    onRateChange={onRateChange}
+                    colors={colors}
+                    width={width}
+                    isFocused={isFocused}
+                    subFocusIndex={subFocusIndex}
+                    onSubFocusIndexChange={onSubFocusIndexChange}
+                    onFocus={onFocus}
+                />
+            ) : null}
         </box>
     );
 });
@@ -305,6 +285,8 @@ export const PanelHeader = React.memo(({
     );
 });
 PanelHeader.displayName = "PanelHeader";
+
+export const getStatusDisplayIcon = getStatusDisplay;
 
 // --- FILE QUEUE ---
 interface FileQueueProps {
@@ -359,8 +341,8 @@ export const FileQueue = React.memo(({ files, colors, maxHeight, width, phase, i
 });
 FileQueue.displayName = "FileQueue";
 
-
 // Re-export modular panels to preserve legacy API
 export { DownsyncPanel } from "./panels/DownsyncPanel";
 export { LocalShieldPanel } from "./panels/LocalShieldPanel";
 export { UpsyncPanel } from "./panels/UpsyncPanel";
+

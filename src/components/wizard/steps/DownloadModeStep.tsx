@@ -93,6 +93,7 @@ export const DownloadModeStep = ({
                         borderColor={isBackFocused ? colors.success : "transparent"}
                         flexDirection="row"
                         alignItems="center"
+                        height={1}
                     >
                         <Hotkey
                             keyLabel="b"

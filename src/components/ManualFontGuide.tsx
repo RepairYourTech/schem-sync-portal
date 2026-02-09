@@ -16,7 +16,7 @@ export function ManualFontGuide({ returnView: _returnView, onClose }: ManualFont
     const { colors } = useTheme();
 
     useKeyboard((key) => {
-        if (key.name === 'return' || key.name === 'escape') {
+        if (key.name === 'b' || key.name === 'escape') {
             onClose();
         }
     });
@@ -89,16 +89,9 @@ export function ManualFontGuide({ returnView: _returnView, onClose }: ManualFont
                     borderColor={colors.success}
                     paddingLeft={1}
                     paddingRight={1}
+                    height={1}
                 >
-                    <Hotkey keyLabel="enter" label="Close" isFocused />
-                </box>
-                <box
-                    onMouseDown={onClose}
-                    border={false}
-                    paddingLeft={1}
-                    paddingRight={1}
-                >
-                    <Hotkey keyLabel="esc" label="Close" />
+                    <Hotkey keyLabel="b" label="Back" isFocused />
                 </box>
             </box>
         </box>

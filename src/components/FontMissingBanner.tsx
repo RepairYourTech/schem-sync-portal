@@ -75,6 +75,7 @@ export function FontMissingBanner({ onInstall, onSkip, onLearnMore }: FontMissin
                             borderColor={isFocused ? colors.success : "transparent"}
                             paddingLeft={1}
                             paddingRight={1}
+                            height={1}
                         >
                             <Hotkey
                                 keyLabel={opt.key}

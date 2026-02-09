@@ -51,6 +51,7 @@ export const DestCloudSelectStep = ({
                             flexDirection="row"
                             alignItems="center"
                             gap={1}
+                            height={1}
                         >
                             <ProviderIcon provider={opt.value} version={fontVersion} color={colors.primary} />
                             <Hotkey
@@ -80,6 +81,7 @@ export const DestCloudSelectStep = ({
                         borderColor={isBackFocused ? colors.success : "transparent"}
                         flexDirection="row"
                         alignItems="center"
+                        height={1}
                     >
                         <Hotkey
                             keyLabel="b"

@@ -51,6 +51,7 @@ export const DeployStep = ({
                             border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
+                            height={1}
                         >
                             <Hotkey
                                 keyLabel={opt.key}
@@ -78,6 +79,7 @@ export const DeployStep = ({
                         borderColor={isBackFocused ? colors.success : "transparent"}
                         flexDirection="row"
                         alignItems="center"
+                        height={1}
                     >
                         <Hotkey
                             keyLabel="b"

@@ -243,23 +243,23 @@ export const SyncPortal = React.memo(({
                     <text fg={statusColor}>{String(statusText)}</text>
                 </box>
 
-                <box flexDirection="row" gap={2} alignItems="center">
+                <box flexDirection="row" gap={2} alignItems="flex-start">
                     {!isRunning ? (
                         <box
+                            flexDirection="row"
                             onMouseOver={() => debouncedFocus("header", 0, 0)}
                             onMouseDown={() => {
-                                // If already focused, trigger. If not, focus first.
-                                if (isHeaderFocused) {
-                                    if (configLoaded) _onStart();
-                                } else {
-                                    debouncedFocus("header", 0, 0);
-                                }
+                                // Trigger immediately AND focus
+                                if (configLoaded) _onStart();
+                                debouncedFocus("header", 0, 0);
                             }}
                             paddingLeft={1}
                             paddingRight={1}
                             border={isHeaderFocused}
                             borderStyle="single"
                             borderColor={isHeaderFocused ? colors.success : "transparent"}
+                            alignSelf="flex-start"
+                            flexShrink={0}
                         >
                             <Hotkey
                                 keyLabel="t"
@@ -270,20 +270,20 @@ export const SyncPortal = React.memo(({
                         </box>
                     ) : (
                         <box
+                            flexDirection="row"
                             onMouseOver={() => debouncedFocus("header", 0, 0)}
                             onMouseDown={() => {
-                                // If already focused, trigger. If not, focus first.
-                                if (isHeaderFocused) {
-                                    _onStop();
-                                } else {
-                                    debouncedFocus("header", 0, 0);
-                                }
+                                // Trigger immediately AND focus
+                                _onStop();
+                                debouncedFocus("header", 0, 0);
                             }}
                             paddingLeft={1}
                             paddingRight={1}
                             border={isHeaderFocused}
                             borderStyle="single"
                             borderColor={isHeaderFocused ? colors.primary : "transparent"}
+                            alignSelf="flex-start"
+                            flexShrink={0}
                         >
                             <Hotkey
                                 keyLabel="t"
