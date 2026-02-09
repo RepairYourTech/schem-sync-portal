@@ -64,7 +64,7 @@ Upon first launch, the Portal will guide you through:
 ## 🛡️ Features & Security
 
 ### ☁️ Sovereign Cloud Containers
-The Portal is specifically optimized for **Slime's CopyParty server** (Primary Source). All other source options are currently supported.
+The Portal is specifically optimized for CopyParty-based schematic repositories. All other source options are currently supported.
 
 Support for **8+ Cloud Providers** in isolated environments:
 *   **GDrive**, **Backblaze B2**, **Cloudflare R2**, **pCloud**, **OneDrive**, **Dropbox**, **Mega.nz**, and **SFTP**.
