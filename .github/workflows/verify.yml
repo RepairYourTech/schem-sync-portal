@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  verify:
+  Verify:
     permissions:
       contents: read
     runs-on: ubuntu-latest
