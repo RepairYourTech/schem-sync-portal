@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.1
+
+### Patch Changes
+
+- Resolve wizard authentication ref type inconsistencies and improve auth logic in `useWizardAuth.ts`.
+- Fix function signature mismatches in wizard components to align with updated auth hooks.
+- Add `displayName` to all wizard and UI components for full OpenTUI linter compliance.
+
 ## 1.5.0
 
 ### Minor Changes
