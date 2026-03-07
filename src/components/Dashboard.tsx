@@ -6,9 +6,11 @@ import { TextAttributes } from "@opentui/core";
 import { Hotkey } from "./Hotkey";
 import { Logger } from "../lib/logger";
 import type { FocusArea } from "../hooks/useAppState";
+import type { NtfyStatus } from "../lib/ntfy";
 
 interface DashboardProps {
     config: PortalConfig;
+    ntfyStatus?: NtfyStatus;
     isFocused: boolean;
     selectedIndex: number;
     onSelectionChange?: (idx: number) => void;
@@ -16,7 +18,7 @@ interface DashboardProps {
     onAction?: (key: string) => void;
 }
 
-export const Dashboard = React.memo(({ config, isFocused, selectedIndex, onSelectionChange, onFocusChange, onAction }: DashboardProps) => {
+export const Dashboard = React.memo(({ config, ntfyStatus, isFocused, selectedIndex, onSelectionChange, onFocusChange, onAction }: DashboardProps) => {
     const { colors } = useTheme();
     const complete = isConfigComplete(config);
     const empty = isConfigEmpty(config);
@@ -83,6 +85,15 @@ export const Dashboard = React.memo(({ config, isFocused, selectedIndex, onSelec
                             </text>
                         </box>
                     )}
+
+                    {ntfyStatus ? (
+                        <box flexDirection="column" gap={0} alignItems="center">
+                            <text fg="#3a7af5">{"\uf0f3"} Auto-Sync</text>
+                            <text fg={ntfyStatus === "connected" ? colors.success : (ntfyStatus === "reconnecting" || ntfyStatus === "connecting" ? colors.setup : colors.dim)}>
+                                {String(ntfyStatus === "connected" ? "LIVE" : ntfyStatus === "reconnecting" ? "RECONNECTING" : ntfyStatus === "connecting" ? "CONNECTING" : ntfyStatus === "error" ? "ERROR" : "OFFLINE")}
+                            </text>
+                        </box>
+                    ) : null}
                 </box>
 
                 {(config.last_sync_stats || config.last_shield_stats) ? (

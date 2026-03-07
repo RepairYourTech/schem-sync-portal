@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/react */
 import { TextAttributes } from "@opentui/core";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { spawn } from "child_process";
 import { SyncPortal } from "./SyncPortal";
 import { useTheme } from "../lib/theme";
@@ -28,6 +28,7 @@ import { useAppState } from "../hooks/useAppState";
 import { useViewNavigation } from "../hooks/useViewNavigation";
 import { handleSyncKeys } from "./SyncKeyHandler";
 import { Logger } from "../lib/logger";
+import { createNtfyListener, type NtfyListener, type NtfyStatus } from "../lib/ntfy";
 import pkg from "../../package.json";
 
 export function AppContent() {
@@ -56,6 +57,37 @@ export function AppContent() {
     const renderer = useRenderer();
     const { width, height } = useTerminalDimensions();
     const { progress, isRunning, start, stop, pause, resume, pausePhase, resumePhase, isPhasePaused, updateProgress } = useSync();
+
+    const [ntfyStatus, setNtfyStatus] = useState<NtfyStatus>("disconnected");
+    const ntfyListenerRef = useRef<NtfyListener | null>(null);
+
+    useEffect(() => {
+        if (!config.ntfy_url) {
+            if (ntfyListenerRef.current) {
+                ntfyListenerRef.current.stop();
+                ntfyListenerRef.current = null;
+            }
+            setNtfyStatus("disconnected");
+            return;
+        }
+
+        const listener = createNtfyListener(
+            config.ntfy_url,
+            (_message) => {
+                Logger.info("NTFY", "Auto-sync trigger received");
+                if (config.source_provider !== "unconfigured" && config.source_provider !== "none") {
+                    if (!isRunning) start(config);
+                }
+            },
+            (status) => setNtfyStatus(status)
+        );
+        ntfyListenerRef.current = listener;
+
+        return () => {
+            listener.stop();
+            ntfyListenerRef.current = null;
+        };
+    }, [config.ntfy_url]);
 
     const handleStartSync = useCallback(() => {
         if (config.source_provider !== "unconfigured" && config.source_provider !== "none") {
@@ -307,6 +339,7 @@ export function AppContent() {
                 {view === "dashboard" ? (
                     <Dashboard
                         config={config}
+                        ntfyStatus={config.ntfy_url ? ntfyStatus : undefined}
                         isFocused={focusArea === "body"}
                         selectedIndex={bodyIndex}
                         onSelectionChange={setBodyIndex}
