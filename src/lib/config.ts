@@ -45,6 +45,10 @@ export interface PortalConfig {
     nerd_font_installed_family?: string;
     nerd_font_last_check?: number;
 
+    // 6. Push Notifications (ntfy)
+    ntfy_url?: string;
+    ntfy_daemon_enabled?: boolean;
+
     // 5. Performance
     downsync_transfers?: 4 | 6 | 8;
     upsync_transfers?: 4 | 6 | 8;
@@ -80,6 +84,8 @@ export const EMPTY_CONFIG: PortalConfig = {
     nerd_font_auto_install_dismissed: false,
     nerd_font_installed_family: undefined,
     nerd_font_last_check: undefined,
+    ntfy_url: undefined,
+    ntfy_daemon_enabled: false,
     downsync_transfers: 4,
     upsync_transfers: 4
 };
@@ -155,7 +161,9 @@ export function saveConfig(config: PortalConfig): void {
             nerd_font_installed_family: config.nerd_font_installed_family,
             nerd_font_last_check: config.nerd_font_last_check,
             downsync_transfers: config.downsync_transfers || 4,
-            upsync_transfers: config.upsync_transfers || 4
+            upsync_transfers: config.upsync_transfers || 4,
+            ntfy_url: config.ntfy_url,
+            ntfy_daemon_enabled: config.ntfy_daemon_enabled
         };
 
         const data = JSON.stringify(clean, null, 2);

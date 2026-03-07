@@ -3,7 +3,7 @@ import { join } from "path";
 import { Env } from "./env";
 
 export type LogLevel = "NORMAL" | "DEBUG" | "VERBOSE";
-export type LogContext = "AUTH" | "SYNC" | "UI" | "DEPLOY" | "CONFIG" | "SYSTEM" | "SHIELD";
+export type LogContext = "AUTH" | "SYNC" | "UI" | "DEPLOY" | "CONFIG" | "SYSTEM" | "SHIELD" | "NTFY" | "DAEMON";
 
 interface LogEntry {
     timestamp: string;
@@ -41,7 +41,9 @@ export class Logger {
         DEPLOY: "OK",
         CONFIG: "OK",
         SYSTEM: "OK",
-        SHIELD: "OK"
+        SHIELD: "OK",
+        NTFY: "OK",
+        DAEMON: "OK"
     };
 
     static setLevel(level: LogLevel) {
