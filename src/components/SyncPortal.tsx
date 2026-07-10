@@ -10,6 +10,7 @@ import { LocalShieldPanel } from "./panels/LocalShieldPanel";
 import { UpsyncPanel } from "./panels/UpsyncPanel";
 import { Hotkey } from "./Hotkey";
 import { getProviderDisplayName } from "../lib/providerUtils";
+import { appFooterHeight } from "../lib/layout";
 
 import type { FocusArea } from "../hooks/useAppState";
 
@@ -36,6 +37,8 @@ interface SyncPortalProps {
     subFocusIndex: number;
     onSubFocusIndexChange: (index: number) => void;
     onUpdateConfig: (newConfig: PortalConfig) => void;
+    syncTrigger?: "manual" | "ntfy";
+    syncTriggerMessage?: string;
 }
 
 export const SyncPortal = React.memo(({
@@ -60,7 +63,9 @@ export const SyncPortal = React.memo(({
     onFocusIndexChange,
     subFocusIndex,
     onSubFocusIndexChange,
-    onUpdateConfig
+    onUpdateConfig,
+    syncTrigger = "manual",
+    syncTriggerMessage = ""
 }: SyncPortalProps) => {
     const { width } = useTerminalDimensions();
     const { colors } = useTheme();
@@ -187,9 +192,11 @@ export const SyncPortal = React.memo(({
     // Adaptive height calculation to prevent overflow
     const { height: termHeight } = useTerminalDimensions();
     const headerHeight = 5;
-    const APP_FOOTER_HEIGHT = 10;
+    // Read the footer's real height: it collapses on short terminals, and hardcoding 10
+    // here made availableHeight negative at 80x24.
+    const APP_FOOTER_HEIGHT = appFooterHeight(termHeight);
     const PORTAL_FIXED_OVERHEAD = paddingOffset + 2; // Portal border/padding (6) + spacing (2)
-    const availableHeight = termHeight - headerHeight - APP_FOOTER_HEIGHT - PORTAL_FIXED_OVERHEAD;
+    const availableHeight = Math.max(1, termHeight - headerHeight - APP_FOOTER_HEIGHT - PORTAL_FIXED_OVERHEAD);
 
     // In stage B (2+1), top panels share height, bottom is full. 
     // In stage A (3 side-by-side), all share height.
@@ -239,8 +246,14 @@ export const SyncPortal = React.memo(({
                 borderColor={isHeaderFocused ? colors.success : "transparent"}
             >
                 <box flexDirection="column" gap={0}>
-                    <text fg={colors.fg} attributes={TextAttributes.BOLD}>SYNC PORTAL</text>
+                    <box flexDirection="row" gap={1} alignItems="center">
+                        <text fg={colors.fg} attributes={TextAttributes.BOLD}>SYNC PORTAL</text>
+                        <text fg={syncTrigger === "ntfy" ? colors.accent : colors.dim}>{String(syncTrigger === "ntfy" ? "🔔 AUTO-SYNC" : "▶ MANUAL")}</text>
+                    </box>
                     <text fg={statusColor}>{String(statusText)}</text>
+                    {syncTrigger === "ntfy" && syncTriggerMessage ? (
+                        <text fg={colors.dim} attributes={TextAttributes.ITALIC}>{String(`  Triggered: ${syncTriggerMessage.substring(0, 60)}${syncTriggerMessage.length > 60 ? "…" : ""}`)}</text>
+                    ) : null}
                 </box>
 
                 <box flexDirection="row" gap={2} alignItems="flex-start">

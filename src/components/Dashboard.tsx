@@ -1,5 +1,7 @@
 /** @jsxImportSource @opentui/react */
 import React from "react";
+import { useTerminalDimensions } from "@opentui/react";
+import { isCompactHeight } from "../lib/layout";
 import { type PortalConfig, isConfigComplete, isConfigEmpty } from "../lib/config";
 import { useTheme } from "../lib/theme";
 import { TextAttributes } from "@opentui/core";
@@ -20,6 +22,8 @@ interface DashboardProps {
 
 export const Dashboard = React.memo(({ config, ntfyStatus, isFocused, selectedIndex, onSelectionChange, onFocusChange, onAction }: DashboardProps) => {
     const { colors } = useTheme();
+    const { height } = useTerminalDimensions();
+    const compact = isCompactHeight(height);
     const complete = isConfigComplete(config);
     const empty = isConfigEmpty(config);
     const health = Logger.getHealthReport();
@@ -31,9 +35,13 @@ export const Dashboard = React.memo(({ config, ntfyStatus, isFocused, selectedIn
     };
 
     return (
-        <box flexDirection="column" gap={1} width="100%" alignItems="center" flexShrink={0}>
+        // Shrinkable so the flex pass can trim the status box rather than overflowing the
+        // body and clipping the action buttons off the bottom of the terminal.
+        <box flexDirection="column" gap={1} width="100%" alignItems="center" flexShrink={1}>
             {/* === CONFIGURATION SUMMARY (Static) === */}
-            <box flexDirection="column" padding={1} border borderStyle="single" borderColor={colors.border} width="90%" flexShrink={0}>
+            {/* Yields space first: when the terminal is short, the status detail is worth
+                less than the action buttons, which used to be clipped off the bottom. */}
+            <box flexDirection="column" padding={1} border borderStyle="single" borderColor={colors.border} width="90%" flexShrink={1} overflow="hidden">
                 <box flexDirection="row" width="100%" justifyContent="center">
                     <text attributes={TextAttributes.BOLD} fg={colors.fg}>{String("STATUS REPORT")}</text>
                 </box>
@@ -86,17 +94,18 @@ export const Dashboard = React.memo(({ config, ntfyStatus, isFocused, selectedIn
                         </box>
                     )}
 
-                    {ntfyStatus ? (
+                    {(ntfyStatus || config.ntfy_daemon_enabled) ? (
                         <box flexDirection="column" gap={0} alignItems="center">
                             <text fg="#3a7af5">{"\uf0f3"} Auto-Sync</text>
-                            <text fg={ntfyStatus === "connected" ? colors.success : (ntfyStatus === "reconnecting" || ntfyStatus === "connecting" ? colors.setup : colors.dim)}>
-                                {String(ntfyStatus === "connected" ? "LIVE" : ntfyStatus === "reconnecting" ? "RECONNECTING" : ntfyStatus === "connecting" ? "CONNECTING" : ntfyStatus === "error" ? "ERROR" : "OFFLINE")}
+                            <text fg={config.ntfy_daemon_enabled ? colors.success : (ntfyStatus === "connected" ? colors.success : (ntfyStatus === "reconnecting" || ntfyStatus === "connecting" ? colors.setup : colors.dim))}>
+                                {String(config.ntfy_daemon_enabled ? "DAEMON" : ntfyStatus === "connected" ? "LIVE" : ntfyStatus === "reconnecting" ? "RECONNECTING" : ntfyStatus === "connecting" ? "CONNECTING" : ntfyStatus === "error" ? "ERROR" : "OFFLINE")}
                             </text>
                         </box>
                     ) : null}
                 </box>
 
-                {(config.last_sync_stats || config.last_shield_stats) ? (
+                {/* Costs ~6 rows. On short terminals the action buttons matter more. */}
+                {(config.last_sync_stats || config.last_shield_stats) && !compact ? (
                     <box flexDirection="column" gap={0} marginTop={1} paddingTop={1} border borderStyle="single" borderColor={colors.border} width="100%">
                         <box flexDirection="row" justifyContent="center">
                             <text fg={colors.dim} attributes={TextAttributes.ITALIC | TextAttributes.BOLD}>LIFETIME INTELLIGENCE</text>
@@ -131,7 +140,8 @@ export const Dashboard = React.memo(({ config, ntfyStatus, isFocused, selectedIn
             </box>
 
             {/* === ACTION BUTTONS === */}
-            <box flexDirection="row" alignItems="center" marginTop={1} gap={2} justifyContent="center" height={1}>
+            {/* Never shrink: these are the only way to start a sync or open setup. */}
+            <box flexDirection="row" alignItems="center" marginTop={1} gap={2} justifyContent="center" height={1} flexShrink={0}>
                 {empty ? (
                     <box
                         onMouseOver={() => {

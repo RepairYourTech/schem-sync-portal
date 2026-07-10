@@ -9,6 +9,7 @@ describe("handleSyncKeys Regression Tests", () => {
         mockState = {
             config: { source_provider: "gdrive", enable_malware_shield: true, upsync_enabled: true, backup_provider: "s3" },
             isRunning: true,
+            focusArea: "body",
             progress: { isPaused: false },
             syncFocusIndex: 0,
             syncSubFocusIndex: 0,
@@ -23,6 +24,30 @@ describe("handleSyncKeys Regression Tests", () => {
             resumePhase: mock(),
             isPhasePaused: mock(() => false)
         };
+    });
+
+    describe("focus ownership", () => {
+        // The sync view had no keyboard exit: this handler swallowed Enter and the arrows
+        // even when the app footer's Exit button was focused, toggling the sync instead.
+        it("declines every key when the footer owns focus", () => {
+            mockState.focusArea = "footer";
+            for (const name of ["return", "up", "down", "left", "right", "h", "l", "p", "r", "4", "6", "8"]) {
+                expect(handleSyncKeys({ name }, mockState)).toBe(false);
+            }
+            expect(mockState.stop).not.toHaveBeenCalled();
+            expect(mockState.handleStartSync).not.toHaveBeenCalled();
+        });
+
+        it("declines keys when the header owns focus", () => {
+            mockState.focusArea = "header";
+            expect(handleSyncKeys({ name: "return" }, mockState)).toBe(false);
+        });
+
+        it("still handles keys when the body owns focus", () => {
+            mockState.focusArea = "body";
+            expect(handleSyncKeys({ name: "return" }, mockState)).toBe(true);
+            expect(mockState.stop).toHaveBeenCalled();
+        });
     });
 
     it("should focus Pause/Resume when 'p' is pressed but NOT call pausePhase", () => {

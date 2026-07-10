@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { spawn } from "child_process";
 import { SyncPortal } from "./SyncPortal";
 import { useTheme } from "../lib/theme";
-import { saveConfig, type PortalConfig } from "../lib/config";
+import { saveConfig, loadConfig, type PortalConfig } from "../lib/config";
 import { useSync } from "../hooks/useSync";
 import { checkDependencies } from "../lib/doctor";
 import { Env } from "../lib/env";
@@ -29,6 +29,7 @@ import { useViewNavigation } from "../hooks/useViewNavigation";
 import { handleSyncKeys } from "./SyncKeyHandler";
 import { Logger } from "../lib/logger";
 import { createNtfyListener, type NtfyListener, type NtfyStatus } from "../lib/ntfy";
+import { appFooterHeight, isCompactHeight } from "../lib/layout";
 import pkg from "../../package.json";
 
 export function AppContent() {
@@ -58,11 +59,30 @@ export function AppContent() {
     const { width, height } = useTerminalDimensions();
     const { progress, isRunning, start, stop, pause, resume, pausePhase, resumePhase, isPhasePaused, updateProgress } = useSync();
 
+    const compactFooter = isCompactHeight(height);
     const [ntfyStatus, setNtfyStatus] = useState<NtfyStatus>("disconnected");
     const ntfyListenerRef = useRef<NtfyListener | null>(null);
+    const [syncTrigger, setSyncTrigger] = useState<"manual" | "ntfy">("manual");
+    const [syncTriggerMessage, setSyncTriggerMessage] = useState<string>("");
+
+    const configRef = useRef(config);
+    const isRunningRef = useRef(isRunning);
+    const startRef = useRef(start);
+    const setViewRef = useRef(setView);
+    const setSyncTriggerRef = useRef(setSyncTrigger);
+    const setSyncTriggerMessageRef = useRef(setSyncTriggerMessage);
+    configRef.current = config;
+    isRunningRef.current = isRunning;
+    startRef.current = start;
+    setViewRef.current = setView;
+    setSyncTriggerRef.current = setSyncTrigger;
+    setSyncTriggerMessageRef.current = setSyncTriggerMessage;
 
     useEffect(() => {
-        if (!config.ntfy_url) {
+        // Never listen while the wizard is open: config.ntfy_url changes on every
+        // keystroke there, which tore down and reconnected the listener once per
+        // character against partial URLs ("https://n", "https://nt", ...).
+        if (!config.ntfy_url || config.ntfy_daemon_enabled || view === "wizard") {
             if (ntfyListenerRef.current) {
                 ntfyListenerRef.current.stop();
                 ntfyListenerRef.current = null;
@@ -73,10 +93,16 @@ export function AppContent() {
 
         const listener = createNtfyListener(
             config.ntfy_url,
-            (_message) => {
+            (message) => {
                 Logger.info("NTFY", "Auto-sync trigger received");
-                if (config.source_provider !== "unconfigured" && config.source_provider !== "none") {
-                    if (!isRunning) start(config);
+                const cfg = configRef.current;
+                if (cfg.source_provider !== "unconfigured" && cfg.source_provider !== "none") {
+                    if (!isRunningRef.current) {
+                        setSyncTriggerRef.current("ntfy");
+                        setSyncTriggerMessageRef.current(message);
+                        startRef.current(cfg);
+                        setViewRef.current("sync");
+                    }
                 }
             },
             (status) => setNtfyStatus(status)
@@ -87,11 +113,15 @@ export function AppContent() {
             listener.stop();
             ntfyListenerRef.current = null;
         };
-    }, [config.ntfy_url]);
+    }, [config.ntfy_url, config.ntfy_daemon_enabled, view]);
 
     const handleStartSync = useCallback(() => {
         if (config.source_provider !== "unconfigured" && config.source_provider !== "none") {
-            if (!isRunning) start(config);
+            if (!isRunning) {
+                setSyncTrigger("manual");
+                setSyncTriggerMessage("");
+                start(config);
+            }
         } else {
             setWizardReturnView("dashboard");
             setView("wizard");
@@ -132,7 +162,7 @@ export function AppContent() {
 
         if (view === "sync") {
             const handled = handleSyncKeys(key, {
-                config, isRunning,
+                config, isRunning, focusArea,
                 syncFocusIndex, syncSubFocusIndex,
                 setSyncFocusIndex, setSyncSubFocusIndex,
                 setConfig, handleStartSync, stop,
@@ -141,7 +171,9 @@ export function AppContent() {
             if (handled) return;
         }
 
-        if (key.name === "b" && view !== "dashboard" && view !== "sync") {
+        // Options owns `b` for stepping back through its own submenus. Handling it here
+        // too ejected the user to the dashboard from any depth.
+        if (key.name === "b" && view !== "dashboard" && view !== "sync" && view !== "options") {
             handleBack();
             return;
         }
@@ -260,7 +292,9 @@ export function AppContent() {
             if (quickActionIdx !== -1) { setFooterFocus(quickActionIdx); return; }
         }
 
-        if (focusArea === "body" && view === "dashboard") {
+        // The font banner renders on top of the dashboard with its own key handler. Both
+        // ran on the same press, so one Enter opened the wizard *and* the font installer.
+        if (focusArea === "body" && view === "dashboard" && !showFontInstallPrompt) {
             if (key.name === "left" || key.name === "up") setBodyIndex(prev => (prev === 0 ? bodyActionsCount - 1 : prev - 1));
             else if (key.name === "right" || key.name === "down") setBodyIndex(prev => (prev === bodyActionsCount - 1 ? 0 : prev + 1));
             else if (key.name === "return") {
@@ -291,9 +325,20 @@ export function AppContent() {
         saveConfig(newConfig); setConfig(newConfig); setView("dashboard");
     }, [setConfig, setView]);
 
+    /**
+     * Live in-memory preview of the wizard's edits. Deliberately does NOT persist:
+     * writing every keystroke to config.json made "DISCARD — exit without saving"
+     * a no-op and left half-typed paths (e.g. "/hom") on disk.
+     */
     const onUpdateWizard = useCallback((newConfig: PortalConfig) => {
-        saveConfig(newConfig); setConfig(newConfig);
+        setConfig(newConfig);
     }, [setConfig]);
+
+    /** Restore the last persisted config, discarding the wizard's in-memory edits. */
+    const onWizardCancel = useCallback(() => {
+        setConfig(loadConfig());
+        setView(wizardReturnView);
+    }, [setConfig, setView, wizardReturnView]);
 
     const onReset = useCallback(async () => {
         const deploy = await import("../lib/deploy");
@@ -358,8 +403,8 @@ export function AppContent() {
                         onLearnMore={() => { setShowFontInstallPrompt(false); setFontInstallerReturnView("dashboard"); setView('fontguide'); }}
                     />
                 ) : null}
-                {view === "sync" ? <SyncPortal config={config} progress={progress} isRunning={isRunning} onStop={stop} onStart={handleStartSync} onPause={pause} onResume={resume} onPausePull={() => pausePhase('pull')} onResumePull={() => resumePhase('pull')} onPauseShield={() => pausePhase('shield')} onResumeShield={() => resumePhase('shield')} onPauseCloud={() => pausePhase('cloud')} onResumeCloud={() => resumePhase('cloud')} isPhasePaused={isPhasePaused} configLoaded={!isEmpty} focusArea={focusArea} onFocusChange={setFocusArea} focusIndex={syncFocusIndex} onFocusIndexChange={setSyncFocusIndex} subFocusIndex={syncSubFocusIndex} onSubFocusIndexChange={setSyncSubFocusIndex} onUpdateConfig={(nc) => { setConfig(nc); saveConfig(nc); }} /> : null}
-                {view === "wizard" ? <Wizard initialConfig={config} mode={wizardMode} onUpdate={onUpdateWizard} onComplete={onWizardComplete} onCancel={() => setView(wizardReturnView)} onQuit={() => renderer.destroy()} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} backSignal={backSignal} /> : null}
+                {view === "sync" ? <SyncPortal config={config} progress={progress} isRunning={isRunning} onStop={stop} onStart={handleStartSync} onPause={pause} onResume={resume} onPausePull={() => pausePhase('pull')} onResumePull={() => resumePhase('pull')} onPauseShield={() => pausePhase('shield')} onResumeShield={() => resumePhase('shield')} onPauseCloud={() => pausePhase('cloud')} onResumeCloud={() => resumePhase('cloud')} isPhasePaused={isPhasePaused} configLoaded={!isEmpty} focusArea={focusArea} onFocusChange={setFocusArea} focusIndex={syncFocusIndex} onFocusIndexChange={setSyncFocusIndex} subFocusIndex={syncSubFocusIndex} onSubFocusIndexChange={setSyncSubFocusIndex} onUpdateConfig={(nc) => { setConfig(nc); saveConfig(nc); }} syncTrigger={syncTrigger} syncTriggerMessage={syncTriggerMessage} /> : null}
+                {view === "wizard" ? <Wizard initialConfig={config} mode={wizardMode} onUpdate={onUpdateWizard} onComplete={onWizardComplete} onCancel={onWizardCancel} onQuit={() => renderer.destroy()} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} backSignal={backSignal} /> : null}
                 {view === "options" ? <Options onDoctor={() => setView("doctor")} onSetup={() => { setWizardReturnView("options"); setView("wizard"); setWizardMode("edit"); }} onScan={onScan} onForensic={() => setView("forensic")} onReset={onReset} onResetShield={onResetShield} onBack={() => setView("dashboard")} focusArea={focusArea} onFocusChange={setFocusArea} tabTransition={tabDirection.current} config={config} onUpdateConfig={(nc) => { saveConfig(nc); setConfig(nc); }} updateCheck={updateCheck} /> : null}
                 {view === "forensic" ? <ForensicView targetDir={config.local_dir && config.local_dir !== "none" ? config.local_dir : ""} gdriveRemote={config.source_provider === "gdrive" ? Env.REMOTE_PORTAL_SOURCE : (config.backup_provider === "gdrive" ? Env.REMOTE_PORTAL_BACKUP : null)} onComplete={() => setView("options")} onCancel={() => setView("options")} /> : null}
                 {view === "doctor" ? (
@@ -386,39 +431,45 @@ export function AppContent() {
                 border
                 borderStyle="single"
                 borderColor={focusArea === "footer" ? colors.success : colors.border}
-                padding={1}
+                padding={compactFooter ? 0 : 1}
                 flexDirection="column"
-                height={10}
+                height={appFooterHeight(height)}
                 flexShrink={0}
                 width="100%"
                 onMouseOver={() => setFocusArea("footer")}
             >
                 <box flexDirection="row" justifyContent="space-between" alignItems="center" width="100%" height={3}>
-                    <box flexDirection="column">
-                        <box flexDirection="row" alignItems="center" gap={1}>
-                            <FlexBVIcon />
-                            <text onMouseDown={() => spawn(process.platform === "win32" ? "start" : (process.platform === "darwin" ? "open" : "xdg-open"), ["https://pldaniels.com/flexbv5/?rfid=schport"], { detached: true, stdio: "ignore" })} fg="#3a7af5" attributes={TextAttributes.UNDERLINE}>Best Used With FlexBV</text>
+                    {compactFooter ? null : (
+                        <box flexDirection="column">
+                            <box flexDirection="row" alignItems="center" gap={1}>
+                                <FlexBVIcon />
+                                <text onMouseDown={() => spawn(process.platform === "win32" ? "start" : (process.platform === "darwin" ? "open" : "xdg-open"), ["https://pldaniels.com/flexbv5/?rfid=schport"], { detached: true, stdio: "ignore" })} fg="#3a7af5" attributes={TextAttributes.UNDERLINE}>Best Used With FlexBV</text>
+                            </box>
+                            <box flexDirection="row" alignItems="center" gap={1}>
+                                <SlimeIcon version={activeFontVersion} />
+                                <text onMouseDown={() => spawn(process.platform === "win32" ? "start" : (process.platform === "darwin" ? "open" : "xdg-open"), ["https://slimeinacloak.github.io/crypto"], { detached: true, stdio: "ignore" })} fg="#ffff00" attributes={TextAttributes.UNDERLINE}>Buy Slime A Coffee</text>
+                            </box>
                         </box>
-                        <box flexDirection="row" alignItems="center" gap={1}>
-                            <SlimeIcon version={activeFontVersion} />
-                            <text onMouseDown={() => spawn(process.platform === "win32" ? "start" : (process.platform === "darwin" ? "open" : "xdg-open"), ["https://slimeinacloak.github.io/crypto"], { detached: true, stdio: "ignore" })} fg="#ffff00" attributes={TextAttributes.UNDERLINE}>Buy Slime A Coffee</text>
-                        </box>
-                    </box>
+                    )}
                     <box flexDirection="row" gap={2} alignItems="flex-start">
                         {(getFooterActions() || []).map((action, i) => {
                             const isFocused = focusArea === "footer" && footerFocus === i;
+                            // The border is always reserved: toggling it on a height={1} box
+                            // clipped it and shifted the row on every focus change.
                             return (
-                                <box key={i} onMouseOver={() => { setFocusArea("footer"); setFooterFocus(i); }} onMouseDown={() => action.action()} border={isFocused} borderStyle="single" borderColor={isFocused ? (action.key === "escape" ? colors.danger : colors.success) : "transparent"} paddingLeft={1} paddingRight={1} height={1}>
+                                <box key={i} onMouseOver={() => { setFocusArea("footer"); setFooterFocus(i); }} onMouseDown={() => action.action()} border borderStyle="single" borderColor={isFocused ? (action.key === "escape" ? colors.danger : colors.success) : "transparent"} paddingLeft={1} paddingRight={1}>
                                     <Hotkey keyLabel={action.key === "escape" ? "ESC" : action.key} label={action.label} isFocused={isFocused} />
                                 </box>
                             );
                         })}
                     </box>
                 </box>
-                <box alignSelf="center" marginTop={1} flexDirection="column" alignItems="center" width="100%">
-                    <text attributes={TextAttributes.DIM} fg={colors.dim}>TAB: Cycle Areas | ARROWS: Navigate | ENTER: Select</text>
-                    <text attributes={TextAttributes.DIM} fg={colors.dim}>v{String(pkg.version)}<UpdateNotice available={updateCheck.updateInfo?.available} /> | Hotkey + ENTER to confirm</text>
-                </box>
+                {compactFooter ? null : (
+                    <box alignSelf="center" marginTop={1} flexDirection="column" alignItems="center" width="100%">
+                        <text attributes={TextAttributes.DIM} fg={colors.dim}>TAB: Cycle Areas | ARROWS: Navigate | ENTER: Select</text>
+                        <text attributes={TextAttributes.DIM} fg={colors.dim}>v{String(pkg.version)}<UpdateNotice available={updateCheck.updateInfo?.available} /> | Hotkey + ENTER to confirm</text>
+                    </box>
+                )}
             </box>
         </box>
     );
