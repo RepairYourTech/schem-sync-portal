@@ -21,6 +21,14 @@ if (!config.ntfy_url) {
 }
 
 let syncing = false;
+let lastSyncFailed = false;
+let consecutiveFailures = 0;
+
+/**
+ * Exit non-zero after this many failures in a row so the supervising service
+ * (systemd `Restart=on-failure`) notices. A single failure is not fatal.
+ */
+const MAX_CONSECUTIVE_FAILURES = 5;
 
 const listener = createNtfyListener(
     config.ntfy_url,
@@ -32,17 +40,45 @@ const listener = createNtfyListener(
 
         Logger.info("DAEMON", `Received notification: ${message}`);
         syncing = true;
+        lastSyncFailed = false;
 
         try {
             const freshConfig = loadConfig();
-            await runSync(freshConfig, (progress) => {
+            // runSync reports failure by returning, not by throwing: a catch block alone
+            // would log "completed successfully" for every failed run.
+            const outcome = await runSync(freshConfig, (progress) => {
                 Logger.debug("DAEMON", `[${progress.phase}] ${progress.description || ""}`);
             });
-            Logger.info("DAEMON", "Sync completed successfully.");
+
+            switch (outcome.status) {
+                case "success":
+                    lastSyncFailed = false;
+                    Logger.info("DAEMON", "Sync completed successfully.");
+                    break;
+                case "partial":
+                    lastSyncFailed = true;
+                    Logger.warn("DAEMON", `Sync completed with issues: ${outcome.error ?? "see log"}`);
+                    break;
+                case "stopped":
+                    Logger.info("DAEMON", "Sync stopped before completion.");
+                    break;
+                case "error":
+                    lastSyncFailed = true;
+                    Logger.error("DAEMON", `Sync failed: ${outcome.error ?? "unknown error"}`);
+                    break;
+            }
         } catch (err) {
-            Logger.error("DAEMON", "Sync failed", err);
+            lastSyncFailed = true;
+            Logger.error("DAEMON", "Sync threw an unexpected error", err);
         } finally {
             syncing = false;
+
+            consecutiveFailures = lastSyncFailed ? consecutiveFailures + 1 : 0;
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                Logger.error("DAEMON", `${consecutiveFailures} consecutive sync failures; exiting non-zero for the service supervisor.`);
+                listener.stop();
+                process.exit(1);
+            }
         }
     },
     (status) => {

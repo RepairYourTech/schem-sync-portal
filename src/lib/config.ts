@@ -25,7 +25,7 @@ export interface PortalConfig {
         timestamp: number;
         files_processed: number;
         bytes_transferred: number;
-        status: "success" | "error";
+        status: "success" | "partial" | "stopped" | "error";
     };
     last_shield_stats?: {
         timestamp: number;

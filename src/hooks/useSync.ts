@@ -29,16 +29,19 @@ export function useSync() {
 
         // Use provided session ID (resume) or generate new one inside runSync
         try {
-            await runSync(config, (p) => {
+            const outcome = await runSync(config, (p) => {
                 setProgress(prev => ({
                     ...prev,
                     ...p
                 }));
             }, resumeSessionId);
 
-            // On successful completion, clear session
-            sessionIdRef.current = null;
-            clearSyncSession();
+            // Only a clean run may discard the session. Clearing it after a failed or
+            // stopped run made the work unresumable.
+            if (outcome.status === "success") {
+                sessionIdRef.current = null;
+                clearSyncSession();
+            }
         } catch (err) {
             setProgress({
                 phase: "error",
