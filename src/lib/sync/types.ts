@@ -32,6 +32,23 @@ export interface ManifestStats {
 /**
  * Statistics for the malware shield cleanup operation.
  */
+/**
+ * How a sync run actually ended.
+ *
+ * `partial` means work completed but something was silently skipped or failed —
+ * an unverifiable archive, a failed upload batch. Callers (the daemon in particular)
+ * must be able to tell this apart from `success`.
+ */
+export type SyncStatus = "success" | "partial" | "stopped" | "error";
+
+export interface SyncOutcome {
+    status: SyncStatus;
+    /** Human-readable failure reason. Present when status is "error" or "partial". */
+    error?: string;
+    /** Archives left on disk because their contents could not be verified. */
+    unverifiedArchives?: string[];
+}
+
 export interface CleanupStats {
     phase?: "clean";
     totalArchives: number;
@@ -57,6 +74,7 @@ export interface CleanupStats {
     scannedStandaloneFiles?: number;      // Standalone files scanned so far
     flaggedStandaloneFiles?: number;      // Standalone files flagged as malicious
     currentStandaloneFile?: string;       // Currently scanning standalone file
+    failedExtractions?: number;           // Archives preserved because extraction could not be verified
 }
 
 /**
@@ -82,6 +100,8 @@ export interface CloudManifestStats {
 export interface SyncProgress {
     phase: "pull" | "clean" | "cloud" | "syncing" | "done" | "error";
     description: string;
+    pullDescription?: string;
+    cloudDescription?: string;
     percentage: number;
     globalPercentage?: number;
     transferSpeed?: string;

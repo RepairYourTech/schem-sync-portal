@@ -28,7 +28,7 @@ describe("Malware Shield (Hardening)", () => {
         if (testDir && existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
     });
 
-    test("should handle archive listing failure (fail-safe)", async () => {
+    test("preserves an unreadable archive instead of purging it (fail-safe)", async () => {
         // Mock spawnSync to simulate a failed listing command
         __setSpawnSync(((options: string[] | { cmd: string[] }) => {
             const args = Array.isArray(options) ? options : (options as { cmd: string[] }).cmd;
@@ -54,12 +54,14 @@ describe("Malware Shield (Hardening)", () => {
             extractedFilePaths: []
         };
 
-        await runCleanupSweep(testDir, excludeFile, "purge", undefined, undefined, stats);
+        const result = await runCleanupSweep(testDir, excludeFile, "purge", undefined, undefined, stats);
 
-        // Fail-safe should have purged it
-        expect(existsSync(corruptPath)).toBe(false);
+        // An archive we cannot read has not been shown to contain anything. Deleting it
+        // would destroy data on the strength of a failed read, so it is kept for review.
+        expect(existsSync(corruptPath)).toBe(true);
         expect(stats.flaggedArchives).toBe(1);
         expect(stats.invalidListingArchives).toBe(1);
+        expect(result.unscannedArchives).toContain("corrupt.zip");
     });
 
     test("should detect and clean standalone malicious files", async () => {

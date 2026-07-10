@@ -14,6 +14,36 @@ export interface ShieldMetadata {
     policy: "purge" | "isolate" | "extract";
 }
 
+/**
+ * Why a file was removed. "bloat" means lean mode stripped a non-schematic file type;
+ * "malware" means it matched a threat pattern. The distinction gates remote deletion.
+ */
+export type OffenderKind = "malware" | "bloat";
+
+export interface OffenderRecord {
+    path: string;
+    reason: string;
+    kind?: OffenderKind;
+    timestamp: number;
+}
+
+function readOffenderRecords(localDir: string): OffenderRecord[] {
+    const listPath = Env.getOffenderListPath(localDir);
+    if (!existsSync(listPath)) return [];
+    try {
+        const parsed = JSON.parse(readFileSync(listPath, "utf8"));
+        return Array.isArray(parsed) ? parsed as OffenderRecord[] : [];
+    } catch {
+        return [];
+    }
+}
+
+/** Records written before `kind` existed are classified from their reason text. */
+function classifyOffender(record: OffenderRecord): OffenderKind {
+    if (record.kind) return record.kind;
+    return record.reason?.startsWith("Lean Mode") ? "bloat" : "malware";
+}
+
 export const ShieldManager = {
     /**
      * Resets the local shield state.
@@ -156,9 +186,9 @@ export const ShieldManager = {
     /**
      * Appends an offender to the offender list.
      */
-    addOffender(localDir: string, relPath: string, reason: string) {
+    addOffender(localDir: string, relPath: string, reason: string, kind: OffenderKind = "malware") {
         const listPath = Env.getOffenderListPath(localDir);
-        let offenders: { path: string; reason: string; timestamp: number }[] = [];
+        let offenders: OffenderRecord[] = [];
 
         if (existsSync(listPath)) {
             try {
@@ -171,6 +201,7 @@ export const ShieldManager = {
         offenders.push({
             path: relPath,
             reason,
+            kind,
             timestamp: Date.now()
         });
 
@@ -199,14 +230,20 @@ export const ShieldManager = {
      * Gets the list of previously identified offenders.
      */
     getOffenders(localDir: string): string[] {
-        const listPath = Env.getOffenderListPath(localDir);
-        if (!existsSync(listPath)) return [];
-        try {
-            const offenders = JSON.parse(readFileSync(listPath, "utf8"));
-            return Array.isArray(offenders) ? offenders.map((o: { path: string }) => o.path) : [];
-        } catch {
-            return [];
-        }
+        return readOffenderRecords(localDir).map(o => o.path);
+    },
+
+    /**
+     * Offenders that were removed because they matched malware patterns.
+     *
+     * Only these may ever justify deleting the corresponding file from a remote.
+     * Lean-mode records mean "not a schematic file type" — a local storage preference,
+     * never grounds for touching the user's cloud storage.
+     */
+    getMalwareOffenders(localDir: string): string[] {
+        return readOffenderRecords(localDir)
+            .filter(o => classifyOffender(o) === "malware")
+            .map(o => o.path);
     },
 
     /**

@@ -1,4 +1,3 @@
-import { spawnSync as bunSpawnSync } from "bun";
 import { join, relative, dirname, basename } from "path";
 import { existsSync, unlinkSync, mkdirSync, readFileSync, writeFileSync, rmSync, renameSync } from "fs";
 import { stat } from "fs/promises";
@@ -7,27 +6,13 @@ import { Env } from "./env";
 import { Logger } from "./logger";
 import { ShieldManager } from "./shield/ShieldManager";
 import { isStopRequested } from "./sync/utils";
-import { KEEP_EXTS, GARBAGE_PATTERNS, PRIORITY_FILENAMES, SAFE_PATTERNS, LEAN_STRICT_WHITELIST, LEAN_STRICT_BLACKLIST } from "./shield/patterns";
+import { getEngine, getSpawnSync, isExtractorOk } from "./shield/archiveEngine";
+import { cleanFile } from "./shield/fileCleaner";
+import { KEEP_EXTS, GARBAGE_PATTERNS, PRIORITY_FILENAMES, SAFE_PATTERNS } from "./shield/patterns";
 import type { CleanupStats, SyncProgress } from "./sync/types";
 
-let _overrideSpawnSync: typeof bunSpawnSync | null = null;
-export function __setSpawnSync(mock: typeof bunSpawnSync) { _overrideSpawnSync = mock; }
-function getSpawnSync() { return _overrideSpawnSync || bunSpawnSync; }
-
-interface ArchiveEngine { type: "7z" | "rar"; bin: string; }
-function getArchiveEngine(): ArchiveEngine | null {
-    const isWin = Env.isWin;
-    const sevenZBins = isWin ? ["7z.exe", "7za.exe"] : ["7z", "7za"];
-    const rarBins = isWin ? ["rar.exe", "unrar.exe"] : ["rar", "unrar"];
-    let bin = Env.findBinary(sevenZBins);
-    if (bin) return { type: "7z", bin };
-    bin = Env.findBinary(rarBins);
-    if (bin) return { type: "rar", bin };
-    return null;
-}
-let _overrideEngine: ArchiveEngine | null = null;
-export function __setArchiveEngine(mock: ArchiveEngine | null) { _overrideEngine = mock; }
-function getEngine(): ArchiveEngine | null { return _overrideEngine !== null ? _overrideEngine : getArchiveEngine(); }
+export { __setSpawnSync, __setArchiveEngine } from "./shield/archiveEngine";
+export { cleanFile } from "./shield/fileCleaner";
 
 export interface CleanupResult { completed: boolean; scannedArchives: string[]; unscannedArchives: string[]; }
 
@@ -43,6 +28,14 @@ export async function runCleanupSweep(
     const scannedArchives: string[] = [];
     const unscannedArchives: string[] = [];
     const engine = getEngine();
+
+    // This sweep unlinks files. It is reachable outside runSync (realtime clean, final
+    // sweep, standalone), so it validates the target itself rather than trusting callers.
+    const unsafeReason = Env.getUnsafeDirectoryReason(targetDir);
+    if (unsafeReason) {
+        Logger.error("SHIELD", `Refusing to sweep unsafe directory '${targetDir}': ${unsafeReason}`);
+        return { completed: false, scannedArchives, unscannedArchives };
+    }
 
     try {
         const archives = await glob("**/*.{zip,7z,rar}", { cwd: targetDir, absolute: true, ignore: ["**/node_modules/**", "**/.git/**"] });
@@ -77,12 +70,21 @@ export async function runCleanupSweep(
                 stats.scannedArchives++;
                 if (onProgress) onProgress(stats);
                 const result = await cleanArchive(archivePath, targetDir, excludeFile, policy, stats, onProgress, mode);
-                scannedArchives.push(relPath);
                 if (result.failed) {
+                    scannedArchives.push(relPath);
                     Logger.error("SYNC", `Shield: CRITICAL FAILURE during ${policy} of ${relPath}.`);
                     if (onProgress) onProgress({ ...stats, phase: "clean", description: `Shield ERROR: Failed to ${policy} ${relPath}.` });
                     return { completed: false, scannedArchives, unscannedArchives: archives.slice(i + 1).map(a => relative(targetDir, a)) };
                 }
+                if (result.preserved) {
+                    // Kept on disk because we could not verify its contents. Not a scan
+                    // success: it must not be reported as processed, and the sweep goes on.
+                    unscannedArchives.push(relPath);
+                    if (result.flagged) stats.flaggedArchives++;
+                    if (onProgress) onProgress({ ...stats, phase: "clean", description: `Shield: preserved unverifiable archive ${relPath}.` });
+                    continue;
+                }
+                scannedArchives.push(relPath);
                 if (result.flagged) stats.flaggedArchives++; else stats.cleanArchives++;
             }
         } else {
@@ -155,14 +157,26 @@ export async function runCleanupSweep(
 
         if (onProgress) onProgress(stats);
         Logger.info("SHIELD", `Cleanup sweep finished. Scanned ${stats.scannedArchives}/${stats.totalArchives} archives. Found ${stats.flaggedArchives} threats and ${stats.riskyPatternCount} patterns. Extracted ${stats.extractedFiles} verified items.`);
-        return { completed: true, scannedArchives, unscannedArchives: [] };
+        if (unscannedArchives.length > 0) {
+            Logger.warn("SHIELD", `${unscannedArchives.length} archive(s) could not be verified and were left in place: ${unscannedArchives.join(", ")}`);
+        }
+        // Report what the loop actually skipped. Returning [] here hid preserved and
+        // lean-filtered archives from the caller, which then reported a clean sweep.
+        return { completed: true, scannedArchives, unscannedArchives };
     } catch (err) {
         Logger.error("SYNC", "Error during cleanup sweep", err);
         return { completed: false, scannedArchives, unscannedArchives };
     }
 }
 
-interface CleanArchiveResult { flagged: boolean; extractedCount: number; failed?: boolean; }
+interface CleanArchiveResult {
+    flagged: boolean;
+    extractedCount: number;
+    /** Fatal: the sweep cannot continue safely (e.g. filesystem error mid-delete). */
+    failed?: boolean;
+    /** Non-fatal: the archive was kept because its contents could not be verified. */
+    preserved?: boolean;
+}
 
 async function cleanArchive(
     archivePath: string, baseDir: string, excludeFile: string, policy: "purge" | "isolate" | "extract",
@@ -170,34 +184,27 @@ async function cleanArchive(
 ): Promise<CleanArchiveResult> {
     const relPath = relative(baseDir, archivePath);
     let internalListing = "";
+    let listingReadable = false;
     try {
         const engine = getEngine();
         if (!engine) return { flagged: false, extractedCount: 0 };
         const cmd = engine.type === "7z" ? [engine.bin, "l", archivePath, "-r"] : [engine.bin, "v", archivePath];
-        internalListing = getSpawnSync()(cmd).stdout.toString();
+        const listResult = getSpawnSync()(cmd);
+        internalListing = listResult.stdout.toString();
+        // The extractor's exit code is the authoritative readability signal. Scanning the
+        // listing text for "error"/"failed" also matches archived *filenames*
+        // (e.g. "Error Codes.pdf"), which condemned legitimate archives.
+        listingReadable = isExtractorOk(listResult, engine.type);
     } catch (err) {
         Logger.error("SYNC", `Failed to peek inside archive: ${relPath}`, err);
-        internalListing = ""; // Ensure it triggers invalid listing check
+        internalListing = "";
+        listingReadable = false;
     }
-
-    // Validate archive listing
-    const isValidListing = (listing: string): boolean => {
-        if (!listing || listing.trim().length === 0) return false;
-
-        // Check for error indicators
-        const errorKeywords = ["error", "failed", "cannot open", "corrupted", "invalid"];
-        const lowerListing = listing.toLowerCase();
-        if (errorKeywords.some(kw => lowerListing.includes(kw))) return false;
-
-        // Check if listing contains at least one file entry (basic heuristic)
-        const hasFileEntries = /\.\w{2,4}\s|^\s*\d+\s+\d{4}-\d{2}-\d{2}/m.test(listing);
-        return hasFileEntries;
-    };
 
     const fileName = basename(relPath);
     let failSafeTriggered = false;
 
-    if (!isValidListing(internalListing)) {
+    if (!listingReadable) {
         Logger.warn("SHIELD", `Archive listing validation failed for ${relPath} - treating as suspicious (fail-safe)`);
         stats.invalidListingArchives = (stats.invalidListingArchives || 0) + 1;
         failSafeTriggered = true;
@@ -233,6 +240,9 @@ async function cleanArchive(
     const dirPath = dirname(archivePath);
     const stagingDir = join(dirPath, `.shield_staging_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     let extractedCount = 0;
+    // The archive may only be deleted if we can positively account for its contents.
+    let extractionVerified = true;
+    let unresolvedCollisions = 0;
 
     try {
         if (!existsSync(stagingDir)) mkdirSync(stagingDir, { recursive: true });
@@ -250,48 +260,64 @@ async function cleanArchive(
                     ? [engine.bin, "x", archivePath, globPattern, `-o${stagingDir}`, "-r", "-y"]
                     : [engine.bin, "x", "-r", "-y", archivePath, globPattern, stagingDir];
 
-                getSpawnSync()(extractCmd);
-            }
-
-            // Important: scan for nested archives BEFORE moving files out
-            if (policy !== "extract") {
-                await scanForNestedArchives(stagingDir, baseDir, policy, stats, onProgress, mode);
-            }
-
-            const matches = await glob("**/*", { cwd: stagingDir, absolute: true });
-            for (const match of matches) {
-                const isFile = (await stat(match)).isFile();
-                if (!isFile) continue;
-
-                const relativeToStaging = relative(stagingDir, match);
-                const destPath = join(dirPath, relativeToStaging);
-                const relExtracted = relative(baseDir, destPath);
-
-                // Ensure destination directory exists
-                const destSubDir = dirname(destPath);
-                if (!existsSync(destSubDir)) mkdirSync(destSubDir, { recursive: true });
-
-                if (!existsSync(destPath)) {
-                    renameSync(match, destPath);
-
-                    // Skip deep verification if policy is "extract" (trust source)
-                    if (policy !== "extract") {
-                        await cleanFile(destPath, baseDir, policy, stats, onProgress, mode);
-                    }
-
-                    if (existsSync(destPath)) {
-                        Logger.info("SHIELD", `Extracted: ${relExtracted} from ${fileName}`);
-                        extractedCount++;
-                        const paths = stats.extractedFilePaths || [];
-                        paths.push(relExtracted);
-                        stats.extractedFilePaths = paths;
-                    }
+                const extractResult = getSpawnSync()(extractCmd);
+                if (!isExtractorOk(extractResult, engine.type)) {
+                    extractionVerified = false;
+                    Logger.error("SHIELD", `Extractor exited ${extractResult?.exitCode} on pattern '${globPattern}' for ${relPath}; archive will be preserved.`);
+                    break;
                 }
             }
 
+            if (extractionVerified) {
+                // Important: scan for nested archives BEFORE moving files out
+                if (policy !== "extract") {
+                    await scanForNestedArchives(stagingDir, baseDir, policy, stats, onProgress, mode);
+                }
 
+                const matches = await glob("**/*", { cwd: stagingDir, absolute: true });
+                for (const match of matches) {
+                    const isFile = (await stat(match)).isFile();
+                    if (!isFile) continue;
+
+                    const relativeToStaging = relative(stagingDir, match);
+                    const destPath = join(dirPath, relativeToStaging);
+                    const relExtracted = relative(baseDir, destPath);
+
+                    // Ensure destination directory exists
+                    const destSubDir = dirname(destPath);
+                    if (!existsSync(destSubDir)) mkdirSync(destSubDir, { recursive: true });
+
+                    if (!existsSync(destPath)) {
+                        renameSync(match, destPath);
+
+                        // Skip deep verification if policy is "extract" (trust source)
+                        if (policy !== "extract") {
+                            await cleanFile(destPath, baseDir, policy, stats, onProgress, mode);
+                        }
+
+                        if (existsSync(destPath)) {
+                            Logger.info("SHIELD", `Extracted: ${relExtracted} from ${fileName}`);
+                            extractedCount++;
+                            const paths = stats.extractedFilePaths || [];
+                            paths.push(relExtracted);
+                            stats.extractedFilePaths = paths;
+                        }
+                    } else {
+                        // A same-named file already exists at the destination. If the bytes
+                        // differ it is a distinct revision, and discarding the staged copy
+                        // while deleting the archive would lose it silently.
+                        const staged = await stat(match);
+                        const existing = await stat(destPath);
+                        if (staged.size !== existing.size) {
+                            unresolvedCollisions++;
+                            Logger.warn("SHIELD", `Name collision with differing content: ${relExtracted} (archive ${relPath} preserved)`);
+                        }
+                    }
+                }
+            }
         }
     } catch (err) {
+        extractionVerified = false;
         Logger.error("SHIELD", `Error during extraction from ${relPath}`, err);
     } finally {
         try { if (existsSync(stagingDir)) rmSync(stagingDir, { recursive: true, force: true }); } catch { /* ignore */ }
@@ -299,13 +325,25 @@ async function cleanArchive(
 
     stats.extractedFiles += extractedCount;
 
+    // A single gate for every deletion decision below.
+    const safeToDeleteArchive = extractionVerified && unresolvedCollisions === 0;
+    if (!safeToDeleteArchive) {
+        stats.failedExtractions = (stats.failedExtractions || 0) + 1;
+    }
+
     // Handle "extract" policy (Trust Source)
     if (policy === "extract") {
+        if (!safeToDeleteArchive) {
+            // Preserve the archive AND leave it out of the exclusion ledger, so a later
+            // run can retry it rather than treating it as permanently handled.
+            Logger.error("SHIELD", `Extraction unverified; keeping archive and leaving it re-downloadable: ${relPath}`);
+            return { flagged: false, extractedCount, preserved: true };
+        }
         try {
             if (existsSync(archivePath)) {
                 unlinkSync(archivePath);
             }
-            // stats.purgedFiles++; // Skip counting as threat purge in extract mode
+            ShieldManager.updateExclusions(baseDir, [relPath]);
             Logger.info("SHIELD", `Extract policy: Purged archive after full extraction: ${relPath}`);
             return { flagged: false, extractedCount };
         } catch (e) {
@@ -317,6 +355,16 @@ async function cleanArchive(
     if (hasGarbage) {
         Logger.info("SHIELD", `Detected risky archive: ${relPath}`);
         stats.riskyPatternCount++;
+
+        // An archive we could not even read has not been *shown* to contain anything.
+        // The extractor may simply not support the format, or the download may be
+        // truncated. Never destroy it on the strength of a failed read.
+        if (failSafeTriggered || !safeToDeleteArchive) {
+            ShieldManager.addOffender(baseDir, relPath, "Archive could not be read or verified");
+            Logger.error("SHIELD", `Unreadable/unverified archive kept in place for review: ${relPath}`);
+            if (onProgress) onProgress(stats);
+            return { flagged: true, extractedCount, preserved: true };
+        }
 
         if (policy === "isolate") {
             const riskDir = join(baseDir, "_risk_tools");
@@ -360,77 +408,22 @@ async function cleanArchive(
 
     // Clean archive - extract according to policy
     if (policy === "purge") {
-        unlinkSync(archivePath);
+        if (!safeToDeleteArchive) {
+            Logger.error("SHIELD", `Extraction unverified; clean archive preserved and left re-downloadable: ${relPath}`);
+            return { flagged: false, extractedCount, preserved: true };
+        }
+        try {
+            unlinkSync(archivePath);
+        } catch (e) {
+            Logger.error("SYNC", `Failed to purge clean archive: ${relPath}`, e);
+            return { flagged: false, extractedCount, failed: true };
+        }
         stats.purgedFiles++;
+        ShieldManager.updateExclusions(baseDir, [relPath]);
         Logger.info("SHIELD", `Clean archive purged after extraction: ${relPath}`);
     }
 
     return { flagged: false, extractedCount };
-}
-
-export async function cleanFile(
-    filePath: string, baseDir: string, policy: "purge" | "isolate" | "extract",
-    stats?: CleanupStats, onProgress?: (stats: CleanupStats) => void,
-    mode: "full" | "lean" = "full"
-): Promise<boolean> {
-    // Contract: Extract policy strictly trusts source content (bypass all surgery)
-    if (policy === "extract") return false;
-
-    const relPath = relative(baseDir, filePath);
-    const fileName = basename(relPath);
-    const ext = "." + (fileName.split(".").pop() || "").toLowerCase();
-
-    // LEAN MODE: Surgical Whitelist Filtering
-    if (mode === "lean") {
-        if (LEAN_STRICT_WHITELIST.includes(ext.toLowerCase())) return false;
-        // If not in whitelist, treat as bloat (continue to purge/isolate logic)
-        Logger.info("SHIELD", `Lean Mode: Detected non-essential bloat: ${relPath}`);
-    } else {
-        // FULL MODE: Standard Extension Protection
-        if (KEEP_EXTS.includes(ext)) return false;
-    }
-
-    const isGarbage = PRIORITY_FILENAMES.some(p => p.toLowerCase() === fileName.toLowerCase()) ||
-        GARBAGE_PATTERNS.some(p => fileName.toLowerCase().includes(p.toLowerCase())) ||
-        (mode === "lean" && LEAN_STRICT_BLACKLIST.includes(ext.toLowerCase())) ||
-        (mode === "lean" && !LEAN_STRICT_WHITELIST.includes(ext.toLowerCase()));
-
-    if (isGarbage) {
-        if (mode !== "lean") {
-            Logger.info("SHIELD", `Detected risky individual file: ${relPath}`);
-        }
-        if (stats) {
-            stats.riskyPatternCount++;
-            stats.currentArchive = relPath; // Handle individual file as "currentArchive" for UI
-            if (onProgress) onProgress(stats);
-        }
-        const riskDir = join(baseDir, "_risk_tools");
-        try {
-            if (policy === "isolate") {
-                if (!existsSync(riskDir)) mkdirSync(riskDir, { recursive: true });
-                const dest = join(riskDir, fileName);
-                const fileData = readFileSync(filePath);
-                writeFileSync(dest, fileData);
-                if (!existsSync(dest)) throw new Error("Isolation copy failed.");
-                unlinkSync(filePath);
-                if (existsSync(filePath)) throw new Error("Isolation original removal failed.");
-                if (stats) stats.isolatedFiles++;
-                Logger.info("SHIELD", (mode === "lean" ? `Lean Mode: Isolated bloat: ${relPath}` : `Isolated individual file: ${relPath}`));
-            } else {
-                unlinkSync(filePath);
-                if (existsSync(filePath)) throw new Error("Purge failed.");
-                if (stats) stats.purgedFiles++;
-                Logger.info("SHIELD", (mode === "lean" ? `Lean Mode: Purged bloat: ${relPath}` : `Purged individual file: ${relPath}`));
-            }
-            ShieldManager.addOffender(baseDir, relPath, (mode === "lean" ? "Lean Mode: Excess data stripped" : "File matches malware pattern"));
-            if (stats && onProgress) onProgress(stats);
-            return true;
-        } catch (e) {
-            Logger.error("SYNC", `Failed to ${policy} item: ${relPath}`, e);
-            return false;
-        }
-    }
-    return false;
 }
 
 /**

@@ -1,6 +1,8 @@
 import { runCleanupSweep } from "./cleanup.ts";
 import { ShieldManager } from "./shield/ShieldManager";
 import type { CleanupStats } from "./sync/types";
+import { getRcloneCmd } from "./sync/utils";
+import { Env } from "./env";
 import { spawn } from "bun";
 import { Logger } from "./logger";
 import { resolve } from "path";
@@ -12,16 +14,32 @@ export interface ForensicProgress {
     status: "scanning" | "cleaning" | "scrubbing" | "done" | "error";
 }
 
+export interface ForensicOptions {
+    /**
+     * Delete the flagged files from the remote as well as locally.
+     *
+     * Off by default: remote deletion is irreversible and touches storage the user may
+     * share with others. The caller must obtain explicit confirmation first.
+     */
+    scrubRemote?: boolean;
+}
+
 export async function runForensicSweep(
     targetDir: string,
     excludeFile: string,
     gdriveRemote: string | null,
-    onProgress: (p: ForensicProgress) => void
+    onProgress: (p: ForensicProgress) => void,
+    options: ForensicOptions = {}
 ): Promise<void> {
     Logger.info("SYNC", "Starting Forensic Sweep...");
     try {
         if (!targetDir || targetDir === "" || targetDir === "none") {
             throw new Error("Target directory not set.");
+        }
+
+        const unsafeReason = Env.getUnsafeDirectoryReason(targetDir);
+        if (unsafeReason) {
+            throw new Error(`Unsafe target directory: ${unsafeReason}`);
         }
 
         const projectRoot = resolve(process.cwd());
@@ -43,25 +61,23 @@ export async function runForensicSweep(
             });
         });
 
-        // Step 2: Surgical Cloud Scrub (Due Diligence)
-        if (gdriveRemote) {
-            // Merge hardcoded knowns with dynamic offenders from ShieldManager
-            const dynamicOffenders = ShieldManager.getOffenders(targetDir).map(o => o.split("/").pop()).filter(Boolean) as string[];
-            const flaggedFiles = Array.from(new Set([
-                "GV-R939XG1 GAMING-8GD-1.0-1.01 Boardview.zip",
-                "GV-R938WF2-4GD-1.0 Boardview.zip",
-                "IOT73 V3.0 TG-B75.zip",
-                "GV-R938G1 GAMING-4GD-1.02 Boardview.zip",
-                "GV-RX470G1 GAMING-4GD-0.2 Boardview.zip",
-                "GV-RX480G1 GAMING-4GD-1.1 Boardview.zip",
-                "BIOS_K54C usb 3.0_factory-Chinafix.zip",
-                "BIOS_K54LY usb 3.0_factory-Chinafix.zip",
-                "DANL9MB18F0 (tvw).rar",
-                ...dynamicOffenders
-            ]));
+        // Step 2: Surgical Cloud Scrub (opt-in, malware only)
+        if (gdriveRemote && options.scrubRemote) {
+            // Only files removed because they matched a threat pattern. Lean-mode records
+            // mean "not a schematic file type" and must never delete remote data.
+            const flaggedFiles = Array.from(new Set(
+                ShieldManager.getMalwareOffenders(targetDir)
+                    .map(o => o.split("/").pop())
+                    .filter((f): f is string => Boolean(f))
+            ));
 
+            if (flaggedFiles.length === 0) {
+                Logger.info("SYNC", "Cloud scrub requested but no malware offenders recorded; nothing to delete.");
+            }
+
+            const rcloneCmd = getRcloneCmd();
             for (let i = 0; i < flaggedFiles.length; i++) {
-                const file = flaggedFiles[i];
+                const file = flaggedFiles[i]!;
                 onProgress({
                     currentFile: `Cloud Scrub: ${file}`,
                     filesProcessed: i + 1,
@@ -69,15 +85,22 @@ export async function runForensicSweep(
                     status: "scrubbing"
                 });
 
-                await new Promise<void>((resolve) => {
-                    const proc = spawn(["rclone", "delete", `${gdriveRemote}:${file}`, "--ignore-errors"]);
-                    const check = async () => {
-                        await proc.exited;
-                        resolve();
-                    };
-                    check();
-                });
+                const proc = spawn([
+                    rcloneCmd[0] as string,
+                    ...rcloneCmd.slice(1),
+                    "--config", Env.getRcloneConfigPath(),
+                    "delete", `${gdriveRemote}:${file}`
+                ], { stdout: "pipe", stderr: "pipe" });
+
+                const exitCode = await proc.exited;
+                if (exitCode !== 0) {
+                    Logger.error("SYNC", `Cloud scrub failed for ${file} (rclone exit ${exitCode}); continuing.`);
+                } else {
+                    Logger.info("SYNC", `Cloud scrub removed ${file} from ${gdriveRemote}.`);
+                }
             }
+        } else if (gdriveRemote) {
+            Logger.info("SYNC", "Cloud scrub skipped: remote deletion was not explicitly confirmed.");
         }
 
         onProgress({ currentFile: "Forensic Sweep Complete.", filesProcessed: 100, totalFiles: 100, status: "done" });

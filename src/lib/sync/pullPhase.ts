@@ -15,6 +15,11 @@ import { shouldDownloadInLeanMode } from "../shield/archiveAnalyzer";
 import type { PortalConfig } from "../config";
 import type { SyncProgress, ManifestStats, CleanupStats } from "./types";
 
+/** Floor for the strict-mirror deletion cap, so small libraries can still prune normally. */
+const MIN_MIRROR_DELETE_CAP = 50;
+/** A single mirror run may remove at most this fraction of the known local file count. */
+const MIRROR_DELETE_FRACTION = 0.1;
+
 /**
  * Discovers the manifest file from source or backup.
  */
@@ -124,7 +129,7 @@ export async function runPullPhase(
     const excludeFile = Env.getExcludeFilePath(config.local_dir);
     const sourceRemote = `${Env.REMOTE_PORTAL_SOURCE}:/`;
 
-    onProgress({ phase: "pull", description: "Analyzing Source...", percentage: 0 });
+    onProgress({ phase: "pull", description: "Checking for remote manifest...", percentage: 0 });
     const localManifest = await discoverManifest(config, sourceRemote);
     let manifestStats: ManifestStats | undefined;
     let initialLocalCount = 0;
@@ -147,15 +152,18 @@ export async function runPullPhase(
     let valuableFileCount = 0;
 
     if (localManifest) {
+        onProgress({ phase: "pull", description: "Manifest found. Scanning local files...", percentage: 0 });
         const manifestData = processManifest(localManifest, config.local_dir);
         if (isStopRequested()) return;
 
         if (manifestData) {
             initialLocalCount = manifestData.initialLocalCount;
+            onProgress({ phase: "pull", description: `Comparing manifests... ${manifestData.remoteFiles.length.toLocaleString()} remote vs ${initialLocalCount.toLocaleString()} local`, percentage: 0 });
 
             const alreadyExcluded = new Set<string>();
             if (existsSync(excludeFile)) {
                 try {
+                    onProgress({ phase: "pull", description: "Loading exclusion ledger...", percentage: 0 });
                     const lines = readFileSync(excludeFile, "utf-8").split("\n");
                     lines.forEach(l => { if (l.trim()) alreadyExcluded.add(l.trim()); });
                 } catch (e) {
@@ -165,15 +173,21 @@ export async function runPullPhase(
 
             // Initial generic filtering
             const missingFiltered = manifestData.missing.filter(f => !alreadyExcluded.has(f));
+            if (alreadyExcluded.size > 0) {
+                const filteredOut = manifestData.missing.length - missingFiltered.length;
+                onProgress({ phase: "pull", description: `Exclusion filter applied: ${filteredOut.toLocaleString()} already processed, ${missingFiltered.length.toLocaleString()} candidates remain`, percentage: 0 });
+            }
 
             // LEAN MODE FILTERING
             let candidates = missingFiltered;
             if (leanMode) {
+                onProgress({ phase: "pull", description: "Applying lean mode filter...", percentage: 0 });
                 candidates = missingFiltered.filter(f => {
                     const keep = shouldDownloadInLeanMode(f);
                     if (!keep) excludedFileCount++;
                     return keep;
                 });
+                onProgress({ phase: "pull", description: `Lean mode: ${excludedFileCount.toLocaleString()} bloat files filtered, ${candidates.length.toLocaleString()} valuable files remain`, percentage: 0 });
             }
 
             // Identify Priority/Risky Items
@@ -214,11 +228,23 @@ export async function runPullPhase(
 
     if (isStopRequested()) return;
 
+    // `sync` mirrors deletions from the source. Cap how many files a single run may
+    // remove, so an incomplete or wrong source listing cannot wipe the local library.
+    const mirrorGuards: string[] = [];
+    if (config.strict_mirror) {
+        const deleteCap = initialLocalCount > 0
+            ? Math.max(MIN_MIRROR_DELETE_CAP, Math.floor(initialLocalCount * MIRROR_DELETE_FRACTION))
+            : MIN_MIRROR_DELETE_CAP;
+        mirrorGuards.push("--max-delete", String(deleteCap));
+        Logger.info("SYNC", `Strict mirror enabled; deletions capped at ${deleteCap} file(s) this run.`);
+    }
+
     const basePullArgs = [
         config.strict_mirror ? "sync" : "copy", sourceRemote, config.local_dir,
         "--size-only", "--fast-list",
         "--transfers", String(config.downsync_transfers || 4),
         "--checkers", "16",
+        ...mirrorGuards,
         ...RETRY_FLAGS
     ];
 
@@ -298,98 +324,146 @@ export async function runPullPhase(
     if (isStopRequested()) return;
     // STAGE 2: Standard Pull
     const standardFilesCount = standardItems.length;
-    const standardArgs = [...basePullArgs];
-    if (standardFilesCount > 0) {
-        const standardListFile = join(config.local_dir, "standard_missing.txt");
-        writeFileSync(standardListFile, standardItems.join("\n"));
-        standardArgs.push("--files-from", standardListFile);
-    } else if (!localManifest) {
-        // DISCOVERY MODE: No manifest - use filters and exclusion list
-        standardArgs.push("--exclude-from", excludeFile, "--exclude", "_risk_tools/**");
-        if (effectiveMode === "lean") {
-            LEAN_MODE_EXCLUDE_PATTERNS.forEach(p => standardArgs.push("--exclude", `*${p}*`));
-        }
-    } else {
-        // Manifest exists but no missing files identified - nothing to do for standard
-        releasePending();
-    }
+    const hasManifestWithNoMissing = localManifest && standardFilesCount === 0 && riskyItems.length === 0;
 
-    await executeRclone(standardArgs, (stats) => {
-        const completedCount = getSessionCompletionsSize();
-        const totalMissing = riskyItems.length + standardItems.length;
-        if (manifestStats) {
-            manifestStats.localFileCount = initialLocalCount + completedCount;
-            manifestStats.missingFileCount = Math.max(0, totalMissing - completedCount);
-        }
-        const displayPct = (totalMissing > 0) ? Math.min(100, Math.round((completedCount / totalMissing) * 100)) : (stats.percentage ?? 0);
+    let downloadError: unknown = null;
+
+    if (hasManifestWithNoMissing) {
+        // Manifest exists, everything is already local — skip rclone entirely
+        Logger.info("SYNC", "Manifest shows all files present locally. Skipping Stage 2 download.");
+        onProgress({ phase: "pull", description: "No updates found. Building file inventory...", percentage: 100 });
+        releasePending();
+
+        // Generate upsync manifest with ALL local files (not just empty session set)
+        const allLocalFiles = ShieldManager.scanForApprovedFiles(config.local_dir, "", isStopRequested);
+        const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, allLocalFiles, config.malware_policy || "purge");
         onProgress({
             phase: "pull",
-            description: "Downloading files...",
+            description: `No updates needed. ${allLocalFiles.length.toLocaleString()} files verified.`,
             manifestStats,
-            filesTransferred: completedCount,
-            isPaused: getIsSyncPaused(),
-            cleanupStats,
-            ...stats,
-            percentage: displayPct
+            manifestInfo: manifestInfo || undefined,
+            filesTransferred: 0,
+            percentage: 100
         });
-    }, async (filename) => {
-        if (isStopRequested()) return;
-        // REAL-TIME CLEANING: Clean the file immediately after download
-        if (config.enable_malware_shield) {
-            const fullPath = join(config.local_dir, filename);
-            if (existsSync(fullPath)) {
-                await ShieldExecutor.execute({
-                    type: "realtime_clean",
-                    localDir: config.local_dir,
-                    policy: config.malware_policy || "purge",
-                    filePath: fullPath,
-                    onProgress,
-                    initialStats: cleanupStats,
-                    mode: effectiveMode
+    } else {
+        if (standardFilesCount > 0) {
+            onProgress({ phase: "pull", description: `${standardFilesCount.toLocaleString()} files to download...`, percentage: 0 });
+        } else if (!localManifest) {
+            onProgress({ phase: "pull", description: "No manifest found. Running full discovery sync...", percentage: 0 });
+        }
+        const standardArgs = [...basePullArgs];
+        if (standardFilesCount > 0) {
+            const standardListFile = join(config.local_dir, "standard_missing.txt");
+            writeFileSync(standardListFile, standardItems.join("\n"));
+            standardArgs.push("--files-from", standardListFile);
+        } else if (!localManifest) {
+            // DISCOVERY MODE: No manifest - use filters and exclusion list
+            // Include exclude-from to protect shield-cleaned files from size-only re-download
+            standardArgs.push("--exclude-from", excludeFile, "--exclude", "_risk_tools/**", "--exclude", "_shield_isolated/**");
+            if (effectiveMode === "lean") {
+                LEAN_MODE_EXCLUDE_PATTERNS.forEach(p => standardArgs.push("--exclude", `*${p}*`));
+            }
+        }
+
+        try {
+            await executeRclone(standardArgs, (stats) => {
+                const completedCount = getSessionCompletionsSize();
+                const totalMissing = riskyItems.length + standardItems.length;
+                if (manifestStats) {
+                    manifestStats.localFileCount = initialLocalCount + completedCount;
+                    manifestStats.missingFileCount = Math.max(0, totalMissing - completedCount);
+                }
+                const displayPct = (totalMissing > 0) ? Math.min(100, Math.round((completedCount / totalMissing) * 100)) : (stats.percentage ?? 0);
+                onProgress({
+                    phase: "pull",
+                    description: "Downloading files...",
+                    manifestStats,
+                    filesTransferred: completedCount,
+                    isPaused: getIsSyncPaused(),
+                    cleanupStats,
+                    ...stats,
+                    percentage: displayPct
                 });
-            }
+            }, async (filename) => {
+                if (isStopRequested()) return;
+                // REAL-TIME CLEANING: Clean the file immediately after download
+                if (config.enable_malware_shield) {
+                    const fullPath = join(config.local_dir, filename);
+                    if (existsSync(fullPath)) {
+                        await ShieldExecutor.execute({
+                            type: "realtime_clean",
+                            localDir: config.local_dir,
+                            policy: config.malware_policy || "purge",
+                            filePath: fullPath,
+                            onProgress,
+                            initialStats: cleanupStats,
+                            mode: effectiveMode
+                        });
+                    }
+                }
+
+                // Mark as approved if it survives cleaning
+                if (existsSync(join(config.local_dir, filename))) {
+                    approvedFiles.add(filename);
+
+                    // INCREMENTAL UPDATE: Update manifest in batches (e.g., every 8 files)
+                    // or for every file if we're dealing with a small number of total files
+                    const shouldUpdate = approvedFiles.size % 8 === 0 || (standardItems.length < 20);
+
+                    if (shouldUpdate) {
+                        const manifestInfo = ShieldManager.updateUpsyncManifest(config.local_dir, [filename]);
+                        onProgress({ manifestInfo });
+                    }
+                }
+            }, "download", "pull");
+        } catch (err) {
+            downloadError = err;
+            Logger.error("SYNC", `Download phase error (non-fatal for manifest): ${err instanceof Error ? err.message : String(err)}`);
+            // Don't throw here — continue to finalization so the manifest gets generated
         }
+    }
 
-        // Mark as approved if it survives cleaning
-        if (existsSync(join(config.local_dir, filename))) {
-            approvedFiles.add(filename);
-
-            // INCREMENTAL UPDATE: Update manifest in batches (e.g., every 8 files)
-            // or for every file if we're dealing with a small number of total files
-            const shouldUpdate = approvedFiles.size % 8 === 0 || (standardItems.length < 20);
-
-            if (shouldUpdate) {
-                const manifestInfo = ShieldManager.updateUpsyncManifest(config.local_dir, [filename]);
-                onProgress({ manifestInfo });
-            }
-        }
-    }, "download", "pull");
+    // === GUARANTEED FINALIZATION (runs regardless of download/shield errors) ===
 
     // FINAL SWEEP: Catch any archives identified after download during standard pull
-    if (config.enable_malware_shield) {
-        if (isStopRequested()) return;
-        await ShieldExecutor.execute({
-            type: "final_sweep",
-            localDir: config.local_dir,
-            policy: config.malware_policy || "purge",
-            excludeFile,
-            onProgress,
-            initialStats: cleanupStats,
-            mode: effectiveMode
-        });
+    if (config.enable_malware_shield && !isStopRequested()) {
+        try {
+            onProgress({ phase: "clean", description: "Running final shield sweep...", percentage: 0 });
+            await ShieldExecutor.execute({
+                type: "final_sweep",
+                localDir: config.local_dir,
+                policy: config.malware_policy || "purge",
+                excludeFile,
+                onProgress,
+                initialStats: cleanupStats,
+                mode: effectiveMode
+            });
 
-        // After final sweep, ensure we capture extracted files
-        if (cleanupStats.extractedFilePaths && cleanupStats.extractedFilePaths.length > 0) {
-            cleanupStats.extractedFilePaths.forEach(f => approvedFiles.add(f));
+            // After final sweep, ensure we capture extracted files
+            if (cleanupStats.extractedFilePaths && cleanupStats.extractedFilePaths.length > 0) {
+                cleanupStats.extractedFilePaths.forEach(f => approvedFiles.add(f));
+            }
+        } catch (err) {
+            Logger.error("SYNC", `Final shield sweep error (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
         }
     }
 
     // GUARANTEED CLEARANCE: Ensure all pending files are released before finishing pull phase
     releasePending();
 
-    // Finalize manifest
-    const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, Array.from(approvedFiles), config.malware_policy || "purge");
+    // Finalize manifest — include ALL local files, not just current session's downloads
+    onProgress({ phase: "pull", description: "Building complete file inventory...", percentage: 100 });
+    const allLocalFiles = ShieldManager.scanForApprovedFiles(config.local_dir, "", isStopRequested);
+    // Merge session-approved files (survives shield cleaning) with full local scan
+    for (const f of approvedFiles) {
+        if (!allLocalFiles.includes(f)) allLocalFiles.push(f);
+    }
+    onProgress({ phase: "pull", description: `Finalizing... ${allLocalFiles.length.toLocaleString()} files inventoried.`, percentage: 100 });
+    const manifestInfo = ShieldManager.saveUpsyncManifest(config.local_dir, allLocalFiles, config.malware_policy || "purge");
     if (manifestInfo && onProgress) {
         onProgress({ manifestInfo });
     }
+
+    // Re-throw download error after manifest is guaranteed
+    if (downloadError) throw downloadError;
 }
