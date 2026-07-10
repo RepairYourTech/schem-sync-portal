@@ -42,7 +42,7 @@ export const MegaSetup = ({
                 context={wizardContext || null}
                 colors={colors}
             >
-                <box flexDirection="column" gap={0} marginTop={1}>
+                <box flexDirection="column" gap={0} marginTop={1} alignItems="flex-start">
                     {options.map((opt, i) => {
                         const isFocused = selectedIndex === i && focusArea === "body";
                         return (
@@ -55,9 +55,10 @@ export const MegaSetup = ({
                                 onMouseDown={() => confirmSelection(allOptions[i]!)}
                                 paddingLeft={1}
                                 paddingRight={1}
-                                border={isFocused}
+                                border
                                 borderStyle="single"
                                 borderColor={isFocused ? colors.success : "transparent"}
+                                flexShrink={0}
                             >
                                 <Hotkey
                                     keyLabel={opt.key}
@@ -83,7 +84,7 @@ export const MegaSetup = ({
                             border={isBackFocused}
                             borderStyle="single"
                             borderColor={isBackFocused ? colors.success : "transparent"}
-                            flexDirection="row"
+                            height={1}
                             alignItems="center"
                         >
                             <Hotkey

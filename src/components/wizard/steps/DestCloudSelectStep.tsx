@@ -51,7 +51,6 @@ export const DestCloudSelectStep = ({
                             flexDirection="row"
                             alignItems="center"
                             gap={1}
-                            height={1}
                         >
                             <ProviderIcon provider={opt.value} version={fontVersion} color={colors.primary} />
                             <Hotkey

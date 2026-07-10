@@ -1,7 +1,7 @@
 import { spawnSync } from "bun";
 import { Env } from "../env";
 import { Logger } from "../logger";
-import { LEAN_MODE_EXCLUDE_PATTERNS, VALUABLE_ARCHIVE_INDICATORS, SAFE_PATTERNS } from "./patterns";
+import { LEAN_MODE_EXCLUDE_PATTERNS, LEAN_STRICT_WHITELIST, VALUABLE_ARCHIVE_INDICATORS, SAFE_PATTERNS } from "./patterns";
 
 interface ArchiveEngine { type: "7z" | "rar"; bin: string; }
 
@@ -78,6 +78,14 @@ const LEAN_BLOAT_FOLDERS = ["10 bios", "bios", "firmware", "drivers", "driver", 
 export function shouldDownloadInLeanMode(relPath: string): boolean {
     const lowerPath = relPath.toLowerCase().replace(/\\/g, "/");
     const segments = lowerPath.split("/");
+    const fileName = segments[segments.length - 1] || "";
+    const fileExt = "." + (fileName.split(".").pop() || "").toLowerCase();
+
+    // Whitelisted extensions always pass — valuable docs in excluded dirs should still download
+    // e.g., EC chip datasheets (.pdf) inside /ec/ are reference material, not firmware
+    if (LEAN_STRICT_WHITELIST.includes(fileExt)) {
+        return true;
+    }
 
     // Only check DIRECTORY segments (not the filename itself)
     // Files like "update.exe" should pass through to Shield for further inspection

@@ -92,7 +92,7 @@ export const UpsyncPanel = React.memo(({
             {/* UPLOAD QUEUE AREA (Scrollable) */}
             <box flexDirection="column" gap={0} marginTop={1} flexGrow={1} overflow="hidden">
                 <text fg={colors.dim} paddingLeft={1} attributes={TextAttributes.BOLD}>UPLOAD QUEUE</text>
-                <FileQueue files={uploadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} isUpsync={true} />
+                <FileQueue files={uploadQueue} colors={colors} maxHeight={maxFilesToShow} width={width} phase={progress.phase} isUpsync={true} description={progress.cloudDescription} />
             </box>
 
             {/* FIXED FOOTER (Controls + Stats) */}

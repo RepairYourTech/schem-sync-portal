@@ -43,10 +43,9 @@ export const ShortcutStep = ({
                             onMouseDown={() => confirmSelection(getOptions()[i]!)}
                             paddingLeft={1}
                             paddingRight={1}
-                            border={isFocused}
+                            border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
-                            height={1}
                         >
                             <Hotkey
                                 keyLabel={opt.key}
@@ -66,8 +65,9 @@ export const ShortcutStep = ({
                 paddingRight={1}
                 border={selectedIndex === options.length && focusArea === "body"}
                 borderStyle="single"
-                borderColor={selectedIndex === options.length && focusArea === "body" ? colors.success : "transparent"}
+                borderColor={(selectedIndex === options.length && focusArea === "body") ? colors.success : "transparent"}
                 height={1}
+                alignItems="center"
             >
                 <Hotkey
                     keyLabel="b"

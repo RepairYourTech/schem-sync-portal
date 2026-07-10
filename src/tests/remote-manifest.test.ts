@@ -5,7 +5,7 @@ import { mkdirSync, existsSync, rmSync, writeFileSync } from "fs";
 import { createMockConfig } from "./ui-test-helpers";
 import type { SyncProgress } from "../lib/sync/types";
 
-describe("Remote Manifest Verification", () => {
+describe("Cloud Phase Upload Pipeline", () => {
     const testDir = join(process.cwd(), "test_remote_manifest_dir");
 
     const mockConfig = createMockConfig({
@@ -32,41 +32,32 @@ describe("Remote Manifest Verification", () => {
         }
     });
 
-    test("should reconcile uploaded files from remote manifest", async () => {
+    test("should upload all manifest files without stale reconciliation", async () => {
         const manifestPath = join(testDir, "upsync-manifest.txt");
-        // Create local manifest with 3 files
+        // Create local manifest with 4 files
         writeFileSync(manifestPath, "file1.bin\nfile2.bin\nfile3.bin\nfile4.bin\n");
 
         const progressUpdates: Partial<SyncProgress>[] = [];
 
         // We need to provide a way for the loop to exit
         let pullDone = false;
-        let reconciledCorrectly = false;
 
         await runManifestCloudPhase(mockConfig, (p) => {
             progressUpdates.push(p);
-            // After reconciliation, we have 4 total, 3 uploaded, 1 pending.
-            if (p.cloudManifestStats && p.cloudManifestStats.pendingFiles === 1) {
-                reconciledCorrectly = true;
-            }
             // When pending reaches 0, we can exit.
             if (p.phase === "cloud" && p.cloudManifestStats && p.cloudManifestStats.pendingFiles === 0) {
                 pullDone = true;
             }
         }, () => {
             if (pullDone) return true;
-            // Fallback for tests: if we reconciled correctly and pending is 0, we can stop
             const last = progressUpdates[progressUpdates.length - 1];
-            if (reconciledCorrectly && last?.cloudManifestStats?.pendingFiles === 0) {
+            if (last?.cloudManifestStats?.pendingFiles === 0) {
                 return true;
             }
             return false;
         });
 
-        // Verify that it reconciled files (mock_rclone returns file1, file2, file3)
-        // So only file4.bin should have been "new"
-        expect(reconciledCorrectly).toBe(true);
-
+        // All 4 files should be uploaded (no stale remote manifest blocking any)
         const lastCloudStats = progressUpdates.reverse().find(p => p.cloudManifestStats)?.cloudManifestStats;
         expect(lastCloudStats?.uploadedFiles).toBe(4);
         expect(lastCloudStats?.pendingFiles).toBe(0);

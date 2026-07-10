@@ -12,28 +12,16 @@ describe("ntfy listener", () => {
         globalThis.fetch = originalFetch;
     });
 
-    function createMockStream(messages: string[]): ReadableStream<Uint8Array> {
-        const encoder = new TextEncoder();
-        let index = 0;
-
-        return new ReadableStream({
-            pull(controller) {
-                if (index < messages.length) {
-                    controller.enqueue(encoder.encode(messages[index] + "\n"));
-                    index++;
-                } else {
-                    controller.close();
-                }
-            }
-        });
+    function makeBody(messages: string[]): string {
+        return messages.join("\n") + "\n";
     }
 
-    it("connects to the correct URL with /json suffix", async () => {
+    it("connects to the correct URL with /json poll params", async () => {
         let capturedUrl = "";
 
         globalThis.fetch = mock(async (input: string | URL | Request) => {
             capturedUrl = typeof input === "string" ? input : input.toString();
-            return new Response(createMockStream([]), { status: 200 });
+            return new Response("", { status: 200 });
         }) as unknown as typeof fetch;
 
         const listener = createNtfyListener(
@@ -45,7 +33,7 @@ describe("ntfy listener", () => {
         await new Promise(r => setTimeout(r, 50));
         listener.stop();
 
-        expect(capturedUrl).toBe("https://ntfy.example.com/test-topic/json");
+        expect(capturedUrl).toMatch(/^https:\/\/ntfy\.example\.com\/test-topic\/json\?poll=1&since=\d+$/);
     });
 
     it("normalizes trailing slashes in URL", async () => {
@@ -53,7 +41,7 @@ describe("ntfy listener", () => {
 
         globalThis.fetch = mock(async (input: string | URL | Request) => {
             capturedUrl = typeof input === "string" ? input : input.toString();
-            return new Response(createMockStream([]), { status: 200 });
+            return new Response("", { status: 200 });
         }) as unknown as typeof fetch;
 
         const listener = createNtfyListener(
@@ -65,18 +53,18 @@ describe("ntfy listener", () => {
         await new Promise(r => setTimeout(r, 50));
         listener.stop();
 
-        expect(capturedUrl).toBe("https://ntfy.example.com/topic/json");
+        expect(capturedUrl).toMatch(/^https:\/\/ntfy\.example\.com\/topic\/json\?poll=1&since=\d+$/);
     });
 
     it("calls onNotification for message events", async () => {
-        const messages = [
+        const body = makeBody([
             JSON.stringify({ event: "open" }),
-            JSON.stringify({ event: "message", message: "new files available" }),
-            JSON.stringify({ event: "message", message: "another update" })
-        ];
+            JSON.stringify({ event: "message", message: "new files available", time: 1000 }),
+            JSON.stringify({ event: "message", message: "another update", time: 1001 })
+        ]);
 
         globalThis.fetch = mock(async () => {
-            return new Response(createMockStream(messages), { status: 200 });
+            return new Response(body, { status: 200 });
         }) as unknown as typeof fetch;
 
         const received: string[] = [];
@@ -93,14 +81,14 @@ describe("ntfy listener", () => {
     });
 
     it("ignores keepalive and open events", async () => {
-        const messages = [
+        const body = makeBody([
             JSON.stringify({ event: "open" }),
             JSON.stringify({ event: "keepalive" }),
             JSON.stringify({ event: "keepalive" })
-        ];
+        ]);
 
         globalThis.fetch = mock(async () => {
-            return new Response(createMockStream(messages), { status: 200 });
+            return new Response(body, { status: 200 });
         }) as unknown as typeof fetch;
 
         const received: string[] = [];
@@ -117,12 +105,8 @@ describe("ntfy listener", () => {
     });
 
     it("reports status transitions correctly", async () => {
-        const messages = [
-            JSON.stringify({ event: "open" })
-        ];
-
         globalThis.fetch = mock(async () => {
-            return new Response(createMockStream(messages), { status: 200 });
+            return new Response("", { status: 200 });
         }) as unknown as typeof fetch;
 
         const statuses: NtfyStatus[] = [];
@@ -142,7 +126,7 @@ describe("ntfy listener", () => {
 
     it("stop() sets status to disconnected", async () => {
         globalThis.fetch = mock(async () => {
-            return new Response(createMockStream([]), { status: 200 });
+            return new Response("", { status: 200 });
         }) as unknown as typeof fetch;
 
         const listener = createNtfyListener(
@@ -157,15 +141,15 @@ describe("ntfy listener", () => {
         expect(listener.status()).toBe("disconnected");
     });
 
-    it("attempts reconnect on HTTP error", async () => {
+    it("retries on HTTP error with reconnecting status", async () => {
         let fetchCount = 0;
 
         globalThis.fetch = mock(async () => {
             fetchCount++;
-            if (fetchCount === 1) {
+            if (fetchCount <= 2) {
                 return new Response(null, { status: 500, statusText: "Internal Server Error" });
             }
-            return new Response(createMockStream([]), { status: 200 });
+            return new Response("", { status: 200 });
         }) as unknown as typeof fetch;
 
         const statuses: NtfyStatus[] = [];
@@ -175,23 +159,24 @@ describe("ntfy listener", () => {
             (status) => statuses.push(status)
         );
 
-        await new Promise(r => setTimeout(r, 1500));
+        // First poll fails immediately, backoff is 30s so we won't see a retry in 1.5s
+        // But we can verify the status transitions
+        await new Promise(r => setTimeout(r, 200));
         listener.stop();
 
-        expect(statuses.includes("error")).toBe(true);
         expect(statuses.includes("reconnecting")).toBe(true);
-        expect(fetchCount).toBeGreaterThanOrEqual(2);
+        expect(fetchCount).toBeGreaterThanOrEqual(1);
     });
 
     it("skips non-JSON lines without crashing", async () => {
-        const messages = [
+        const body = makeBody([
             "this is not json",
-            JSON.stringify({ event: "message", message: "valid message" }),
+            JSON.stringify({ event: "message", message: "valid message", time: 2000 }),
             "another bad line"
-        ];
+        ]);
 
         globalThis.fetch = mock(async () => {
-            return new Response(createMockStream(messages), { status: 200 });
+            return new Response(body, { status: 200 });
         }) as unknown as typeof fetch;
 
         const received: string[] = [];

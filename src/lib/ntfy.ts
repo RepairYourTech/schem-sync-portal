@@ -12,16 +12,18 @@ interface NtfyMessage {
     message?: string;
     title?: string;
     time?: number;
+    id?: string;
 }
 
-const MIN_BACKOFF_MS = 1000;
-const MAX_BACKOFF_MS = 60000;
-const BACKOFF_MULTIPLIER = 2;
+const POLL_INTERVAL_MS = 15000;
+const ERROR_BACKOFF_MS = 30000;
+const MAX_ERROR_BACKOFF_MS = 120000;
 
 /**
- * Creates a persistent SSE listener for an ntfy topic.
- * Auto-reconnects with exponential backoff on failure.
- * Uses Bun's fetch streaming — cross-platform, zero native deps.
+ * Creates a polling-based ntfy listener.
+ * Uses `?poll=1&since=<timestamp>` for Cloudflare compatibility.
+ * SSE streaming doesn't work through Cloudflare's proxy (response buffering),
+ * so we poll at regular intervals instead.
  */
 export function createNtfyListener(
     topicUrl: string,
@@ -29,116 +31,107 @@ export function createNtfyListener(
     onStatusChange: (status: NtfyStatus) => void
 ): NtfyListener {
     let currentStatus: NtfyStatus = "disconnected";
-    let abortController = new AbortController();
-    let backoffMs = MIN_BACKOFF_MS;
     let stopped = false;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastMessageTime = Math.floor(Date.now() / 1000);
+    let consecutiveErrors = 0;
 
     function setStatus(status: NtfyStatus) {
-        currentStatus = status;
-        onStatusChange(status);
+        if (currentStatus !== status) {
+            currentStatus = status;
+            onStatusChange(status);
+        }
     }
 
     function normalizeUrl(url: string): string {
-        const base = url.replace(/\/+$/, "");
-        return `${base}/json`;
+        return url.replace(/\/+$/, "");
     }
 
-    async function connect() {
+    async function poll() {
         if (stopped) return;
 
-        setStatus("connecting");
-        Logger.info("NTFY", `Connecting to ${topicUrl}`);
+        const isFirstPoll = currentStatus === "disconnected" || currentStatus === "connecting";
+        if (isFirstPoll) setStatus("connecting");
 
         try {
-            const response = await fetch(normalizeUrl(topicUrl), {
-                signal: abortController.signal,
+            const url = `${normalizeUrl(topicUrl)}/json?poll=1&since=${lastMessageTime}`;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+
+            const response = await fetch(url, {
+                signal: controller.signal,
                 headers: { "Accept": "application/x-ndjson" }
             });
+            clearTimeout(timeout);
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            if (!response.body) {
-                throw new Error("No response body (streaming not supported)");
-            }
+            const body = await response.text();
+            const lines = body.split("\n").filter(l => l.trim());
 
             setStatus("connected");
-            backoffMs = MIN_BACKOFF_MS;
-            Logger.info("NTFY", "Connected successfully");
+            consecutiveErrors = 0;
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
+            for (const line of lines) {
+                try {
+                    const msg = JSON.parse(line) as NtfyMessage;
 
-            while (!stopped) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split("\n");
-                buffer = lines.pop() || "";
-
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed) continue;
-
-                    try {
-                        const msg = JSON.parse(trimmed) as NtfyMessage;
-
-                        if (msg.event === "open" || msg.event === "keepalive") {
-                            Logger.debug("NTFY", `Received ${msg.event} event`);
-                            continue;
-                        }
-
-                        if (msg.event === "message" && msg.message) {
-                            Logger.info("NTFY", `Notification: ${msg.message}`);
-                            onNotification(msg.message);
-                        }
-                    } catch {
-                        Logger.debug("NTFY", `Skipping non-JSON line: ${trimmed.substring(0, 80)}`);
+                    if (msg.time && msg.time > lastMessageTime) {
+                        lastMessageTime = msg.time;
                     }
+
+                    if (msg.event === "open" || msg.event === "keepalive") {
+                        continue;
+                    }
+
+                    if (msg.event === "message" && msg.message) {
+                        Logger.info("NTFY", `Notification: ${msg.message}`);
+                        onNotification(msg.message);
+                    }
+                } catch {
+                    Logger.debug("NTFY", `Skipping non-JSON line: ${line.substring(0, 80)}`);
                 }
             }
 
-            if (!stopped) {
-                Logger.warn("NTFY", "Stream ended unexpectedly, reconnecting...");
-                scheduleReconnect();
-            }
+            schedulePoll(POLL_INTERVAL_MS);
         } catch (err) {
-            if (stopped || abortController.signal.aborted) return;
+            if (stopped) return;
 
+            consecutiveErrors++;
             const message = err instanceof Error ? err.message : String(err);
-            Logger.error("NTFY", `Connection failed: ${message}`);
-            setStatus("error");
-            scheduleReconnect();
+            Logger.error("NTFY", `Poll failed: ${message}`);
+
+            if (consecutiveErrors >= 3) {
+                setStatus("error");
+            } else {
+                setStatus("reconnecting");
+            }
+
+            const backoff = Math.min(ERROR_BACKOFF_MS * consecutiveErrors, MAX_ERROR_BACKOFF_MS);
+            Logger.info("NTFY", `Retrying in ${backoff / 1000}s (attempt ${consecutiveErrors})`);
+            schedulePoll(backoff);
         }
     }
 
-    function scheduleReconnect() {
+    function schedulePoll(delayMs: number) {
         if (stopped) return;
-
-        setStatus("reconnecting");
-        Logger.info("NTFY", `Reconnecting in ${backoffMs}ms...`);
-
-        reconnectTimer = setTimeout(() => {
-            reconnectTimer = null;
-            abortController = new AbortController();
-            backoffMs = Math.min(backoffMs * BACKOFF_MULTIPLIER, MAX_BACKOFF_MS);
-            connect();
-        }, backoffMs);
+        pollTimer = setTimeout(() => {
+            pollTimer = null;
+            poll();
+        }, delayMs);
     }
 
-    connect();
+    Logger.info("NTFY", `Starting poll listener for ${topicUrl} (every ${POLL_INTERVAL_MS / 1000}s)`);
+    poll();
 
     return {
         stop: () => {
             stopped = true;
-            abortController.abort();
-            if (reconnectTimer) {
-                clearTimeout(reconnectTimer);
-                reconnectTimer = null;
+            if (pollTimer) {
+                clearTimeout(pollTimer);
+                pollTimer = null;
             }
             setStatus("disconnected");
             Logger.info("NTFY", "Listener stopped");

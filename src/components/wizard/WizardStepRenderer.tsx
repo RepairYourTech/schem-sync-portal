@@ -10,6 +10,7 @@ import { CopypartyConfigStep } from "./steps/CopypartyConfigStep";
 import { DestCloudSelectStep } from "./steps/DestCloudSelectStep";
 import { BackupDirStep } from "./steps/BackupDirStep";
 import { SecurityStep } from "./steps/SecurityStep";
+import { NtfyConfigStep } from "./steps/NtfyConfigStep";
 import { CloudDirectEntryStep } from "./steps/CloudDirectEntryStep";
 import { EditMenuStep } from "./steps/EditMenuStep";
 import { DeployStep } from "./steps/DeployStep";
@@ -48,6 +49,7 @@ export const WizardStepRenderer = React.memo(({ step, stepProps }: WizardStepRen
         case "dest_cloud_select": return <DestCloudSelectStep {...stepProps} />;
         case "backup_dir": return <BackupDirStep {...stepProps} />;
         case "security": return <SecurityStep {...stepProps} />;
+        case "ntfy_config": return <NtfyConfigStep {...stepProps} />;
 
         // Specialized Providers
         case "gdrive_intro":

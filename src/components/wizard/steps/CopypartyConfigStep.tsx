@@ -99,7 +99,6 @@ export const CopypartyConfigStep = ({
                                 border
                                 borderStyle="single"
                                 borderColor={isFocused ? colors.success : (isSelected ? colors.primary : "transparent")}
-                                height={1}
                             >
                                 <text fg={isSelected ? colors.success : colors.dim}>{isSelected ? "● " : "○ "}</text>
                                 <text fg={isFocused ? colors.fg : (isSelected ? colors.fg : colors.dim)}>{String(m.name)}</text>
@@ -114,47 +113,33 @@ export const CopypartyConfigStep = ({
                 marginTop={1}
                 onMouseOver={() => { onFocusChange("body"); set_copyparty_config_index(4); }}
                 onMouseDown={() => handleAuth && handleAuth()}
-                border
+                border={copyparty_config_index === 4}
                 borderStyle="double"
-                borderColor={copyparty_config_index === 4 ? colors.success : colors.dim}
+                borderColor={copyparty_config_index === 4 ? colors.success : "transparent"}
                 paddingLeft={1}
                 paddingRight={1}
-                alignItems="center"
                 height={1}
+                alignItems="center"
+                alignSelf="flex-start"
             >
                 <Hotkey keyLabel="ENTER" label={isAuthLoading ? "CONNECTING..." : "TEST & CONNECT"} isFocused={copyparty_config_index === 4} />
-            </box>
-
-            {/* ntfy Auto-Sync URL (optional) */}
-            <box flexDirection="column" gap={0} marginTop={1} onMouseDown={() => { onFocusChange("body"); set_copyparty_config_index(5); }}>
-                <text fg={copyparty_config_index === 5 ? colors.primary : colors.dim}>🔔 Auto-Sync Notification URL (optional):</text>
-                <input
-                    focused={focusArea === "body" && copyparty_config_index === 5}
-                    placeholder="https://ntfy.example.com/topic"
-                    value={config.ntfy_url || ""}
-                    onChange={(val) => updateConfig(prev => ({ ...prev, ntfy_url: val || undefined }))}
-                    onKeyDown={(e) => {
-                        if (e.name === "up") set_copyparty_config_index(4);
-                        if (e.name === "down" || e.name === "return") set_copyparty_config_index(6);
-                    }}
-                />
-                <text fg={colors.dim} attributes={TextAttributes.ITALIC}>  Receive push notifications to auto-trigger sync</text>
             </box>
 
             {/* BACK BUTTON */}
             <box
                 marginTop={1}
-                onMouseOver={() => { onFocusChange("body"); set_copyparty_config_index(6); }}
+                onMouseOver={() => { onFocusChange("body"); set_copyparty_config_index(5); }}
                 onMouseDown={() => back()}
-                border
+                border={copyparty_config_index === 5}
                 borderStyle="single"
-                borderColor={copyparty_config_index === 6 ? colors.success : "transparent"}
+                borderColor={copyparty_config_index === 5 ? colors.success : "transparent"}
                 paddingLeft={1}
                 paddingRight={1}
-                alignItems="center"
                 height={1}
+                alignItems="center"
+                alignSelf="flex-start"
             >
-                <Hotkey keyLabel="b" label="Back" isFocused={copyparty_config_index === 6} />
+                <Hotkey keyLabel="b" label="Back" isFocused={copyparty_config_index === 5} />
             </box>
 
             {!!authStatus && (
