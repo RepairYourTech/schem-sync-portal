@@ -9,7 +9,7 @@ export async function getCopypartyCookie(
     password: string
 ): Promise<string | null> {
     Logger.debug("AUTH", `--- AUTH ATTEMPT START ---`);
-    Logger.debug("AUTH", `URL: ${url} | User: ${username} | PassLen: ${password.length}`);
+    Logger.debug("AUTH", `URL: ${url}`);
 
     // Normalize URL
     let baseUrl = url.replace(/\/+$/, "");
@@ -36,7 +36,7 @@ export async function getCopypartyCookie(
         Logger.debug("AUTH", `Step 0: GET ${loginUrl}`);
         const preAuthRes = await fetch(loginUrl, { headers: browserHeaders });
         let sessionCookies = getCookies(preAuthRes);
-        Logger.debug("AUTH", `Captured Session Cookies: ${JSON.stringify(sessionCookies)}`);
+        Logger.debug("AUTH", `Captured ${sessionCookies.length} session cookie(s)`);
 
         // STEP 1: POST Login (with high-resiliency retry loop)
         const formData = new FormData();
