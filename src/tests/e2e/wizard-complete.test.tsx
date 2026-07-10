@@ -4,6 +4,8 @@ import * as opentuiReact from "@opentui/react";
 import { Wizard } from "../../components/Wizard";
 import { mockRender as render, mockThemeColors } from "../ui-test-helpers";
 import { EMPTY_CONFIG, type PortalConfig, type PortalProvider } from "../../lib/config";
+import { join } from "path";
+import { tmpdir } from "os";
 
 // --- HOOK MOCKING ---
 let hookStateIndex = 0;
@@ -111,13 +113,17 @@ describe("E2E: Wizard Completion", () => {
         hookEffectDeps = [];
     });
 
+    // The path step now validates before advancing, so the flow needs a real, safe
+    // directory. Previously Enter on the input skipped validation entirely.
+    const testLocalDir = join(tmpdir(), "portal_wizard_e2e");
+
     const renderWizard = () => {
         hookStateIndex = 0;
         hookRefIndex = 0;
         hookEffectIndex = 0;
         return render(
             React.createElement(Wizard, {
-                initialConfig: EMPTY_CONFIG,
+                initialConfig: { ...EMPTY_CONFIG, local_dir: testLocalDir },
                 mode: "restart",
                 onComplete: async (cfg: PortalConfig) => {
                     await mockSaveConfig(cfg);
@@ -139,54 +145,66 @@ describe("E2E: Wizard Completion", () => {
         renderWizard();
     };
 
-    it("should simulate a full gdrive-to-b2 flow and save config", async () => {
+    it("walks the full first-run flow to deploy and saves the config", async () => {
         renderWizard();
 
-        // 0. Skip shortcut
+        // shortcut: [YES, NO, back] -> YES
         runAction("return");
 
-        // 1. Source Choice -> GDrive
+        // download_mode: [full, lean, back] -> full
+        runAction("return");
+
+        // source_choice: index 1 is gdrive
         runAction("down");
         runAction("return");
 
-        // 2. GDrive Intro -> Direct
+        // gdrive_intro: [guided, direct, back] -> direct
         runAction("down");
         runAction("return");
 
-        // 3. GDrive auth (3 returns)
+        // cloud_direct_entry (source): clientId -> clientSecret -> CONNECT.
+        // Blank Google credentials are allowed: rclone falls back to its shared client.
         runAction("return");
         runAction("return");
         runAction("return");
 
-        // 4. Dir confirmed (input -> button -> confirm)
+        // dir: Enter on the input moves focus to CONFIRM; Enter there validates the path.
         runAction("return");
         runAction("return");
-        // 5. Mirror confirmed
+
+        // mirror: [additive, strict, back] -> additive
         runAction("return");
-        // 6. Upsync -> Yes
+
+        // upsync_ask: [download_only, sync_backup, back] -> sync_backup
         runAction("down");
         runAction("return");
 
-        // 7. Dest Selection -> B2
+        // dest_cloud_select: index 0 is gdrive
+        runAction("return");
+
+        // gdrive_intro (dest) -> direct
         runAction("down");
         runAction("return");
 
-        // 8. B2 Intro -> Direct
-        runAction("down");
-        runAction("return");
-
-        // 9. B2 auth (3 returns)
+        // cloud_direct_entry (dest): focus resets to the first field on re-entry
         runAction("return");
         runAction("return");
         runAction("return");
 
+        // backup_dir: input -> CONFIRM. An empty backup dir is permitted.
+        runAction("return");
+        runAction("return");
 
-        // 10. Backup Dir confirmed (input -> button -> confirm)
+        // security: gdrive backup hides EXTRACT/DISABLED -> isolate
+        runAction("return");
+
+        // ntfy_config: URL -> TEST (no URL, so it advances) -> DAEMON -> CONTINUE -> fire
         runAction("return");
         runAction("return");
-        // 11. Security confirmed
         runAction("return");
-        // 12. Deploy confirmed
+        runAction("return");
+
+        // deploy: [SAVE, DISCARD, back] -> SAVE
         runAction("return");
 
         // Small wait for async onComplete/saveConfig
@@ -194,5 +212,13 @@ describe("E2E: Wizard Completion", () => {
 
         expect(mockSaveConfig).toHaveBeenCalled();
         expect(mockOnComplete).toHaveBeenCalled();
+
+        // The mocked useWizardAuth rewrites local_dir, so assert on the flow's own outputs.
+        const saved = mockSaveConfig.mock.calls[0]?.[0] as PortalConfig;
+        expect(saved.source_provider).toBe("gdrive");
+        expect(saved.backup_provider).toBe("gdrive");
+        expect(saved.upsync_enabled).toBe(true);
+        // Reaching Security proves the download/backup branch no longer skips it.
+        expect(saved.malware_policy).toBe("isolate");
     });
 });

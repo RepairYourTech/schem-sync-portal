@@ -15,6 +15,8 @@ export const DirectoryConfig = ({
     updateConfig,
     selectedIndex,
     setSelectedIndex,
+    validationError,
+    setValidationError,
     back
 }: WizardStepProps) => {
     const isInputFocused = focusArea === "body" && selectedIndex === 0;
@@ -34,14 +36,21 @@ export const DirectoryConfig = ({
                     focused={isInputFocused}
                     placeholder="/path/to/sync/dir"
                     value={config.local_dir || ""}
-                    onChange={(val) => updateConfig(prev => ({ ...prev, local_dir: val }))}
+                    onChange={(val) => {
+                        updateConfig(prev => ({ ...prev, local_dir: val }));
+                        if (setValidationError) setValidationError(null);
+                    }}
                     onKeyDown={(e) => {
                         if (e.name === "return" || e.name === "down") setSelectedIndex(1);
                     }}
                 />
             </box>
 
-            <text fg={colors.dim} attributes={TextAttributes.DIM} marginBottom={1}>This is where your files will be synced.</text>
+            {validationError ? (
+                <text fg={colors.danger}>{String("⚠ " + validationError)}</text>
+            ) : (
+                <text fg={colors.dim} attributes={TextAttributes.DIM} marginBottom={1}>This is where your files will be synced.</text>
+            )}
 
             <box
                 onMouseOver={() => { onFocusChange("body"); setSelectedIndex(1); }}

@@ -1,8 +1,8 @@
 /** @jsxImportSource @opentui/react */
 import React from "react";
-import { TextAttributes } from "@opentui/core";
 import { Hotkey } from "../../Hotkey";
 import type { WizardStepProps } from "../StepProps";
+import { EDIT_MENU_ENTRIES } from "../types";
 
 export const EditMenuStep = ({
     colors,
@@ -10,25 +10,18 @@ export const EditMenuStep = ({
     focusArea,
     onFocusChange,
     setSelectedIndex,
-    confirmSelection
+    confirmSelection,
+    back
 }: WizardStepProps) => {
-    const options = [
-        { name: "System integration", description: "Shortcut & Desktop Icon", value: "shortcut", key: "1" },
-        { name: "Source Provider", description: "Remote & Authentication", value: "source_choice", key: "2" },
-        { name: "Storage Path", description: "Local Sync Directory", value: "dir", key: "3" },
-        { name: "Sync Strategy", description: "Mirror Mode / Deletion", value: "mirror", key: "4" },
-        { name: "Backup Settings", description: "Cloud Upsync & Malware Shield", value: "upsync_ask", key: "5" },
-        { name: "Security Policy", description: "Malware Handling", value: "security", key: "6" },
-        { name: "Deploy & Finish", description: "Finalize changes", value: "deploy", key: "0" }
-    ];
+    // Shared with the container's getOptions(), so a mouse click and a keyboard Enter
+    // on the same row can never resolve to different steps.
+    const options = EDIT_MENU_ENTRIES;
 
     return (
         <box flexDirection="column" gap={1}>
-            <text attributes={TextAttributes.BOLD} fg={colors.fg}>Configuration Menu</text>
-            <text fg={colors.fg}>Select a section to edit:</text>
-            <box flexDirection="column" gap={0} marginTop={1} alignItems="flex-start">
+            <box flexDirection="column" gap={0} alignItems="flex-start">
                 {options.map((opt, i) => {
-                    const isSelected = selectedIndex === i && focusArea === "body";
+                    const isSelected = i === selectedIndex && focusArea === "body";
                     return (
                         <box
                             key={i}
@@ -39,41 +32,41 @@ export const EditMenuStep = ({
                             onMouseDown={() => confirmSelection({ type: "jump", value: opt.value })}
                             paddingLeft={1}
                             paddingRight={1}
-                            flexDirection="row"
-                            alignItems="center"
                             border
                             borderStyle="single"
                             borderColor={isSelected ? colors.success : "transparent"}
-                            height={1}
                         >
                             <Hotkey
                                 keyLabel={opt.key}
-                                label={opt.name}
+                                label={opt.label}
                                 isFocused={isSelected}
+                                layout="prefix"
                             />
-                            <text fg={isSelected ? colors.fg : colors.dim}> - {String(opt.description)}</text>
                         </box>
                     );
                 })}
-            </box>
-            <box
-                marginTop={1}
-                onMouseOver={() => onFocusChange("body")}
-                onMouseDown={() => confirmSelection({ value: "back", type: "back" })}
-                paddingLeft={1}
-                paddingRight={1}
-                flexDirection="row"
-                alignItems="center"
-                border
-                borderStyle="single"
-                borderColor={selectedIndex === options.length && focusArea === "body" ? colors.success : "transparent"}
-                height={1}
-            >
-                <Hotkey
-                    keyLabel="b"
-                    label="Back"
-                    isFocused={selectedIndex === options.length && focusArea === "body"}
-                />
+
+                {/* BACK BUTTON */}
+                <box
+                    marginTop={1}
+                    onMouseOver={() => {
+                        onFocusChange("body");
+                        setSelectedIndex(options.length);
+                    }}
+                    onMouseDown={() => back()}
+                    paddingLeft={1}
+                    paddingRight={1}
+                    border
+                    borderStyle="single"
+                    borderColor={(focusArea === "body" && selectedIndex === options.length) ? colors.success : "transparent"}
+                    alignItems="center"
+                >
+                    <Hotkey
+                        keyLabel="b"
+                        label="Back"
+                        isFocused={focusArea === "body" && selectedIndex === options.length}
+                    />
+                </box>
             </box>
         </box>
     );

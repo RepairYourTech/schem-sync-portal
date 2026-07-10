@@ -9,15 +9,17 @@ import { bootstrapSystem, isSystemBootstrapped } from "../../lib/deploy.ts";
 import { join } from "path";
 import { useTheme } from "../../lib/theme";
 import { Logger } from "../../lib/logger";
-import { PROVIDER_REGISTRY } from "../../lib/providers";
+import { Env } from "../../lib/env";
 
 // Modular Imports
 import type { Step, WizardOption, WizardKeyEvent, WizardProps } from "./types";
-import type { WizardStepProps } from "./StepProps";
+import { TEXT_INPUT_STEPS, COPYPARTY_ROW, COPYPARTY_LAST_ROW, NTFY_ROW, NTFY_LAST_ROW, directEntryFieldCount } from "./types";
+import { getStepOptions, directEntryMissingFields } from "./wizardOptions";
+import type { WizardStepProps, NtfyStepActions } from "./StepProps";
 
 import { WizardFooter } from "./WizardFooter";
 import { WizardStepRenderer } from "./WizardStepRenderer";
-import { getStepContext, findNextStep } from "./wizard-utils";
+import { getStepContext, findNextStep, resolveNextStep } from "./wizard-utils";
 
 export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQuit: _onQuit, initialConfig, mode, focusArea, onFocusChange: _onFocusChange, backSignal }: WizardProps) => {
     const { colors } = useTheme();
@@ -48,6 +50,7 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [copyparty_config_index, set_copyparty_config_index] = useState(0);
     const [direct_entry_index, set_direct_entry_index] = useState(0);
+    const [ntfy_config_index, set_ntfy_config_index] = useState(0);
     const [isAuthLoading, setIsAuthLoading] = useState(false);
     const [authStatus, setAuthStatus] = useState<string | null>(null);
     const pendingSourceProviderRef = useRef<PortalProvider>(initialConfig.source_provider);
@@ -72,6 +75,8 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
 
     const oauthTokenRef = useRef("");
     const authAbortControllerRef = useRef<AbortController | null>(null);
+    const ntfyActionsRef = useRef<NtfyStepActions | null>(null);
+    const [validationError, setValidationError] = useState<string | null>(null);
     const [history, setHistory] = useState<Step[]>([]);
     const stepStartTime = useRef(Date.now());
 
@@ -132,105 +137,48 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         if (context) setWizardContext(context);
     }, [step, history, setWizardContext]);
 
+    // Per-step focus indices are separate from selectedIndex and persisted across visits.
+    // Without this, returning to cloud_direct_entry for the backup provider started with
+    // the CONNECT button focused, mid-form.
+    useEffect(() => {
+        set_direct_entry_index(0);
+        set_copyparty_config_index(0);
+        set_ntfy_config_index(0);
+    }, [step]);
+
     const next = useCallback(() => {
-        const { step: s } = stateRef.current;
+        const { step: currentStep } = stateRef.current;
         const c = configRef.current;
-        const currentSource = pendingSourceProviderRef.current;
-        const currentBackup = pendingBackupProviderRef.current;
-        setHistory(prev => [...prev, s]);
-        setSelectedIndex(0);
 
-        setStep(prevStep => {
-            let nextStep = prevStep;
-            switch (prevStep) {
-                case "shortcut": nextStep = "download_mode"; break;
-                case "download_mode": nextStep = "source_choice"; break;
-                case "source_choice":
-                    resetWizardRefs();
-                    setWizardContext("source");
-                    if (currentSource === "unconfigured") return prevStep;
-                    if (currentSource === "copyparty") {
-                        nextStep = "copyparty_config";
-                    } else if (currentSource === "none") {
-                        nextStep = (isMenuMode ? "edit_menu" : "dir");
-                    } else {
-                        const meta = PROVIDER_REGISTRY[currentSource];
-                        nextStep = meta ? (meta.id + "_intro") as Step : (isMenuMode ? "edit_menu" : "dir");
-                    }
-                    break;
-                case "copyparty_config": nextStep = (isMenuMode ? "edit_menu" : "dir"); break;
-                case "dir": nextStep = (isMenuMode ? "edit_menu" : "mirror"); break;
-                case "mirror": nextStep = (isMenuMode ? "edit_menu" : "upsync_ask"); break;
-                case "upsync_ask":
-                    if (selectedIndex === 1) {
-                        resetWizardRefs();
-                        setWizardContext("dest");
-                        nextStep = "dest_cloud_select";
-                    } else {
-                        nextStep = (isMenuMode ? "edit_menu" : "security");
-                    }
-                    break;
-                case "dest_cloud_select":
-                    if (currentBackup === "unconfigured") return prevStep;
-                    {
-                        const meta = PROVIDER_REGISTRY[currentBackup];
-                        nextStep = meta?.hasGuidedPath || meta?.hasDirectPath ? (meta.id + "_intro") as Step : (isMenuMode ? "edit_menu" : "backup_dir");
-                    }
-                    break;
-                case "backup_dir": nextStep = (isMenuMode ? "edit_menu" : "security"); break;
-                case "security": nextStep = (isMenuMode ? "edit_menu" : "deploy"); break;
-                case "cloud_direct_entry": nextStep = (isMenuMode ? "edit_menu" : (wizardContextRef.current === "source" ? "dir" : "backup_dir")); break;
-                case "deploy": onComplete(c); break;
-                default:
-                    // Generic Provider Step Handling
-                    const provider = Object.values(PROVIDER_REGISTRY).find(p => prevStep.startsWith(p.id + "_"));
-                    if (provider) {
-                        if (prevStep.endsWith("_intro")) {
-                            if (pendingCloudPathRef.current === "guided" && provider.steps.length > 0) {
-                                // Jump to first guide step (skipping intro if it's steps[0])
-                                const guideIdx = provider.steps.findIndex(s => s.includes("_guide_"));
-                                nextStep = (guideIdx !== -1 ? provider.steps[guideIdx] : (provider.steps[1] || provider.steps[0])) as Step;
-                            } else {
-                                nextStep = "cloud_direct_entry";
-                            }
-                        } else if (prevStep.includes("_guide_")) {
-                            const idx = provider.steps.indexOf(prevStep);
-                            nextStep = (idx !== -1 && idx < provider.steps.length - 1) ? provider.steps[idx + 1] as Step : "cloud_direct_entry";
-                        }
-                    }
+        if (currentStep === "deploy") { onComplete(c); return; }
 
-                    break;
-            }
-            stepStartTime.current = Date.now();
-            return nextStep;
+        const nextStep = resolveNextStep(currentStep, {
+            config: c,
+            isMenuMode,
+            sourceProvider: pendingSourceProviderRef.current,
+            backupProvider: pendingBackupProviderRef.current,
+            cloudPath: pendingCloudPathRef.current,
+            wizardContext: wizardContextRef.current
         });
-    }, [onComplete, wizardContext, isMenuMode, selectedIndex]);
 
-    const getOptions = useCallback(() => {
-        if (step === "shortcut") return [...(isShortcutMissing ? [{ value: 1, type: "bootstrap" }, { value: 2, type: "shortcut" }, { value: 0, type: "skip" }] : [{ value: 1, type: "desktop_shortcut" }, { value: 0, type: "desktop_shortcut" }]), { value: "back", type: "back" }];
-        if (step === "download_mode") return [{ value: "full", type: "download_mode" }, { value: "lean", type: "download_mode" }, { value: "back", type: "back" }];
-        if (step === "edit_menu") return [{ value: "shortcut", type: "jump" }, { value: "download_mode", type: "jump" }, { value: "source_choice", type: "jump" }, { value: "dir", type: "jump" }, { value: "mirror", type: "jump" }, { value: "upsync_ask", type: "jump" }, { value: "security", type: "jump" }, { value: "deploy", type: "jump" }, { value: "back", type: "back" }];
-        if (step === "source_choice") return [...Object.keys(PROVIDER_REGISTRY).filter(k => !["none", "unconfigured"].includes(k)).map(v => ({ value: v, type: "source_select" })), { value: "back", type: "back" }];
+        // A prerequisite is unmet (e.g. no provider chosen). Stay put without polluting
+        // history: pushing here meant Back had to be pressed twice.
+        if (!nextStep || nextStep === currentStep) return;
 
-        if (step === "mirror") return [{ value: false, type: "mirror" }, { value: true, type: "mirror" }, { value: "back", type: "back" }];
-        if (step === "dir" || step === "backup_dir") return [{ value: config.local_dir, type: "dir_input" }, { value: "confirm", type: "dir_confirm" }, { value: "back", type: "back" }];
-        if (step === "upsync_ask") return [{ value: "download_only", type: "sync_mode" }, { value: "sync_backup", type: "sync_mode" }, { value: "back", type: "back" }];
-        if (step === "security") {
-            const opts = [{ value: "isolate", type: "sec_policy" }, { value: "purge", type: "sec_policy" }, { value: false, type: "sec_toggle" }];
-            return [...(config.backup_provider === "gdrive" ? opts.filter(o => o.value !== false) : opts), { value: "back", type: "back" }];
-        }
-        if (step === "dest_cloud_select") return [...Object.keys(PROVIDER_REGISTRY).filter(k => !["none", "unconfigured", "copyparty"].includes(k)).map(v => ({ value: v, type: "backup_provider" })), { value: "back", type: "back" }];
-        if (step?.endsWith("_intro")) {
-            const provider = Object.values(PROVIDER_REGISTRY).find(p => step.startsWith(p.id + "_"));
-            const opts = [];
-            if (provider?.hasGuidedPath) opts.push({ value: "guided", type: "intro_path" });
-            if (provider?.hasDirectPath) opts.push({ value: "direct", type: "intro_path" });
-            return [...opts, { value: "back", type: "back" }];
-        }
-        if (step?.includes("_guide_")) return [{ value: true, type: "guide_next" }, { value: "back", type: "back" }];
-        if (step === "deploy") return [{ value: true, type: "deploy" }, { value: false, type: "deploy" }, { value: "back", type: "back" }];
-        return [];
-    }, [step, isShortcutMissing, config.backup_provider]);
+        // Entering a provider flow starts from clean credential fields.
+        if (currentStep === "source_choice") { resetWizardRefs(); setWizardContext("source"); }
+        if (currentStep === "upsync_ask" && c.upsync_enabled) { resetWizardRefs(); setWizardContext("dest"); }
+
+        setHistory(prev => [...prev, currentStep]);
+        setSelectedIndex(0);
+        stepStartTime.current = Date.now();
+        setStep(nextStep);
+    }, [onComplete, isMenuMode, resetWizardRefs, setWizardContext]);
+
+    const getOptions = useCallback(
+        () => getStepOptions(step, config, isShortcutMissing),
+        [step, config, isShortcutMissing]
+    );
 
     const {
         handleAuth,
@@ -267,11 +215,46 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
 
         if (opt.type === "intro_path") { pendingCloudPathRef.current = opt.value as "guided" | "direct"; next(); return; }
         if (opt.type === "guide_next") { next(); return; }
-        if (opt.type === "desktop_shortcut") { if (opt.value === 1) bootstrapSystem(join(process.cwd(), "src/index.tsx")); updateConfig(prev => ({ ...prev, desktop_shortcut: opt.value as number })); next(); return; }
+        if (opt.type === "desktop_shortcut") {
+            if (opt.value === 1) bootstrapSystem(join(process.cwd(), "src/index.tsx"));
+            // desktop_shortcut semantics (config.ts): 0=unset, 1=on, 2=skipped. Storing 0
+            // for "NO" left it unset, so the question was asked again on every launch.
+            updateConfig(prev => ({ ...prev, desktop_shortcut: opt.value === 1 ? 1 : 2 }));
+            next();
+            return;
+        }
+        // Recovery options shown when the launcher went missing. These fell through to a
+        // bare next(), so "RECREATE" recreated nothing and "don't ask again" kept asking.
+        if (opt.type === "bootstrap") { bootstrapSystem(join(process.cwd(), "src/index.tsx")); updateConfig(prev => ({ ...prev, desktop_shortcut: 1 })); next(); return; }
+        if (opt.type === "shortcut") { updateConfig(prev => ({ ...prev, desktop_shortcut: 2 })); next(); return; }
+        if (opt.type === "skip") { next(); return; }
         if (opt.type === "download_mode") { updateConfig(prev => ({ ...prev, download_mode: opt.value as "full" | "lean" })); next(); return; }
-        if (opt.type === "jump") { const targetStep = opt.value as Step; if (targetStep === "source_choice" || targetStep === "copyparty_config") setWizardContext("source"); if (targetStep === "dest_cloud_select") setWizardContext("dest"); setStep(targetStep); return; }
-        if (opt.type === "dir_confirm") { if (config.local_dir && config.local_dir !== "" && config.local_dir !== "none") next(); return; }
-        if (opt.type === "sec_policy") { updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.value as "purge" | "isolate" })); next(); }
+        if (opt.type === "jump") {
+            const targetStep = opt.value as Step;
+            if (targetStep === "source_choice" || targetStep === "copyparty_config") setWizardContext("source");
+            if (targetStep === "dest_cloud_select") setWizardContext("dest");
+            // Record where we came from, so Back returns to the menu instead of
+            // popping an empty history and closing the wizard entirely.
+            setHistory(prev => [...prev, "edit_menu"]);
+            setSelectedIndex(0);
+            setStep(targetStep);
+            return;
+        }
+        // Enter while the path input has focus must not skip validation. Move focus to
+        // the confirm row instead; the user still has to accept the path.
+        if (opt.type === "dir_input") { setSelectedIndex(1); return; }
+        if (opt.type === "dir_confirm") {
+            const dir = step === "backup_dir" ? config.backup_dir : config.local_dir;
+            // backup_dir is intentionally optional; an empty value means "no backup dir".
+            if (step === "backup_dir" && (!dir || dir.trim() === "")) { setValidationError(null); next(); return; }
+
+            const reason = Env.getUnsafeDirectoryReason(dir || "");
+            if (reason) { setValidationError(reason); return; }
+            setValidationError(null);
+            next();
+            return;
+        }
+        if (opt.type === "sec_policy") { updateConfig(prev => ({ ...prev, enable_malware_shield: true, malware_policy: opt.value as "purge" | "isolate" | "extract" })); next(); }
         else if (opt.type === "sec_toggle") { updateConfig(prev => ({ ...prev, enable_malware_shield: opt.value as boolean })); next(); }
         else if (opt.type === "source_select") {
             const provider = opt.value as PortalProvider;
@@ -289,9 +272,9 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         else if (opt.type === "sync_mode") {
             const newVal = opt.value === "sync_backup";
             updateConfig(prev => ({ ...prev, upsync_enabled: newVal }));
-            if (newVal) { setWizardContext("dest"); setStep("dest_cloud_select"); }
-            else setStep("deploy");
-            setSelectedIndex(0);
+            // Route through next() so history is pushed and the download-only path still
+            // reaches the Security step. Calling setStep directly skipped both.
+            next();
         } else {
 
             const fieldMap: Record<string, keyof PortalConfig> = { mirror: "strict_mirror" };
@@ -309,8 +292,16 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
                         if (copyparty_config_index === 0) _onFocusChange("footer");
                         else set_copyparty_config_index(prev => prev - 1);
                     } else {
-                        if (copyparty_config_index === 5) _onFocusChange("footer");
+                        if (copyparty_config_index === COPYPARTY_LAST_ROW) _onFocusChange("footer");
                         else set_copyparty_config_index(prev => prev + 1);
+                    }
+                } else if (step === "ntfy_config") {
+                    if (e.shift) {
+                        if (ntfy_config_index === 0) _onFocusChange("footer");
+                        else set_ntfy_config_index(prev => prev - 1);
+                    } else {
+                        if (ntfy_config_index === NTFY_LAST_ROW) _onFocusChange("footer");
+                        else set_ntfy_config_index(prev => prev + 1);
                     }
                 } else if (step === "cloud_direct_entry") {
                     const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
@@ -347,60 +338,97 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
 
             if (step === "copyparty_config") {
                 if (e.name >= "0" && e.name <= "9") return;
-                if (e.name === "down") { set_copyparty_config_index(prev => Math.min(5, prev + 1)); return; }
+                if (e.name === "down") { set_copyparty_config_index(prev => Math.min(COPYPARTY_LAST_ROW, prev + 1)); return; }
                 else if (e.name === "up") { set_copyparty_config_index(prev => Math.max(0, prev - 1)); return; }
-                if (copyparty_config_index === 3) {
+                if (copyparty_config_index === COPYPARTY_ROW.METHOD) {
                     if (e.name === "left") { setSelectedIndex(0); updateConfig(prev => ({ ...prev, copyparty_method: "webdav" })); return; }
                     if (e.name === "right") { setSelectedIndex(1); updateConfig(prev => ({ ...prev, copyparty_method: "http" })); return; }
+                }
+            }
+
+            if (step === "ntfy_config") {
+                if (e.name >= "0" && e.name <= "9") return;
+                if (e.name === "down") { set_ntfy_config_index(prev => Math.min(NTFY_LAST_ROW, prev + 1)); return; }
+                else if (e.name === "up") { set_ntfy_config_index(prev => Math.max(0, prev - 1)); return; }
+                if (ntfy_config_index === NTFY_ROW.DAEMON) {
+                    // Route through the step's handler so the daemon is actually
+                    // installed/uninstalled rather than just flipping the config flag.
+                    if (e.name === "left") { ntfyActionsRef.current?.toggle(true); return; }
+                    if (e.name === "right") { ntfyActionsRef.current?.toggle(false); return; }
                 }
             }
 
             if (step === "cloud_direct_entry") {
                 if (e.name >= "0" && e.name <= "9") return;
                 const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
-                const maxIdx = (provider === "sftp" || provider === "r2") ? 4 : 3;
+                const maxIdx = directEntryFieldCount(provider) + 1; // fields, CONNECT, BACK
                 if (e.name === "down") { set_direct_entry_index(prev => Math.min(maxIdx, prev + 1)); return; }
                 else if (e.name === "up") { set_direct_entry_index(prev => Math.max(0, prev - 1)); return; }
             }
 
             if (e.name === "return") {
+                if (step === "ntfy_config") {
+                    if (ntfy_config_index === NTFY_ROW.BACK) back();
+                    else if (ntfy_config_index === NTFY_ROW.DONE) next();
+                    else if (ntfy_config_index === NTFY_ROW.TEST && config.ntfy_url?.trim() && ntfyActionsRef.current) {
+                        ntfyActionsRef.current.test();
+                    }
+                    // With no URL there is nothing to test, so Enter advances rather than
+                    // silently doing nothing and stranding the user on the button.
+                    else set_ntfy_config_index(prev => Math.min(NTFY_LAST_ROW, prev + 1));
+                    return;
+                }
                 if (step === "copyparty_config") {
-                    if (copyparty_config_index === 5) back();
-                    else if (copyparty_config_index === 4) handleAuth();
-                    else set_copyparty_config_index(prev => Math.min(5, prev + 1));
+                    if (copyparty_config_index === COPYPARTY_ROW.BACK) back();
+                    else if (copyparty_config_index === COPYPARTY_ROW.CONNECT) handleAuth();
+                    else set_copyparty_config_index(prev => Math.min(COPYPARTY_LAST_ROW, prev + 1));
                     return;
                 }
                 if (step === "cloud_direct_entry") {
                     if (isAuthLoading || activeAuthRequestRef?.current) return;
                     const provider = wizardContext === "source" ? pendingSourceProviderRef.current : pendingBackupProviderRef.current;
-                    const maxIdx = (provider === "sftp" || provider === "r2") ? 4 : 3;
-                    if (direct_entry_index === maxIdx) {
-                        back();
-                        return;
-                    }
-                    if (direct_entry_index === maxIdx - 1) {
-                        if (!isAuthLoading) {
-                            dispatchDirectAuth(provider);
+                    const fieldCount = directEntryFieldCount(provider);
+                    const connectIdx = fieldCount;
+                    const backIdx = fieldCount + 1;
+
+                    if (direct_entry_index === backIdx) { back(); return; }
+                    if (direct_entry_index === connectIdx) {
+                        // Apply the same required-field check the mouse path performs;
+                        // keyboard users could otherwise create remotes with empty creds.
+                        const missing = directEntryMissingFields(provider, {
+                            url: urlRef.current, user: userRef.current, pass: passRef.current,
+                            clientId: clientIdRef.current, clientSecret: clientSecretRef.current,
+                            b2Id: b2IdRef.current, b2Key: b2KeyRef.current
+                        });
+                        if (missing.length > 0) {
+                            setAuthStatus(`Missing required field(s): ${missing.join(", ")}`);
+                            return;
                         }
+                        setAuthStatus(null);
+                        dispatchDirectAuth(provider);
                     } else set_direct_entry_index(prev => prev + 1);
 
                     return;
                 }
             }
-        }
-
-        const selectableSteps: Step[] = ["shortcut", "download_mode", "source_choice", "dir", "mirror", "upsync_ask", "dest_cloud_select", "backup_dir", "security", "edit_menu", "gdrive_intro", "gdrive_guide_1", "gdrive_guide_2", "gdrive_guide_3", "gdrive_guide_4", "b2_intro", "sftp_intro", "pcloud_intro", "onedrive_intro", "dropbox_intro", "mega_intro", "r2_intro", "s3_intro", "deploy", "cloud_direct_entry"];
-        if (selectableSteps.includes(step)) {
+            // Body navigation for every list-shaped step. Guides are included so that
+            // keyboard users are not stranded on non-GDrive provider screens.
             const options = getOptions();
             if (options.length === 0) return;
 
+            const isTextInputStep = TEXT_INPUT_STEPS.includes(step);
+
             if (e.name === "down") setSelectedIndex(prev => (prev + 1) % options.length);
             else if (e.name === "up") setSelectedIndex(prev => (prev - 1 + options.length) % options.length);
-            else if (e.name >= "1" && e.name <= "9") {
-                const idx = parseInt(e.name) - 1;
-                if (idx < options.length) setSelectedIndex(idx);
-            } else if (e.name === "return") confirmSelection(options[selectedIndex]!);
-            else if (e.name === "b") back();
+            else if (e.name === "return") confirmSelection(options[selectedIndex]!);
+            else if (!isTextInputStep) {
+                // `b` and digits are navigation only where no text field has focus.
+                // Typing "/backups" into the path field used to fire back() on the `b`.
+                if (e.name >= "1" && e.name <= "9") {
+                    const idx = parseInt(e.name) - 1;
+                    if (idx < options.length) setSelectedIndex(idx);
+                } else if (e.name === "b") back();
+            }
         }
     };
 
@@ -410,7 +438,8 @@ export const WizardContainer = React.memo(({ onComplete, onUpdate, onCancel, onQ
         getOptions, isAuthLoading, authStatus, setAuthStatus, handleAuth, handleGdriveAuth, startGenericAuth,
         dispatchDirectAuth,
         wizardInputs, updateInput, refs: { urlRef, userRef, passRef, clientIdRef, clientSecretRef, b2IdRef, b2KeyRef },
-        isShortcutMissing, copyparty_config_index, set_copyparty_config_index, direct_entry_index, set_direct_entry_index,
+        isShortcutMissing, copyparty_config_index, set_copyparty_config_index, direct_entry_index, set_direct_entry_index, ntfy_config_index, set_ntfy_config_index, ntfyActions: ntfyActionsRef,
+        validationError, setValidationError,
         wizardContext, pendingSourceProvider: pendingSourceProviderRef.current, pendingBackupProvider: pendingBackupProviderRef.current,
         fontVersion: config.nerd_font_version || 2, updateGenericRemote, updateGdriveRemote, authorizeRemote,
         step

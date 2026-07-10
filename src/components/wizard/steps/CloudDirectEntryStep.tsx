@@ -36,7 +36,9 @@ export const CloudDirectEntryStep = ({
         fields.push({ label: "Key ID", ref: refs.b2IdRef!, icon: "🆔", placeholder: "005...", key: "b2Id" });
         fields.push({ label: "Application Key", ref: refs.b2KeyRef!, icon: "🔑", placeholder: "K005...", key: "b2Key" });
     } else if (provider === "sftp") {
-        fields.push({ label: "Host", ref: refs.urlRef!, icon: "🌐", placeholder: "sftp.example.com:22", key: "url" });
+        // No port field is collected, and the whole string becomes rclone's `host`.
+        // A "host:22" placeholder taught users a value that fails DNS resolution.
+        fields.push({ label: "Host", ref: refs.urlRef!, icon: "🌐", placeholder: "sftp.example.com", key: "url" });
         fields.push({ label: "User", ref: refs.userRef!, icon: "👤", placeholder: "username", key: "user" });
         fields.push({ label: "Password", ref: refs.passRef!, icon: "🔑", placeholder: "password", key: "pass" });
     } else if (provider === "pcloud") {
@@ -51,6 +53,12 @@ export const CloudDirectEntryStep = ({
         fields.push({ label: "Access Key ID", ref: refs.userRef!, icon: "🆔", placeholder: "access-key", key: "user" });
         fields.push({ label: "Secret Key", ref: refs.passRef!, icon: "🔑", placeholder: "secret-key", key: "pass" });
         fields.push({ label: "Endpoint", ref: refs.urlRef!, icon: "🌐", placeholder: "account-id.r2.cloudflarestorage.com", key: "url" });
+    } else if (provider === "s3") {
+        // s3DirectAuth reads these three refs. Without the inputs the remote was created
+        // with empty credentials and the wizard still reported success.
+        fields.push({ label: "Access Key ID", ref: refs.userRef!, icon: "🆔", placeholder: "AKIA...", key: "user" });
+        fields.push({ label: "Secret Key", ref: refs.passRef!, icon: "🔑", placeholder: "secret-access-key", key: "pass" });
+        fields.push({ label: "Endpoint", ref: refs.urlRef!, icon: "🌐", placeholder: "s3.us-east-1.amazonaws.com", key: "url" });
     }
 
     const isConnectFocused = direct_entry_index === fields.length && focusArea === "body";
