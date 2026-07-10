@@ -1,5 +1,6 @@
-import { join } from "path";
-import { existsSync, mkdirSync } from "fs";
+import { join, isAbsolute, resolve } from "path";
+import { existsSync, mkdirSync, realpathSync } from "fs";
+import { homedir } from "os";
 import { which } from "bun";
 
 export type Platform = "win32" | "darwin" | "linux";
@@ -115,20 +116,75 @@ export class Env {
     }
 
     /**
-     * Safety check to prevent operations on system roots
+     * Guards every destructive filesystem path (mirror sync, shield purge, lean sweep).
+     *
+     * The sync engine deletes files that are not on the remote and strips any extension
+     * outside the schematic whitelist, so pointing it at a home directory, a mount root,
+     * or a user data folder is unrecoverable. Returns a reason string when unsafe so the
+     * caller can tell the user *why*, and null when the path is acceptable.
+     */
+    static getUnsafeDirectoryReason(path: string): string | null {
+        if (!path || path.trim() === "") return "No directory selected.";
+
+        const raw = path.trim();
+        if (raw.startsWith("~")) return "Use an absolute path, not '~'.";
+        if (!isAbsolute(raw)) return "Directory must be an absolute path.";
+
+        // Resolve `..` and symlinks so `/home/me/../..` cannot slip through.
+        let normalized: string;
+        try {
+            normalized = existsSync(raw) ? realpathSync(raw) : resolve(raw);
+        } catch {
+            normalized = resolve(raw);
+        }
+        normalized = normalized.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
+
+        if (normalized === "/" || /^[a-zA-Z]:$/.test(normalized)) {
+            return "Refusing to operate on the filesystem root.";
+        }
+
+        // Consider both the env-derived home and the OS-reported one: $HOME can be
+        // reassigned (tests, sandboxes, sudo), and a guard that misses the real home
+        // directory is worse than no guard at all.
+        const homeCandidates = [Env.getPaths().home, homedir()]
+            .filter((h): h is string => Boolean(h))
+            .map(h => h.replace(/\\/g, "/").replace(/\/+$/, ""));
+
+        if (homeCandidates.includes(normalized)) {
+            return "Refusing to operate directly on your home directory. Choose a subfolder.";
+        }
+
+        const criticals = [
+            "/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc", "/var", "/boot", "/dev",
+            "/proc", "/sys", "/run", "/opt", "/srv", "/System", "/Library", "/Applications",
+            "/Windows", "/Program Files", "/Program Files (x86)"
+        ];
+        if (criticals.some(c => normalized === c || normalized.startsWith(c + "/"))) {
+            return `Refusing to operate on the system directory ${normalized}.`;
+        }
+
+        // Containers of user data or mounts: a subfolder is fine, the root itself is not.
+        const rootsNeedingSubfolder = ["/home", "/Users", "/root", "/mnt", "/media", "/tmp", "/Volumes"];
+        if (rootsNeedingSubfolder.includes(normalized)) {
+            return `Refusing to operate directly on ${normalized}. Choose a subfolder.`;
+        }
+
+        // Common user data roots. A subfolder of these is fine; the root itself is not.
+        const dataRoots = ["Documents", "Desktop", "Downloads", "Pictures", "Music", "Videos"];
+        for (const home of homeCandidates) {
+            if (dataRoots.some(d => normalized === `${home}/${d}`)) {
+                return `Refusing to operate directly on ${normalized}. Choose a dedicated subfolder.`;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Safety check to prevent operations on system roots and user data roots.
      */
     static isSafeDirectory(path: string): boolean {
-        if (!path || path.trim() === "") return false;
-        const normalized = path.replace(/\\/g, "/");
-
-        // Block roots
-        if (normalized === "/" || normalized.match(/^[a-zA-Z]:\/$/)) return false;
-
-        // Block critical system folders (basic heuristic)
-        const criticals = ["/usr", "/bin", "/sbin", "/etc", "/var", "/Windows", "/Program Files"];
-        if (criticals.some(c => normalized.startsWith(c))) return false;
-
-        return true;
+        return Env.getUnsafeDirectoryReason(path) === null;
     }
 
     /**

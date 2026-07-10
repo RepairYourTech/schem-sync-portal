@@ -1,6 +1,13 @@
+import type React from "react";
 import type { PortalConfig, PortalProvider } from "../../lib/config.ts";
 import type { ThemeColors } from "../../lib/theme.tsx";
 import type { Step, WizardOption } from "./types";
+
+/** Actions the ntfy step exposes so keyboard and mouse take identical code paths. */
+export interface NtfyStepActions {
+    test: () => void;
+    toggle: (enable: boolean) => void;
+}
 
 export interface WizardStepProps {
     config: PortalConfig;
@@ -39,6 +46,17 @@ export interface WizardStepProps {
     set_copyparty_config_index?: (index: number) => void;
     direct_entry_index?: number;
     set_direct_entry_index?: (index: number) => void;
+    ntfy_config_index?: number;
+    set_ntfy_config_index?: (index: number) => void;
+    /**
+     * Populated by NtfyConfigStep so the container's keyboard handler can run the same
+     * code paths as a mouse click. Toggling the daemon must install/uninstall it, not
+     * merely flip the config flag.
+     */
+    ntfyActions?: React.MutableRefObject<NtfyStepActions | null>;
+    /** Why the current input was rejected, shown inline by the step. */
+    validationError?: string | null;
+    setValidationError?: (message: string | null) => void;
     wizardContext?: "source" | "dest" | null;
     pendingSourceProvider?: PortalProvider;
     pendingBackupProvider?: PortalProvider;

@@ -3,7 +3,7 @@ import { join } from "path";
 import { Env } from "./env";
 
 export type LogLevel = "NORMAL" | "DEBUG" | "VERBOSE";
-export type LogContext = "AUTH" | "SYNC" | "UI" | "DEPLOY" | "CONFIG" | "SYSTEM" | "SHIELD";
+export type LogContext = "AUTH" | "SYNC" | "UI" | "DEPLOY" | "CONFIG" | "SYSTEM" | "SHIELD" | "NTFY" | "DAEMON";
 
 interface LogEntry {
     timestamp: string;
@@ -34,6 +34,20 @@ export class Logger {
         /jwt/gi
     ];
 
+    /**
+     * Secrets whose key name does not appear next to them in the log line.
+     * Each pattern must capture the non-secret prefix as group 1.
+     */
+    private static sensitiveValuePatterns: RegExp[] = [
+        /(cppws=)[^;"'\s,\]]+/gi,
+        /(cppwd=)[^;"'\s,\]]+/gi,
+        /(Bearer\s+)[\w.\-~+/]+=*/gi,
+        // rclone passes credentials as `argname value` pairs. Only unambiguous
+        // multi-word names belong here: bare `pass`/`key` collide with log prose
+        // ("Shield pass finished"), and the key=value rule already covers those.
+        /(\b(?:secret_access_key|access_key_id|client_secret|client_id|refresh_token|access_token|api_key|private_key)\s+)[^\s,;\]]+/gi
+    ];
+
     private static healthStatus: Record<LogContext, "OK" | "WARN" | "ERROR"> = {
         AUTH: "OK",
         SYNC: "OK",
@@ -41,7 +55,9 @@ export class Logger {
         DEPLOY: "OK",
         CONFIG: "OK",
         SYSTEM: "OK",
-        SHIELD: "OK"
+        SHIELD: "OK",
+        NTFY: "OK",
+        DAEMON: "OK"
     };
 
     static setLevel(level: LogLevel) {
@@ -205,13 +221,21 @@ export class Logger {
      */
     private static maskSensitive(message: string): string {
         let masked = message;
+
+        // Pass 1: values that are secrets regardless of the key naming them.
+        this.sensitiveValuePatterns.forEach(pattern => {
+            masked = masked.replace(new RegExp(pattern.source, pattern.flags), "$1********");
+        });
+
+        // Pass 2: key/value pairs. The optional quote after the key name is what
+        // makes this match JSON (`"access_token": "ya29..."`) and not just `key=value`.
         this.sensitivePatterns.forEach(pattern => {
-            // Case 1: key="value" or key='value' or key: "value"
-            const quotedRegex = new RegExp(`(${pattern.source})\\s*[:=]\\s*(["'])([^"']*?)\\2`, "gi");
+            const key = pattern.source;
+
+            const quotedRegex = new RegExp(`(${key})["']?\\s*[:=]\\s*(["'])(?:\\\\.|[^"'\\\\])*\\2`, "gi");
             masked = masked.replace(quotedRegex, "$1=********");
 
-            // Case 2: key=value (no quotes, up to space or end of string)
-            const unquotedRegex = new RegExp(`(${pattern.source})\\s*[:=]\\s*([^\\s,;]+)`, "gi");
+            const unquotedRegex = new RegExp(`(${key})["']?\\s*[:=]\\s*([^\\s,;}\\]]+)`, "gi");
             masked = masked.replace(unquotedRegex, "$1=********");
         });
         return masked;

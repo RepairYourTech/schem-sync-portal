@@ -3,7 +3,6 @@ import React from "react";
 import { TextAttributes } from "@opentui/core";
 import type { PortalProvider } from "../../lib/config.ts";
 import { Hotkey } from "../Hotkey";
-import { ProviderIcon } from "../ProviderIcon";
 import type { WizardStepProps } from "./StepProps";
 import { getProviderMetadata } from "../../lib/providers";
 
@@ -16,23 +15,21 @@ export const SourceChoice = ({
     getCurrentStepNumber,
     getOptions,
     confirmSelection,
-    config,
     back
 }: WizardStepProps) => {
-    const fontVersion = config.nerd_font_version || 2;
-
     const allOptions = getOptions();
     const backIdx = allOptions.findIndex(o => o.type === "back");
     const isBackFocused = selectedIndex === backIdx && focusArea === "body";
+    const menuOptions = allOptions.filter(o => o.type !== "back");
 
     return (
         <box flexDirection="column" gap={1}>
             <text attributes={TextAttributes.BOLD} fg={colors.fg}>Step {String(getCurrentStepNumber())}: Source Provider</text>
-            <text fg={colors.fg}>🔗 Select your "Source of Truth":</text>
-            <box flexDirection="column" gap={0} marginTop={1} alignItems="flex-start">
-                {allOptions.filter(o => o.type !== "back").map((opt, i) => {
+            <text fg={colors.fg}>Select your Source of Truth:</text>
+            <box flexDirection="column" gap={0} alignItems="flex-start">
+                {menuOptions.map((opt, i) => {
                     const meta = getProviderMetadata(opt.value as PortalProvider);
-                    const isFocused = selectedIndex === i && focusArea === "body";
+                    const isSelected = i === selectedIndex && focusArea === "body";
                     return (
                         <box
                             key={i}
@@ -41,20 +38,18 @@ export const SourceChoice = ({
                                 setSelectedIndex(i);
                             }}
                             onMouseDown={() => confirmSelection(opt)}
-                            paddingLeft={2}
-                            border={isFocused}
+                            paddingLeft={1}
+                            paddingRight={1}
+                            border
                             borderStyle="single"
-                            borderColor={isFocused ? colors.success : "transparent"}
-                            flexDirection="row"
-                            alignItems="center"
-                            gap={1}
+                            borderColor={isSelected ? colors.success : "transparent"}
+                            flexShrink={0}
                         >
-                            <text fg={isFocused ? colors.primary : colors.dim}>{String(isFocused ? "▶ " : "  ")}</text>
-                            <ProviderIcon provider={opt.value as string} version={fontVersion} color={colors.primary} />
                             <Hotkey
                                 keyLabel={(i + 1).toString()}
                                 label={meta.label}
-                                isFocused={isFocused}
+                                isFocused={isSelected}
+                                layout="prefix"
                             />
                         </box>
                     );
@@ -69,14 +64,13 @@ export const SourceChoice = ({
                             setSelectedIndex(backIdx);
                         }}
                         onMouseDown={() => back()}
-                        paddingLeft={2}
-                        border={isBackFocused}
+                        paddingLeft={1}
+                        paddingRight={1}
+                        border
                         borderStyle="single"
                         borderColor={isBackFocused ? colors.success : "transparent"}
-                        flexDirection="row"
                         alignItems="center"
                     >
-                        <text fg={isBackFocused ? colors.primary : colors.dim}>{String(isBackFocused ? "▶ " : "  ")}</text>
                         <Hotkey
                             keyLabel="b"
                             label="Back"

@@ -40,7 +40,7 @@ export const UpsyncConfig = ({
                             }}
                             onMouseDown={() => confirmSelection(allOptions[i]!)}
                             paddingLeft={2}
-                            border={isFocused}
+                            border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
                             flexDirection="row"

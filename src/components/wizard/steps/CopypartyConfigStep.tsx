@@ -99,7 +99,6 @@ export const CopypartyConfigStep = ({
                                 border
                                 borderStyle="single"
                                 borderColor={isFocused ? colors.success : (isSelected ? colors.primary : "transparent")}
-                                height={1}
                             >
                                 <text fg={isSelected ? colors.success : colors.dim}>{isSelected ? "● " : "○ "}</text>
                                 <text fg={isFocused ? colors.fg : (isSelected ? colors.fg : colors.dim)}>{String(m.name)}</text>
@@ -114,13 +113,14 @@ export const CopypartyConfigStep = ({
                 marginTop={1}
                 onMouseOver={() => { onFocusChange("body"); set_copyparty_config_index(4); }}
                 onMouseDown={() => handleAuth && handleAuth()}
-                border
+                border={copyparty_config_index === 4}
                 borderStyle="double"
-                borderColor={copyparty_config_index === 4 ? colors.success : colors.dim}
+                borderColor={copyparty_config_index === 4 ? colors.success : "transparent"}
                 paddingLeft={1}
                 paddingRight={1}
-                alignItems="center"
                 height={1}
+                alignItems="center"
+                alignSelf="flex-start"
             >
                 <Hotkey keyLabel="ENTER" label={isAuthLoading ? "CONNECTING..." : "TEST & CONNECT"} isFocused={copyparty_config_index === 4} />
             </box>
@@ -130,13 +130,14 @@ export const CopypartyConfigStep = ({
                 marginTop={1}
                 onMouseOver={() => { onFocusChange("body"); set_copyparty_config_index(5); }}
                 onMouseDown={() => back()}
-                border
+                border={copyparty_config_index === 5}
                 borderStyle="single"
                 borderColor={copyparty_config_index === 5 ? colors.success : "transparent"}
                 paddingLeft={1}
                 paddingRight={1}
-                alignItems="center"
                 height={1}
+                alignItems="center"
+                alignSelf="flex-start"
             >
                 <Hotkey keyLabel="b" label="Back" isFocused={copyparty_config_index === 5} />
             </box>

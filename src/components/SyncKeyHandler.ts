@@ -4,6 +4,8 @@ import type { Phase } from "../hooks/useSync";
 export interface SyncStateVars {
     config: PortalConfig;
     isRunning: boolean;
+    /** Which region currently owns the keyboard. Body keys must not fire from the footer. */
+    focusArea: "header" | "body" | "footer";
     syncFocusIndex: number;
     syncSubFocusIndex: number;
     setSyncFocusIndex: (val: number | ((prev: number) => number)) => void;
@@ -22,12 +24,17 @@ export interface SyncStateVars {
  */
 export function handleSyncKeys(key: { name: string }, state: SyncStateVars): boolean {
     const {
-        config, isRunning,
+        config, isRunning, focusArea,
         syncFocusIndex, syncSubFocusIndex,
         setSyncFocusIndex, setSyncSubFocusIndex,
         setConfig, handleStartSync, stop,
         pausePhase, resumePhase, isPhasePaused
     } = state;
+
+    // When the footer or header owns focus, its buttons own the keyboard. This handler
+    // used to swallow Enter and the arrow keys unconditionally, so with "Exit" focused
+    // Enter toggled the sync instead of exiting: the sync view had no keyboard way out.
+    if (focusArea !== "body") return false;
 
     const showSource = config.source_provider !== "none";
     const showShield = config.enable_malware_shield === true;

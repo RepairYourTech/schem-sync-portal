@@ -40,7 +40,7 @@ export const PCloudSetup = ({
                 context={wizardContext || null}
                 colors={colors}
             >
-                <box flexDirection="column" gap={0} marginTop={1}>
+                <box flexDirection="column" gap={0} marginTop={1} alignItems="flex-start">
                     {options.map((opt, i) => {
                         const isFocused = selectedIndex === i && focusArea === "body";
                         return (
@@ -53,9 +53,10 @@ export const PCloudSetup = ({
                                 onMouseDown={() => confirmSelection(allOptions[i]!)}
                                 paddingLeft={1}
                                 paddingRight={1}
-                                border={isFocused}
+                                border
                                 borderStyle="single"
                                 borderColor={isFocused ? colors.success : "transparent"}
+                                flexShrink={0}
                             >
                                 <Hotkey
                                     keyLabel={opt.key}
@@ -81,7 +82,7 @@ export const PCloudSetup = ({
                             border={isBackFocused}
                             borderStyle="single"
                             borderColor={isBackFocused ? colors.success : "transparent"}
-                            flexDirection="row"
+                            height={1}
                             alignItems="center"
                         >
                             <Hotkey

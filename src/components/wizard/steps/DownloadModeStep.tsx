@@ -48,7 +48,7 @@ export const DownloadModeStep = ({
                             onMouseDown={() => confirmSelection(opt)}
                             paddingLeft={1}
                             paddingRight={1}
-                            border={isFocused}
+                            border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
                             flexDirection="column"
@@ -91,9 +91,8 @@ export const DownloadModeStep = ({
                         border={isBackFocused}
                         borderStyle="single"
                         borderColor={isBackFocused ? colors.success : "transparent"}
-                        flexDirection="row"
-                        alignItems="center"
                         height={1}
+                        alignItems="center"
                     >
                         <Hotkey
                             keyLabel="b"

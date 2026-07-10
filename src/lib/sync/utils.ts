@@ -96,13 +96,20 @@ export function formatEta(seconds: number): string {
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 }
 
+/**
+ * Resilience flags shared by every rclone invocation.
+ *
+ * `--ignore-errors` must NOT be added here. Its documented effect is "delete even if
+ * there are I/O errors", which disables rclone's own refusal to delete destination
+ * files when the source listing was incomplete. Combined with `sync` (strict mirror)
+ * a partial network failure would silently delete local schematics.
+ */
 export const RETRY_FLAGS = [
     "--retries", "4",
     "--retries-sleep", "10s",
     "--low-level-retries", "10",
     "--contimeout", "10s",
-    "--timeout", "10s",
-    "--ignore-errors"
+    "--timeout", "10s"
 ];
 
 /**

@@ -54,10 +54,9 @@ export const SecurityStep = ({
                             onMouseDown={() => confirmSelection(opt)}
                             paddingLeft={1}
                             paddingRight={1}
-                            border={isFocused}
+                            border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
-                            height={1}
                         >
                             <Hotkey
                                 keyLabel={opt.key}
@@ -83,9 +82,8 @@ export const SecurityStep = ({
                         border={isBackFocused}
                         borderStyle="single"
                         borderColor={isBackFocused ? colors.success : "transparent"}
-                        flexDirection="row"
-                        alignItems="center"
                         height={1}
+                        alignItems="center"
                     >
                         <Hotkey
                             keyLabel="b"

@@ -296,14 +296,18 @@ interface FileQueueProps {
     width: number;
     phase?: SyncProgress["phase"];
     isUpsync?: boolean;
+    description?: string;
 }
 
-export const FileQueue = React.memo(({ files, colors, maxHeight, width, phase, isUpsync }: FileQueueProps) => {
+export const FileQueue = React.memo(({ files, colors, maxHeight, width, phase, isUpsync, description }: FileQueueProps) => {
     if (files.length === 0) {
-        // Show initializing state during active pull phase
-        if (phase === "pull" || phase === "syncing" || phase === "clean") {
-            const msg = (phase === "pull") ? "Waiting for rclone data..." :
-                (isUpsync ? "Waiting for shield..." : "Waiting for rclone...");
+        // Show status narration during active sync, or generic fallback
+        if (phase === "pull" || phase === "syncing" || phase === "clean" || phase === "cloud") {
+            const msg = description || (
+                (phase === "pull") ? "Initializing..." :
+                    (phase === "cloud" && isUpsync) ? "Preparing backup..." :
+                        "Initializing..."
+            );
             return (
                 <box paddingLeft={2} paddingTop={1} height={maxHeight}>
                     <text fg={colors.dim}>{String(msg)}</text>

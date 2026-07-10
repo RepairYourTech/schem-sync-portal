@@ -51,7 +51,6 @@ export const DeployStep = ({
                             border
                             borderStyle="single"
                             borderColor={isFocused ? colors.success : "transparent"}
-                            height={1}
                         >
                             <Hotkey
                                 keyLabel={opt.key}

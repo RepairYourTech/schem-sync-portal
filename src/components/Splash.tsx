@@ -5,9 +5,16 @@ import { TextAttributes } from "@opentui/core";
 import pkg from "../../package.json";
 import { UpdateNotice } from "./UpdateNotice";
 import { type UpdateInfo } from "../lib/versionChecker";
+import { shouldShowSplash } from "../lib/layout";
+
+/**
+ * Vertical room the ASCII art needs before it is worth drawing: ~26 rows of art plus
+ * border, padding and tagline, leaving space for the dashboard and footer beneath it.
+ */
+const SPLASH_ART_MIN_HEIGHT = 40;
 
 export function Splash({ updateInfo }: { updateInfo?: UpdateInfo | null }) {
-    const { width } = useTerminalDimensions();
+    const { width, height } = useTerminalDimensions();
 
     const schematic = [
         " .---o----o------o---o---------------o---o----o------------o 12-15V ",
@@ -52,9 +59,14 @@ export function Splash({ updateInfo }: { updateInfo?: UpdateInfo | null }) {
         "░▀▀░░░▀░░░░▀▀░░▀▀▀░▀░▀░▀▀░░▀░▀░▀░▀░▀░▀"
     ];
 
-    // Responsive Logic: Keep thresholds high to prevent layout breakage
-    const showFull = width >= 120;
-    const showSchem = width >= 75;
+    // Responsive Logic: gate on BOTH axes. Width-only gating drew 26 rows of art in a
+    // 24-row terminal, pushing the dashboard's action buttons off screen entirely.
+    const hasVerticalRoom = height >= SPLASH_ART_MIN_HEIGHT;
+    const showFull = width >= 120 && hasVerticalRoom;
+    const showSchem = width >= 75 && hasVerticalRoom;
+
+    // At 80x24 even the one-line banner costs rows the dashboard needs.
+    if (!shouldShowSplash(height)) return null;
 
     return (
         <box flexDirection="column" alignItems="center" marginBottom={1}>
@@ -79,7 +91,7 @@ export function Splash({ updateInfo }: { updateInfo?: UpdateInfo | null }) {
                         <UpdateNotice available={updateInfo?.available} />
                     </box>
                 ) : (
-                    <box padding={2}>
+                    <box paddingLeft={2} paddingRight={2}>
                         <text fg="#00ffff" attributes={TextAttributes.BOLD}>
                             SCHEMATIC SYNC PORTAL v{String(pkg.version)}
                             <UpdateNotice available={updateInfo?.available} />
@@ -87,12 +99,14 @@ export function Splash({ updateInfo }: { updateInfo?: UpdateInfo | null }) {
                     </box>
                 )}
             </box>
-            <box marginTop={1}>
-                <text fg="#3a7af5" attributes={TextAttributes.BOLD}>
-                    Universal Schematic Sync Portal | v{String(pkg.version)}
-                    <UpdateNotice available={updateInfo?.available} />
-                </text>
-            </box>
+            {hasVerticalRoom ? (
+                <box marginTop={1}>
+                    <text fg="#3a7af5" attributes={TextAttributes.BOLD}>
+                        Universal Schematic Sync Portal | v{String(pkg.version)}
+                        <UpdateNotice available={updateInfo?.available} />
+                    </text>
+                </box>
+            ) : null}
         </box>
     );
 }

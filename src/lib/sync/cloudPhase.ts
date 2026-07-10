@@ -15,17 +15,27 @@ import type { SyncSessionState } from "../syncState";
  * Authoritative: Only syncs files listed in upsync-manifest.txt.
  * Polling: Watches the manifest and uploads new files incrementally.
  */
+/** Outcome of the upload phase. `failures` is non-empty when batches did not upload. */
+export interface CloudPhaseResult {
+    uploadedCount: number;
+    failures: string[];
+    stopped: boolean;
+}
+
+/** Give up polling after this many consecutive failed upload attempts. */
+const MAX_CONSECUTIVE_UPLOAD_FAILURES = 3;
+
 export async function runManifestCloudPhase(
     config: PortalConfig,
     onProgress: (p: Partial<SyncProgress>) => void,
     isPullDone?: () => boolean
-): Promise<void> {
+): Promise<CloudPhaseResult> {
     const manifestPath = join(config.local_dir, "upsync-manifest.txt");
     const destPath = config.backup_dir || (config.backup_provider === "gdrive" ? "SchematicsBackup" : "");
     const destRemote = `${Env.REMOTE_PORTAL_BACKUP}:${destPath}`;
     const remoteManifestName = "upsync-remote-manifest.txt";
     const remoteManifestPath = `${destRemote}/${remoteManifestName}`;
-    const localRemoteManifestPath = join(config.local_dir, "remote-manifest-cache.txt");
+    const _localRemoteManifestPath = join(config.local_dir, "remote-manifest-cache.txt");
     const batchListPath = join(config.local_dir, ".upsync-batch.txt");
 
     Logger.info("SYNC", "Cloud Phase: Waiting for initial manifest...");
@@ -34,14 +44,15 @@ export async function runManifestCloudPhase(
     while (!existsSync(manifestPath)) {
         if (isStopRequested()) {
             Logger.info("SYNC", "Cloud Phase: Stop requested while waiting for manifest.");
-            return;
+            return { uploadedCount: 0, failures: [], stopped: true };
         }
         if (isPullDone && isPullDone()) {
             Logger.info("SYNC", "Pull phase completed before manifest appeared. Nothing to upsync.");
-            return;
+            onProgress({ phase: "cloud", description: "No files to backup. Pull completed." });
+            return { uploadedCount: 0, failures: [], stopped: false };
         }
         await new Promise(resolve => setTimeout(resolve, 1000));
-        onProgress({ phase: "cloud", description: "Waiting for shield..." });
+        onProgress({ phase: "cloud", description: "Waiting for files to process..." });
     }
 
     const state: SyncSessionState = loadSyncState(config.local_dir) || createEmptyState();
@@ -66,35 +77,17 @@ export async function runManifestCloudPhase(
     }
 
     const uploadedFiles = new Set<string>(state.uploadedFiles || []);
+    /** Consecutive failures; reset by any successful pass. */
+    const uploadFailures: string[] = [];
+    /** Every failure seen this run, for the final outcome. */
+    const allFailures: string[] = [];
 
-    // 1.5 Remote Manifest Verification (Anti-Duplication)
-    try {
-        Logger.info("SYNC", "Cloud Phase: Checking for remote manifest...");
-        await executeRcloneSimple(["copyto", remoteManifestPath, localRemoteManifestPath]);
-        if (existsSync(localRemoteManifestPath)) {
-            const remoteContent = readFileSync(localRemoteManifestPath, "utf8");
-            const remoteFiles = remoteContent.split("\n")
-                .map(l => l.trim())
-                .filter(l => l.length > 0 && !l.startsWith("#"));
-
-            let reconciledCount = 0;
-            for (const f of remoteFiles) {
-                if (!uploadedFiles.has(f)) {
-                    uploadedFiles.add(f);
-                    reconciledCount++;
-                }
-            }
-            if (reconciledCount > 0) {
-                Logger.info("SYNC", `Cloud Phase: Reconciled ${reconciledCount} files from remote manifest.`);
-                onProgress({ phase: "cloud", description: `Reconciled ${reconciledCount} files from remote.` });
-            }
-            rmSync(localRemoteManifestPath, { force: true });
-        }
-    } catch {
-        Logger.info("SYNC", "Cloud Phase: No remote manifest found or inaccessible. Proceeding with local state.");
-    }
-
+    // NOTE: Remote manifest reconciliation was removed because the handshake
+    // uploaded the FULL local manifest (including files never actually uploaded),
+    // causing false positives that blocked real uploads. rclone's --checksum flag
+    // handles deduplication natively and accurately.
     if (uploadedFiles.size > 0) {
+        onProgress({ phase: "cloud", description: `Resuming session: ${uploadedFiles.size.toLocaleString()} files already uploaded.` });
         Logger.info("SYNC", `Cloud Phase: Resuming from in-progress session. ${uploadedFiles.size} files already marked as uploaded.`);
     }
 
@@ -121,6 +114,7 @@ export async function runManifestCloudPhase(
 
             if (newFiles.length > 0) {
                 Logger.info("SYNC", `Cloud Phase: Found ${newFiles.length} new files in manifest. Starting batch upload.`);
+                onProgress({ phase: "cloud", description: `Uploading ${newFiles.length.toLocaleString()} files to backup...` });
                 writeFileSync(batchListPath, newFiles.join("\n"), "utf8");
 
                 const cloudArgs = [
@@ -180,16 +174,41 @@ export async function runManifestCloudPhase(
                 phase: "cloud",
                 cloudManifestStats
             });
+            uploadFailures.length = 0; // a clean pass clears the failure streak
         } catch (err) {
             if (isStopRequested()) {
                 Logger.info("SYNC", "Cloud Phase: Stop requested during operation. Exiting.");
                 break;
             }
-            Logger.error("SYNC", `Error in cloud phase polling: ${err instanceof Error ? err.message : String(err)}`);
+            const message = err instanceof Error ? err.message : String(err);
+            Logger.error("SYNC", `Error in cloud phase polling: ${message}`);
+            uploadFailures.push(message);
+            allFailures.push(message);
+
+            // Without this the loop retries forever, reporting "Monitoring manifest for
+            // updates..." while nothing uploads, and still ends in "Backup complete".
+            if (uploadFailures.length >= MAX_CONSECUTIVE_UPLOAD_FAILURES) {
+                Logger.error("SYNC", `Cloud Phase: aborting after ${uploadFailures.length} consecutive upload failures.`);
+                state.upsyncStatus = "error";
+                saveSyncState(config.local_dir, state);
+                throw new Error(`Backup failed after ${uploadFailures.length} attempts: ${message}`);
+            }
         }
 
         const pullIsDone = isPullDone ? isPullDone() : true;
         if (pullIsDone && !needsUpload) {
+            // Re-read manifest one final time to catch files added between our last read and pullDone
+            try {
+                const finalManifest = readFileSync(manifestPath, "utf8");
+                const finalFiles = finalManifest.split("\n")
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0 && !line.startsWith("#") && !line.startsWith("{"));
+                const finalNew = finalFiles.filter(f => !uploadedFiles.has(f));
+                if (finalNew.length > 0) {
+                    Logger.info("SYNC", `Cloud Phase: Final sweep found ${finalNew.length} files added during pull. Continuing.`);
+                    continue; // Loop back to process them
+                }
+            } catch { /* proceed to break */ }
             Logger.info("SYNC", "Cloud Phase: Pull complete and all manifest entries processed. Finishing.");
             break;
         }
@@ -205,23 +224,43 @@ export async function runManifestCloudPhase(
         await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
 
-    // Mark as complete
-    state.upsyncStatus = "complete";
-    saveSyncState(config.local_dir, state);
+    // Every `break` above lands here, including a user stop mid-upload. Report what
+    // actually happened rather than announcing completion unconditionally.
+    const stopped = isStopRequested();
 
-    // Final handshake: Ensure remote manifest is identical to final local manifest
-    try {
-        if (existsSync(manifestPath)) {
-            await executeRcloneSimple(["copyto", manifestPath, remoteManifestPath]);
+    if (stopped) {
+        state.upsyncStatus = "incomplete";
+        saveSyncState(config.local_dir, state);
+        onProgress({ phase: "cloud", description: `Backup stopped by user. ${uploadedFiles.size.toLocaleString()} file(s) uploaded before stopping.` });
+    } else if (allFailures.length > 0) {
+        state.upsyncStatus = "incomplete";
+        saveSyncState(config.local_dir, state);
+        onProgress({ phase: "cloud", description: `Backup incomplete: ${allFailures.length} upload error(s). ${uploadedFiles.size.toLocaleString()} files uploaded.` });
+    } else {
+        state.upsyncStatus = "complete";
+        saveSyncState(config.local_dir, state);
+        onProgress({ phase: "cloud", description: `Backup complete. ${uploadedFiles.size.toLocaleString()} files synced to remote.`, percentage: 100 });
+    }
+
+    // Final handshake: Ensure remote manifest is identical to final local manifest.
+    // Only when the backup is actually complete — otherwise the remote manifest would
+    // claim files that were never uploaded.
+    if (!stopped && allFailures.length === 0) {
+        try {
+            if (existsSync(manifestPath)) {
+                await executeRcloneSimple(["copyto", manifestPath, remoteManifestPath]);
+            }
+        } catch (err) {
+            Logger.debug("SYNC", `Final handshake failed (non-critical): ${err instanceof Error ? err.message : String(err)}`);
         }
-    } catch (err) {
-        Logger.debug("SYNC", `Final handshake failed (non-critical): ${err instanceof Error ? err.message : String(err)}`);
     }
 
     // Cleanup batch file
     try {
         if (existsSync(batchListPath)) rmSync(batchListPath, { force: true });
     } catch { /* ignore */ }
+
+    return { uploadedCount: uploadedFiles.size, failures: allFailures, stopped };
 }
 
 

@@ -234,8 +234,9 @@ export const Options = React.memo(({ onDoctor, onSetup, onReset, onResetShield, 
                         if (selectedOpt) selectedOpt.action();
                     }
                 } else if (e.name === "b") {
+                    // Step up one level: submenu -> menu -> dashboard.
                     if (subView !== "menu") setSubView("menu");
-                    else onFocusChange("footer");
+                    else onBack();
                 }
             } else if (subView === "logs" && focusArea === "body") {
                 if (e.name === "left") {
